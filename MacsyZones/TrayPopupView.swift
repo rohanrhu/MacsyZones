@@ -16,7 +16,7 @@ class AppSettings: ObservableObject {
     @Published var modifierKey: String = "Control"
     @Published var fallbackToPreviousSize: Bool = true
     @Published var selectPerDesktopLayout: Bool = true
-    @Published var priotrizeCenterToSnap: Bool = true
+    @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
 }
 
@@ -171,7 +171,7 @@ struct Main: View {
             Text("Options:").font(.subheadline)
             
             HStack {
-                Toggle("Priotrize section center", isOn: $settings.priotrizeCenterToSnap)
+                Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)
                 Spacer()
             }.padding(.bottom, 5)
 

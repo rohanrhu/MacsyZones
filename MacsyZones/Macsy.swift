@@ -153,7 +153,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     var hoveredSectionWindow: SectionWindow?
     
     if isFitting {
-        if appSettings.priotrizeCenterToSnap {
+        if appSettings.prioritizeCenterToSnap {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
                 let screenSize = focusedScreen?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
                 let bounds = sectionWindow.getBounds()
