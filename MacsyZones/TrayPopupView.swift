@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import ServiceManagement
 
 class AppSettings: ObservableObject {
     @Published var modifierKey: String = "Control"
@@ -35,6 +36,25 @@ struct Main: View {
     
     @State var showNotProDialog: Bool = false
     @State var showAboutDialog: Bool = false
+    
+    @State private var startAtLogin = false
+    
+    func toggleRunAtStartup() {
+        if #available(macOS 13.0, *) {
+            do {
+                if startAtLogin {
+                    try SMAppService.mainApp.unregister()
+                    startAtLogin = false
+                } else {
+                    try SMAppService.mainApp.register()
+                    startAtLogin = true
+                }
+            } catch {
+                print("Failed to toggle run at startup: \(error)")
+                startAtLogin = false
+            }
+        }
+    }
     
     var body: some View {
         VStack(alignment: .center) {
@@ -175,19 +195,21 @@ struct Main: View {
                 Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)
                 Spacer()
             }.padding(.bottom, 5)
+            
+            Divider()
 
             HStack {
                 Toggle("Fallback to previous size", isOn: $settings.fallbackToPreviousSize)
                 Spacer()
             }.padding(.bottom, 5)
             if settings.fallbackToPreviousSize {
-                VStack {
-                    HStack {
-                        Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
-                        Spacer()
-                    }
-                }.padding(5).background(Color.white).cornerRadius(5).padding(.bottom, 5)
+                HStack {
+                    Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
+                    Spacer()
+                }.padding(.bottom, 5)
             }
+            
+            Divider()
             
             HStack {
                 Toggle("Select per-desktop layout", isOn: $settings.selectPerDesktopLayout)
@@ -197,6 +219,19 @@ struct Main: View {
                 Toggle("Shake to snap", isOn: $settings.shakeToSnap)
                 Spacer()
             }.padding(.bottom, 5)
+            
+            if #available(macOS 13.0, *) {
+                HStack {
+                    Toggle("Start at login", isOn: $startAtLogin)
+                        .onChange(of: startAtLogin) { value in
+                            toggleRunAtStartup()
+                        }
+                        .onAppear {
+                            startAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    Spacer()
+                }.padding(.bottom, 5)
+            }
 
             if !proLock.isPro {
                 Divider()
