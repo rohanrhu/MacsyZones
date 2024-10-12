@@ -208,9 +208,9 @@ struct Main: View {
                     Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
                     Spacer()
                 }.padding(.bottom, 5)
+                
+                Divider()
             }
-            
-            Divider()
             
             HStack {
                 Toggle("Select per-desktop layout", isOn: $settings.selectPerDesktopLayout)
