@@ -112,10 +112,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
         
         if !isTrusted {
-            print("Requesting accessibility permissions...")
+            showAccessibilityPermissionPopover()
         } else {
             print("Accessibility permissions granted.")
         }
+    }
+
+    func showAccessibilityPermissionPopover() {
+        let alert = NSAlert()
+        alert.messageText = "MacsyZones needs accessibility permissions."
+        alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Restart")
+        alert.addButton(withTitle: "Cancel")
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            restartApp()
+        }
+    }
+
+    func restartApp() {
+        let task = Process()
+        task.launchPath = "/bin/sh"
+        task.arguments = ["-c", "sleep 1; open \"\(Bundle.main.bundlePath)\""]
+        task.launch()
+        
+        NSApp.terminate(nil)
     }
     
     func startObservingApp(pid: pid_t) {
