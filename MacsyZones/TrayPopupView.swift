@@ -20,6 +20,7 @@ class AppSettings: ObservableObject {
     @Published var selectPerDesktopLayout: Bool = true
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
+    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
 }
 
 let appSettings = AppSettings()
@@ -219,6 +220,17 @@ struct Main: View {
                 Toggle("Shake to snap", isOn: $settings.shakeToSnap)
                 Spacer()
             }.padding(.bottom, 5)
+            
+            if settings.shakeToSnap {
+                VStack {
+                    Text("Shake Sensitivity")
+                    Slider(value: Binding(
+                        get: { Double(settings.shakeAccelerationThreshold) },
+                        set: { settings.shakeAccelerationThreshold = CGFloat($0) }
+                    ), in: 10000...100000, step: 1000)
+                }
+                .padding(.bottom, 10)
+            }
             
             if #available(macOS 13.0, *) {
                 HStack {

@@ -134,7 +134,6 @@ func onObserverNotification(observer: AXObserver, element: AXUIElement, notifica
     }
 }
 
-let shakeAccelerationThreshold: CGFloat = 50000.0
 let shakeCoolDown: TimeInterval = 0.75
 
 var previousPosition: CGPoint?
@@ -243,7 +242,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                 let acceleration = CGPoint(x: deltaVelocity.x / CGFloat(deltaTime), y: deltaVelocity.y / CGFloat(deltaTime))
                 let accelerationMagnitude = sqrt(pow(acceleration.x, 2) + pow(acceleration.y, 2))
 
-                if (oppositeDirectionOnX || oppositeDirectionOnY) && accelerationMagnitude > shakeAccelerationThreshold && currentTime - lastShakeTime > shakeCoolDown {
+                if (oppositeDirectionOnX || oppositeDirectionOnY) && accelerationMagnitude > appSettings.shakeAccelerationThreshold && currentTime - lastShakeTime > shakeCoolDown {
                     lastShakeTime = currentTime
 
                     isFitting = !isFitting
