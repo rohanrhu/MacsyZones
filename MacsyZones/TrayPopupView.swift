@@ -15,6 +15,7 @@ import SwiftUI
 class AppSettings: ObservableObject {
     @Published var modifierKey: String = "Control"
     @Published var fallbackToPreviousSize: Bool = true
+    @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
     @Published var selectPerDesktopLayout: Bool = true
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
@@ -179,6 +180,14 @@ struct Main: View {
                 Toggle("Fallback to previous size", isOn: $settings.fallbackToPreviousSize)
                 Spacer()
             }.padding(.bottom, 5)
+            if settings.fallbackToPreviousSize {
+                VStack {
+                    HStack {
+                        Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
+                        Spacer()
+                    }
+                }.padding(5).background(Color.white).cornerRadius(5).padding(.bottom, 5)
+            }
             
             HStack {
                 Toggle("Select per-desktop layout", isOn: $settings.selectPerDesktopLayout)

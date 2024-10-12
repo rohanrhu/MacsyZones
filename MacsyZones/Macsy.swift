@@ -194,7 +194,9 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         return
     }
     
-    if PlacedWindows.isPlaced(windowId: windowId) && !justDidMouseUp {
+    if PlacedWindows.isPlaced(windowId: windowId) && !justDidMouseUp &&
+        (!appSettings.onlyFallbackToPreviousSizeWithUserEvent || (NSEvent.pressedMouseButtons & 0x1) != 0)
+    {
         PlacedWindows.unplace(windowId: windowId)
         
         if appSettings.fallbackToPreviousSize {
