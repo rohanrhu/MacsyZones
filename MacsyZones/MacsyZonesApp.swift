@@ -183,6 +183,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 modifierKey = .option
             }
             
+            if appSettings.selectPerDesktopLayout {
+                if let layoutName = spaceLayoutPreferences.getCurrent() {
+                    userLayouts.currentLayoutName = layoutName
+                    actualSelectedLayout.selectedLayout = layoutName
+                }
+            }
+            
             if event.modifierFlags.contains(modifierKey) {
                 if !isFitting {
                     isFitting = true

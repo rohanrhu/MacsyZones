@@ -244,6 +244,13 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
 
                 if (oppositeDirectionOnX || oppositeDirectionOnY) && accelerationMagnitude > appSettings.shakeAccelerationThreshold && currentTime - lastShakeTime > shakeCoolDown {
                     lastShakeTime = currentTime
+                    
+                    if appSettings.selectPerDesktopLayout {
+                        if let layoutName = spaceLayoutPreferences.getCurrent() {
+                            userLayouts.currentLayoutName = layoutName
+                            actualSelectedLayout.selectedLayout = layoutName
+                        }
+                    }
 
                     isFitting = !isFitting
                     if isFitting {
