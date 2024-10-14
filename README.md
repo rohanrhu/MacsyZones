@@ -1,5 +1,9 @@
 # MacsyZones
 
+[![GitHub release](https://img.shields.io/github/release/rohanrhu/MacsyZones.svg?style=flat-square&color=informational)](https://github.com/rohanrhu/MacsyZones/releases)
+[![GitHub stars](https://img.shields.io/github/stars/rohanrhu/MacsyZones?style=flat-square)](https://github.com/rohanrhu/MacsyZones/stargazers)
+[![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3DEvrenselKisilik%26type%3Dpatrons&style=flat-square)](https://patreon.com/EvrenselKisilik)
+
 Make your workflow more efficient with MacsyZones. Organize your windows with ease.
 
 Visit [https://macsyzones.com](https://macsyzones.com) for more information.
