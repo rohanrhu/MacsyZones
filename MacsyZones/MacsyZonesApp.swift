@@ -16,6 +16,12 @@ import SwiftUI
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
 let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
 
+class MacsyReady: ObservableObject {
+    @Published var isReady: Bool = false
+}
+
+let macsyReady = MacsyReady()
+
 let macsyProLock = ProLock()
 
 @main
@@ -35,6 +41,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != nil { return }
+        
+        NSApp.setActivationPolicy(.prohibited)
+        
+        createTrayIcon()
+        setupPopover()
         
         userLayouts.load()
         requestAccessibilityPermissions()
@@ -60,12 +71,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         spaceLayoutPreferences.startObserving()
-        
-        createTrayIcon()
-        setupPopover()
         monitorModifierKey()
         
-        NSApp.setActivationPolicy(.prohibited)
+        macsyReady.isReady = true
     }
 
     func createTrayIcon() {

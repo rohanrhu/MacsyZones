@@ -482,6 +482,7 @@ struct UnlockProView: View {
 }
 
 struct TrayPopupView: View {
+    @ObservedObject var ready = macsyReady
     @ObservedObject var proLock = macsyProLock
     
     @State private var page = "main"
@@ -489,16 +490,25 @@ struct TrayPopupView: View {
     @ObservedObject var selectedLayout = actualSelectedLayout
     
     var body: some View {
-        VStack {
-            switch page {
-            case "new":
-                NewView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
-            case "rename":
-                RenameView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout, layoutName: selectedLayout.selectedLayout)
-            case "unlock":
-                UnlockProView(proLock: proLock, page: $page)
-            default:
-                Main(proLock: proLock, page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
+        if !ready.isReady {
+            VStack {
+                VStack(alignment: .center) {
+                    Text("MacsyZones is loading...").padding(.bottom, 10).padding(.top, 25)
+                    ProgressView().padding(.bottom, 25)
+                }.frame(width: 240)
+            }
+        } else {
+            VStack {
+                switch page {
+                case "new":
+                    NewView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
+                case "rename":
+                    RenameView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout, layoutName: selectedLayout.selectedLayout)
+                case "unlock":
+                    UnlockProView(proLock: proLock, page: $page)
+                default:
+                    Main(proLock: proLock, page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
+                }
             }
         }
     }
