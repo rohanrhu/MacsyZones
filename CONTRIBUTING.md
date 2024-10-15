@@ -22,7 +22,6 @@ A contribution process is simple. You can follow the steps below to contribute t
 
 Cat recommends using some code style rules to keep the codebase clean and consistent. You can use the following tools to enforce code style rules:
 
-* Use [ESLint](https://eslint.org) (Microsoft's VSCode ESLint extension is recommended).
 * Always test your branch with all use cases.
 * Follow the current code style and conventions.
 
