@@ -177,8 +177,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func monitorModifierKey() {
         if isEditing { return }
-        
+
+        var dispatchWorkItem: DispatchWorkItem?
+
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+            dispatchWorkItem?.cancel()
+            dispatchWorkItem = nil
+            
             if appSettings.modifierKey == "None" {
                 return
             }
@@ -198,15 +203,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             
+            let delay = Double(appSettings.modifierKeyDelay) / 1000.0
+
             if event.modifierFlags.contains(modifierKey) {
                 if !isFitting {
+                    dispatchWorkItem = DispatchWorkItem {
+                        if isFitting {
+                            userLayouts.currentLayout.layoutWindow.show()
+                        }
+                    }
+                    
                     isFitting = true
-                    userLayouts.currentLayout.layoutWindow.show()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: dispatchWorkItem!)
                 }
-            } else if isFitting {
-                isFitting = false
-                userLayouts.currentLayout.layoutWindow.hide()
+            } else {
+                dispatchWorkItem?.cancel()
+                dispatchWorkItem = nil
+                
+                if isFitting {
+                    isFitting = false
+                    userLayouts.currentLayout.layoutWindow.hide()
+                }
             }
+        }
+
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
+            dispatchWorkItem?.cancel()
+            dispatchWorkItem = nil
         }
     }
     
