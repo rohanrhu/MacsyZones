@@ -477,32 +477,6 @@ class LayoutWindow {
     
     func onCancel() {
         macsyStopEditing()
-        
-        for sectionWindow in unsavedRemovedSectionWindows {
-            let number = sectionWindow.number
-            let sectionConfig = sectionWindow.sectionConfig
-            
-            sectionConfigs[number] = sectionConfig
-            sectionWindows.append(sectionWindow)
-        }
-        
-        unsavedRemovedSectionWindows.removeAll()
-        
-        for number in sectionConfigs.keys {
-            let sectionConfig = sectionConfigs[number]
-            guard let sectionConfig else { continue }
-            let sectionWindow = sectionWindows.first(where: { $0.number == number })
-            guard let sectionWindow else { continue }
-            
-            sectionWindow.reset(sectionConfig: sectionConfig)
-        }
-        
-        for unsavedSectionWindow in unsavedNewSectionWindows {
-            sectionWindows.removeAll(where: { $0.number == unsavedSectionWindow.number })
-        }
-        
-        unsavedNewSectionConfigs.removeAll()
-        unsavedNewSectionWindows.removeAll()
     }
     
     func show(showSnapResizers: Bool = false) {
@@ -670,6 +644,32 @@ class LayoutWindow {
         
         window.orderOut(nil)
         editorBarWindow.orderOut(nil)
+        
+        for sectionWindow in unsavedRemovedSectionWindows {
+            let number = sectionWindow.number
+            let sectionConfig = sectionWindow.sectionConfig
+            
+            sectionConfigs[number] = sectionConfig
+            sectionWindows.append(sectionWindow)
+        }
+        
+        unsavedRemovedSectionWindows.removeAll()
+        
+        for number in sectionConfigs.keys {
+            let sectionConfig = sectionConfigs[number]
+            guard let sectionConfig else { continue }
+            let sectionWindow = sectionWindows.first(where: { $0.number == number })
+            guard let sectionWindow else { continue }
+            
+            sectionWindow.reset(sectionConfig: sectionConfig)
+        }
+        
+        for unsavedSectionWindow in unsavedNewSectionWindows {
+            sectionWindows.removeAll(where: { $0.number == unsavedSectionWindow.number })
+        }
+        
+        unsavedNewSectionConfigs.removeAll()
+        unsavedNewSectionWindows.removeAll()
     }
     
     @discardableResult
@@ -772,6 +772,7 @@ class SnapResizer: NSWindow {
         
         for relatedSection in relatedSections {
             let sectionWindow = relatedSection.sectionWindow
+            if relatedSection.sectionWindow.number-1 >= sectionConfigs.count { continue }
             var sectionConfig = sectionConfigs[relatedSection.sectionWindow.number-1]
             
             let width = sectionWindow.window.frame.size.width
