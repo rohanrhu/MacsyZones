@@ -209,7 +209,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if !isFitting {
                     dispatchWorkItem = DispatchWorkItem {
                         if isFitting {
-                            userLayouts.currentLayout.layoutWindow.show()
+                            userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
                         }
                     }
                     

@@ -505,7 +505,7 @@ class LayoutWindow {
         unsavedNewSectionWindows.removeAll()
     }
     
-    func show() {
+    func show(showSnapResizers: Bool = false) {
         window.orderFront(nil)
         editorBarWindow.orderOut(nil)
         
@@ -533,7 +533,7 @@ class LayoutWindow {
         
         sectionResizers = []
         
-        if appSettings.snapResize {
+        if appSettings.snapResize && showSnapResizers {
             for sectionWindow in sectionWindows {
                 let sectionFrame = sectionWindow.window.frame
                 
