@@ -724,6 +724,8 @@ class SnapResizer: NSWindow {
     var resizerX: CGFloat = 0
     var resizerY: CGFloat = 0
     
+    var draggedOnce = false
+    
     init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                    styleMask: [.borderless],
@@ -734,7 +736,7 @@ class SnapResizer: NSWindow {
         isOpaque = false
         backgroundColor = .clear
         title = "Macsy Live Snap Resizer"
-        hasShadow = true
+        hasShadow = false
         ignoresMouseEvents = false
         level = .statusBar + 1
         titlebarAppearsTransparent = true
@@ -758,6 +760,11 @@ class SnapResizer: NSWindow {
     }
     
     override func mouseUp(with event: NSEvent) {
+        if !draggedOnce {
+            isSnapResizing = false
+            return
+        }
+        
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
         let screenSize = focusedScreen.frame
         
@@ -787,6 +794,8 @@ class SnapResizer: NSWindow {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        draggedOnce = true
+        
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
         let screenSize = focusedScreen.frame
         
