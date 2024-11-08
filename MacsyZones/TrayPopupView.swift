@@ -326,7 +326,7 @@ struct Main: View {
             
             if settings.shakeToSnap {
                 VStack {
-                    Text("Shake Sensitivity").font(.subheadline)
+                    Text("Shake Hardness").font(.subheadline)
                     Slider(value: Binding(
                         get: { Double(settings.shakeAccelerationThreshold) },
                         set: { settings.shakeAccelerationThreshold = CGFloat($0) }
