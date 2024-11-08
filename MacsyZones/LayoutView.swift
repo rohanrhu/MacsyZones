@@ -495,11 +495,11 @@ class LayoutWindow {
         
         let snapResizerThreshold: CGFloat = 100
         
-        let verticalButtonWidth: CGFloat = 24
+        let verticalButtonWidth: CGFloat = 8
         let verticalButtonHeight: CGFloat = 50
         
-        let horizontalButtonWidth: CGFloat = 75
-        let horizontalButtonHeight: CGFloat = 10
+        let horizontalButtonWidth: CGFloat = 50
+        let horizontalButtonHeight: CGFloat = 8
         
         for sectionResizer in sectionResizers {
             sectionResizer.orderOut(nil)
@@ -736,7 +736,7 @@ class SnapResizer: NSWindow {
         isOpaque = false
         backgroundColor = .clear
         title = "Macsy Live Snap Resizer"
-        hasShadow = false
+        hasShadow = true
         ignoresMouseEvents = false
         level = .statusBar + 1
         titlebarAppearsTransparent = true
@@ -856,9 +856,9 @@ class SnapResizer: NSWindow {
 struct ResizeLayer: View {
     var body: some View {
         GeometryReader { geometry in
-            Rectangle().fill(Color.white.opacity(0.1))
+            Rectangle().fill(Color.white.opacity(0.2))
                 .frame(width: geometry.size.width, height: geometry.size.height)
-                .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(10).padding(.horizontal, 7))
+                .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(10))
                 .cornerRadius(.infinity)
         }
     }
