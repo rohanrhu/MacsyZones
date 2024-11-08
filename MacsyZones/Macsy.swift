@@ -29,6 +29,8 @@ let actualSelectedLayout = ActualSelectedLayout()
 var isFitting = false
 var isEditing = false
 
+var isSnapResizing = false
+
 let spaceLayoutPreferences = SpaceLayoutPreferences()
 
 func startEditing() {
@@ -101,6 +103,9 @@ func getWindowID(from axElement: AXUIElement) -> UInt32? {
 }
 
 func onObserverNotification(observer: AXObserver, element: AXUIElement, notification: CFString, refcon: UnsafeMutableRawPointer?) {
+    if isEditing { return }
+    if isSnapResizing { return }
+    
     var result: AXError
     
     var app: CFTypeRef?
@@ -145,6 +150,7 @@ var justDidMouseUp = false
 
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
     if isEditing { return }
+    if isSnapResizing { return }
     
     let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
     
@@ -324,6 +330,7 @@ func resizeWindow(element: AXUIElement, newSize: CGSize) {
 
 func onMouseUp(event: NSEvent) {
     if isEditing { return }
+    if isSnapResizing { return }
     
     let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
     
@@ -337,10 +344,11 @@ func onMouseUp(event: NSEvent) {
             
             let topLeftPosition = CGPoint(x: sectionWindow.window.frame.origin.x, y: screenSize.height - sectionWindow.window.frame.origin.y - sectionWindow.window.frame.height)
             resizeAndMoveWindow(element: window, newPosition: topLeftPosition, newSize: sectionWindow.window.frame.size)
+            
+            PlacedWindows.place(windowId: windowId, sectionNumber: toLeaveSectionWindow!.number, element: toLeaveElement!)
+            
             toLeaveElement = nil
             toLeaveSectionWindow = nil
-            
-            PlacedWindows.place(windowId: windowId, sectionIndex: 0)
             
             isFitting = false
             userLayouts.currentLayout.layoutWindow.hide()

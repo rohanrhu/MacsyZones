@@ -14,13 +14,16 @@ import Foundation
 
 class PlacedWindows {
     static var windows: [UInt32: Int] = [:]
+    static var elements: [UInt32: AXUIElement] = [:]
     
-    static func place(windowId: UInt32, sectionIndex: Int) {
-        windows[windowId] = sectionIndex
+    static func place(windowId: UInt32, sectionNumber: Int, element: AXUIElement) {
+        windows[windowId] = sectionNumber
+        elements[windowId] = element
     }
     
     static func unplace(windowId: UInt32) {
         windows.removeValue(forKey: windowId)
+        elements.removeValue(forKey: windowId)
     }
     
     static func isPlaced(windowId: UInt32) -> Bool {
