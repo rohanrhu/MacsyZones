@@ -520,8 +520,12 @@ class LayoutWindow {
         }
         
         let snapResizerThreshold: CGFloat = 100
-        let buttonWidth: CGFloat = 24
-        let buttonHeight: CGFloat = 50
+        
+        let verticalButtonWidth: CGFloat = 24
+        let verticalButtonHeight: CGFloat = 50
+        
+        let horizontalButtonWidth: CGFloat = 75
+        let horizontalButtonHeight: CGFloat = 10
         
         for sectionResizer in sectionResizers {
             sectionResizer.orderOut(nil)
@@ -540,11 +544,11 @@ class LayoutWindow {
                     let otherLeft = otherSectionFrame.minX
                     
                     if abs(sectionRight - otherLeft) <= snapResizerThreshold {
-                        let buttonX = ((sectionRight + otherLeft) / 2) - (buttonWidth / 2)
+                        let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
                         
                         let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
                         let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
-                        let buttonY = ((topY + bottomY) / 2) - (buttonHeight / 2)
+                        let buttonY = ((topY + bottomY) / 2) - (verticalButtonHeight / 2)
                         let xGap = abs(sectionRight - otherLeft)
                         let xGapToButton: CGFloat = xGap / 2
                         
@@ -561,8 +565,43 @@ class LayoutWindow {
                             }
                         }
                         
-                        let sectionResizer = SnapResizer(width: buttonWidth, height: buttonHeight, relatedSections: relatedSections)
-                        sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight), display: true, animate: false)
+                        let sectionResizer = SnapResizer(width: verticalButtonWidth, height: verticalButtonHeight, relatedSections: relatedSections, mode: .vertical)
+                        sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: verticalButtonWidth, height: verticalButtonHeight), display: true, animate: false)
+                        sectionResizer.orderFront(nil)
+                        sectionResizers.append(sectionResizer)
+                    }
+                }
+                
+                for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
+                    let otherSectionFrame = otherSectionWindow.window.frame
+                    
+                    let sectionBottom = sectionFrame.minY
+                    let otherTop = otherSectionFrame.maxY
+                    
+                    if abs(sectionBottom - otherTop) <= snapResizerThreshold {
+                        let buttonY = ((sectionBottom + otherTop) / 2) - (horizontalButtonHeight / 2)
+                        
+                        let leftX = min(sectionFrame.maxX, otherSectionFrame.maxX)
+                        let rightX = max(sectionFrame.minX, otherSectionFrame.minX)
+                        let buttonX = ((leftX + rightX) / 2) - (horizontalButtonWidth / 2)
+                        let yGap = abs(sectionBottom - otherTop)
+                        let yGapToButton: CGFloat = yGap / 2
+                        
+                        var relatedSections: [RelatedSection] = [.init(sectionWindow: sectionWindow, direction: .top, gapToButton: yGapToButton)]
+                        
+                        for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
+                            let possibleFrame = possibleRelatedWindow.window.frame
+                            if abs(sectionBottom - possibleFrame.maxY) <= snapResizerThreshold {
+                                let direction: RelatedSectionDirection = possibleFrame.minY >= sectionFrame.minY ? .top : .bottom
+                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
+                            } else if abs(otherTop - possibleFrame.minY) <= snapResizerThreshold {
+                                let direction: RelatedSectionDirection = possibleFrame.maxY <= sectionFrame.maxY ? .top : .bottom
+                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
+                            }
+                        }
+                        
+                        let sectionResizer = SnapResizer(width: horizontalButtonWidth, height: horizontalButtonHeight, relatedSections: relatedSections, mode: .horizontal)
+                        sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: horizontalButtonWidth, height: horizontalButtonHeight), display: true, animate: false)
                         sectionResizer.orderFront(nil)
                         sectionResizers.append(sectionResizer)
                     }
@@ -661,16 +700,25 @@ class RelatedSection {
     }
 }
 
+enum SnapResizerMode {
+    case vertical
+    case horizontal
+}
+
 class SnapResizer: NSWindow {
     var relatedSections: [RelatedSection] = []
-    var resizerX: CGFloat = 0
+    var mode: SnapResizerMode = .vertical
     
-    init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection]) {
+    var resizerX: CGFloat = 0
+    var resizerY: CGFloat = 0
+    
+    init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                    styleMask: [.borderless],
                    backing: .buffered,
                    defer: false)
         
+        self.mode = mode
         isOpaque = false
         backgroundColor = .clear
         title = "Macsy Live Snap Resizer"
@@ -694,6 +742,7 @@ class SnapResizer: NSWindow {
         }
         
         resizerX = frame.origin.x
+        resizerY = frame.origin.y
     }
     
     override func mouseUp(with event: NSEvent) {
@@ -730,8 +779,13 @@ class SnapResizer: NSWindow {
         let screenSize = focusedScreen.frame
         
         resizerX += event.deltaX
+        resizerY -= event.deltaY
 
-        setFrameOrigin(NSPoint(x: resizerX, y: frame.origin.y))
+        if mode == .vertical {
+            setFrameOrigin(NSPoint(x: resizerX, y: frame.origin.y))
+        } else {
+            setFrameOrigin(NSPoint(x: frame.origin.x, y: resizerY))
+        }
 
         for relatedSection in relatedSections {
             var sectionFrame = relatedSection.sectionWindow.window.frame
@@ -749,13 +803,14 @@ class SnapResizer: NSWindow {
                 sectionFrame.size.width = newWidth
                 
             case .top:
-                let newHeight = max(0, resizerX - sectionFrame.origin.y)
+                let newY = resizerY + relatedSection.gapToButton + (frame.height / 2)
+                let newHeight = max(0, sectionFrame.maxY - newY)
+                sectionFrame.origin.y = newY
                 sectionFrame.size.height = newHeight
                 
             case .bottom:
-                let newY = resizerX
-                let newHeight = max(0, sectionFrame.maxY - newY)
-                sectionFrame.origin.y = newY
+                let newY = resizerY - relatedSection.gapToButton + (frame.height / 2)
+                let newHeight = max(0, newY - sectionFrame.origin.y)
                 sectionFrame.size.height = newHeight
             }
             
