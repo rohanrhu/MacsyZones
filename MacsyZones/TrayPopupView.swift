@@ -21,6 +21,7 @@ class AppSettings: ObservableObject {
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
     @Published var shakeAccelerationThreshold: CGFloat = 50000.0
+    @Published var snapResize: Bool = true
 }
 
 let appSettings = AppSettings()
@@ -191,6 +192,11 @@ struct Main: View {
             .padding(.bottom, 10)
             
             Text("Options:").font(.subheadline)
+            
+            HStack {
+                Toggle("Enable snap resizing", isOn: $settings.snapResize)
+                Spacer()
+            }.padding(.bottom, 5)
             
             HStack {
                 Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)

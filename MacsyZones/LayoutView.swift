@@ -528,42 +528,44 @@ class LayoutWindow {
         }
         
         sectionResizers = []
-
-        for sectionWindow in sectionWindows {
-            let sectionFrame = sectionWindow.window.frame
-
-            for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
-                let otherSectionFrame = otherSectionWindow.window.frame
-
-                let sectionRight = sectionFrame.maxX
-                let otherLeft = otherSectionFrame.minX
-
-                if abs(sectionRight - otherLeft) <= snapResizerThreshold {
-                    let buttonX = ((sectionRight + otherLeft) / 2) - (buttonWidth / 2)
-
-                    let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
-                    let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
-                    let buttonY = ((topY + bottomY) / 2) - (buttonHeight / 2)
-                    let xGap = abs(sectionRight - otherLeft)
-                    let xGapToButton: CGFloat = xGap / 2
-
-                    var relatedSections: [RelatedSection] = [.init(sectionWindow: sectionWindow, direction: .left, gapToButton: xGapToButton)]
+        
+        if appSettings.snapResize {
+            for sectionWindow in sectionWindows {
+                let sectionFrame = sectionWindow.window.frame
+                
+                for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
+                    let otherSectionFrame = otherSectionWindow.window.frame
                     
-                    for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
-                        let possibleFrame = possibleRelatedWindow.window.frame
-                        if abs(sectionRight - possibleFrame.minX) <= snapResizerThreshold {
-                            let direction: RelatedSectionDirection = possibleFrame.maxX <= sectionFrame.maxX ? .left : .right
-                            relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
-                        } else if abs(otherLeft - possibleFrame.maxX) <= snapResizerThreshold {
-                            let direction: RelatedSectionDirection = possibleFrame.minX >= sectionFrame.minX ? .left : .right
-                            relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
+                    let sectionRight = sectionFrame.maxX
+                    let otherLeft = otherSectionFrame.minX
+                    
+                    if abs(sectionRight - otherLeft) <= snapResizerThreshold {
+                        let buttonX = ((sectionRight + otherLeft) / 2) - (buttonWidth / 2)
+                        
+                        let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
+                        let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
+                        let buttonY = ((topY + bottomY) / 2) - (buttonHeight / 2)
+                        let xGap = abs(sectionRight - otherLeft)
+                        let xGapToButton: CGFloat = xGap / 2
+                        
+                        var relatedSections: [RelatedSection] = [.init(sectionWindow: sectionWindow, direction: .left, gapToButton: xGapToButton)]
+                        
+                        for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
+                            let possibleFrame = possibleRelatedWindow.window.frame
+                            if abs(sectionRight - possibleFrame.minX) <= snapResizerThreshold {
+                                let direction: RelatedSectionDirection = possibleFrame.maxX <= sectionFrame.maxX ? .left : .right
+                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
+                            } else if abs(otherLeft - possibleFrame.maxX) <= snapResizerThreshold {
+                                let direction: RelatedSectionDirection = possibleFrame.minX >= sectionFrame.minX ? .left : .right
+                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
+                            }
                         }
+                        
+                        let sectionResizer = SnapResizer(width: buttonWidth, height: buttonHeight, relatedSections: relatedSections)
+                        sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight), display: true, animate: false)
+                        sectionResizer.orderFront(nil)
+                        sectionResizers.append(sectionResizer)
                     }
-                    
-                    let sectionResizer = SnapResizer(width: buttonWidth, height: buttonHeight, relatedSections: relatedSections)
-                    sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight), display: true, animate: false)
-                    sectionResizer.orderFront(nil)
-                    sectionResizers.append(sectionResizer)
                 }
             }
         }
