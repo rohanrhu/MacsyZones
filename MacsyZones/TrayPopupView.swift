@@ -15,6 +15,7 @@ import ServiceManagement
 
 struct AppSettingsData: Codable {
     var modifierKey: String
+    var modifierKeyDelay: Int
     var fallbackToPreviousSize: Bool
     var onlyFallbackToPreviousSizeWithUserEvent: Bool
     var selectPerDesktopLayout: Bool
@@ -26,12 +27,13 @@ struct AppSettingsData: Codable {
 
 class AppSettings: UserData, ObservableObject {
     @Published var modifierKey: String = "Control"
+    @Published var modifierKeyDelay: Int = 500
     @Published var fallbackToPreviousSize: Bool = true
     @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
     @Published var selectPerDesktopLayout: Bool = true
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
+    @Published var shakeAccelerationThreshold: CGFloat = 55000.0
     @Published var snapResize: Bool = true
 
     init() {
@@ -47,6 +49,7 @@ class AppSettings: UserData, ObservableObject {
             let settings = try JSONDecoder().decode(AppSettingsData.self, from: jsonData)
             
             self.modifierKey = settings.modifierKey
+            self.modifierKeyDelay = settings.modifierKeyDelay
             self.fallbackToPreviousSize = settings.fallbackToPreviousSize
             self.onlyFallbackToPreviousSizeWithUserEvent = settings.onlyFallbackToPreviousSizeWithUserEvent
             self.selectPerDesktopLayout = settings.selectPerDesktopLayout
@@ -63,6 +66,7 @@ class AppSettings: UserData, ObservableObject {
         do {
             let settings = AppSettingsData(
                 modifierKey: modifierKey,
+                modifierKeyDelay: modifierKeyDelay,
                 fallbackToPreviousSize: fallbackToPreviousSize,
                 onlyFallbackToPreviousSizeWithUserEvent: onlyFallbackToPreviousSizeWithUserEvent,
                 selectPerDesktopLayout: selectPerDesktopLayout,
@@ -253,6 +257,19 @@ struct Main: View {
                 appSettings.save()
             }
             
+            Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
+                .font(.subheadline)
+                .padding(.top, 5)
+            Slider(value: Binding(
+                get: { Double(settings.modifierKeyDelay) },
+                set: { settings.modifierKeyDelay = Int($0) }
+            ), in: 0...2000, step: 100)
+            .frame(alignment: .center)
+            .padding(.bottom, 10)
+            .onChange(of: settings.modifierKeyDelay) { _ in
+                appSettings.save()
+            }
+            
             Text("Options:").font(.subheadline)
             
             HStack {
@@ -313,7 +330,7 @@ struct Main: View {
                     Slider(value: Binding(
                         get: { Double(settings.shakeAccelerationThreshold) },
                         set: { settings.shakeAccelerationThreshold = CGFloat($0) }
-                    ), in: 10000...100000, step: 1000)
+                    ), in: 10000...110000, step: 10000)
                     .onChange(of: settings.shakeAccelerationThreshold) { _ in
                         appSettings.save()
                     }
