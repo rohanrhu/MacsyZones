@@ -541,9 +541,15 @@ class LayoutWindow {
                     let otherSectionFrame = otherSectionWindow.window.frame
                     
                     let sectionRight = sectionFrame.maxX
-                    let otherLeft = otherSectionFrame.minX
+                    let sectionTop = sectionFrame.minY
+                    let sectionBottom = sectionFrame.maxY
                     
-                    if abs(sectionRight - otherLeft) <= snapResizerThreshold {
+                    let otherLeft = otherSectionFrame.minX
+                    let otherTop = otherSectionFrame.minY
+                    let otherBottom = otherSectionFrame.maxY
+                    
+                    if abs(sectionRight - otherLeft) <= snapResizerThreshold &&
+                       (abs(sectionTop - otherTop) <= snapResizerThreshold || abs(sectionBottom - otherBottom) <= snapResizerThreshold) {
                         let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
                         
                         let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
@@ -575,10 +581,16 @@ class LayoutWindow {
                 for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
                     let otherSectionFrame = otherSectionWindow.window.frame
                     
+                    let sectionLeft = sectionFrame.minX
+                    let sectionRight = sectionFrame.maxX
                     let sectionBottom = sectionFrame.minY
+                    
+                    let otherLeft = otherSectionFrame.minX
+                    let otherRight = otherSectionFrame.maxX
                     let otherTop = otherSectionFrame.maxY
                     
-                    if abs(sectionBottom - otherTop) <= snapResizerThreshold {
+                    if abs(sectionBottom - otherTop) <= snapResizerThreshold &&
+                       (abs(sectionLeft - otherLeft) <= snapResizerThreshold || abs(sectionRight - otherRight) <= snapResizerThreshold) {
                         let buttonY = ((sectionBottom + otherTop) / 2) - (horizontalButtonHeight / 2)
                         
                         let leftX = min(sectionFrame.maxX, otherSectionFrame.maxX)
