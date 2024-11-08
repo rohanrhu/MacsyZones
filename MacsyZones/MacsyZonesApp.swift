@@ -176,13 +176,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func monitorModifierKey() {
-        if isEditing { return }
-
         var dispatchWorkItem: DispatchWorkItem?
 
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
+            
+            if isEditing {
+                return
+            }
             
             if appSettings.modifierKey == "None" {
                 return
