@@ -13,7 +13,18 @@
 import SwiftUI
 import ServiceManagement
 
-class AppSettings: ObservableObject {
+struct AppSettingsData: Codable {
+    var modifierKey: String
+    var fallbackToPreviousSize: Bool
+    var onlyFallbackToPreviousSizeWithUserEvent: Bool
+    var selectPerDesktopLayout: Bool
+    var prioritizeCenterToSnap: Bool
+    var shakeToSnap: Bool
+    var shakeAccelerationThreshold: CGFloat
+    var snapResize: Bool
+}
+
+class AppSettings: UserData, ObservableObject {
     @Published var modifierKey: String = "Control"
     @Published var fallbackToPreviousSize: Bool = true
     @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
@@ -22,6 +33,54 @@ class AppSettings: ObservableObject {
     @Published var shakeToSnap: Bool = true
     @Published var shakeAccelerationThreshold: CGFloat = 50000.0
     @Published var snapResize: Bool = true
+
+    init() {
+        super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
+    }
+
+    override func load() {
+        super.load()
+
+        let jsonData = data.data(using: .utf8)!
+        
+        do {
+            let settings = try JSONDecoder().decode(AppSettingsData.self, from: jsonData)
+            
+            self.modifierKey = settings.modifierKey
+            self.fallbackToPreviousSize = settings.fallbackToPreviousSize
+            self.onlyFallbackToPreviousSizeWithUserEvent = settings.onlyFallbackToPreviousSizeWithUserEvent
+            self.selectPerDesktopLayout = settings.selectPerDesktopLayout
+            self.prioritizeCenterToSnap = settings.prioritizeCenterToSnap
+            self.shakeToSnap = settings.shakeToSnap
+            self.shakeAccelerationThreshold = settings.shakeAccelerationThreshold
+            self.snapResize = settings.snapResize
+        } catch {
+            print("Error parsing settings JSON: \(error)")
+        }
+    }
+
+    override func save() {
+        do {
+            let settings = AppSettingsData(
+                modifierKey: modifierKey,
+                fallbackToPreviousSize: fallbackToPreviousSize,
+                onlyFallbackToPreviousSizeWithUserEvent: onlyFallbackToPreviousSizeWithUserEvent,
+                selectPerDesktopLayout: selectPerDesktopLayout,
+                prioritizeCenterToSnap: prioritizeCenterToSnap,
+                shakeToSnap: shakeToSnap,
+                shakeAccelerationThreshold: shakeAccelerationThreshold,
+                snapResize: snapResize
+            )
+            
+            let jsonData = try JSONEncoder().encode(settings)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                data = jsonString
+                super.save()
+            }
+        } catch {
+            print("Error encoding settings JSON: \(error)")
+        }
+    }
 }
 
 let appSettings = AppSettings()
@@ -190,16 +249,25 @@ struct Main: View {
             .labelsHidden()
             .pickerStyle(MenuPickerStyle())
             .padding(.bottom, 10)
+            .onChange(of: settings.modifierKey) { _ in
+                appSettings.save()
+            }
             
             Text("Options:").font(.subheadline)
             
             HStack {
                 Toggle("Enable snap resizing", isOn: $settings.snapResize)
+                .onChange(of: settings.snapResize) { _ in
+                    appSettings.save()
+                }
                 Spacer()
             }.padding(.bottom, 5)
             
             HStack {
                 Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)
+                .onChange(of: settings.prioritizeCenterToSnap) { _ in
+                    appSettings.save()
+                }
                 Spacer()
             }.padding(.bottom, 5)
             
@@ -207,11 +275,17 @@ struct Main: View {
 
             HStack {
                 Toggle("Fallback to previous size", isOn: $settings.fallbackToPreviousSize)
+                .onChange(of: settings.fallbackToPreviousSize) { _ in
+                    appSettings.save()
+                }
                 Spacer()
             }.padding(.bottom, 5)
             if settings.fallbackToPreviousSize {
                 HStack {
                     Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
+                    .onChange(of: settings.onlyFallbackToPreviousSizeWithUserEvent) { _ in
+                        appSettings.save()
+                    }
                     Spacer()
                 }.padding(.bottom, 5)
                 
@@ -220,10 +294,16 @@ struct Main: View {
             
             HStack {
                 Toggle("Select per-desktop layout", isOn: $settings.selectPerDesktopLayout)
+                .onChange(of: settings.selectPerDesktopLayout) { _ in
+                    appSettings.save()
+                }
                 Spacer()
             }.padding(.bottom, 5)
             HStack {
                 Toggle("Shake to snap", isOn: $settings.shakeToSnap)
+                .onChange(of: settings.shakeToSnap) { _ in
+                    appSettings.save()
+                }
                 Spacer()
             }.padding(.bottom, 5)
             
@@ -234,6 +314,9 @@ struct Main: View {
                         get: { Double(settings.shakeAccelerationThreshold) },
                         set: { settings.shakeAccelerationThreshold = CGFloat($0) }
                     ), in: 10000...100000, step: 1000)
+                    .onChange(of: settings.shakeAccelerationThreshold) { _ in
+                        appSettings.save()
+                    }
                 }
                 .padding(.bottom, 10)
             }

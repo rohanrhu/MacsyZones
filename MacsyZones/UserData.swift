@@ -178,16 +178,6 @@ struct SectionConfig: Codable {
     }
 }
 
-class UserSettings: UserData {
-    init() {
-        super.init(name: "UserSettings", data: "{}", fileName: "UserSettings.json")
-    }
-    
-    override func load() {
-        super.load()
-    }
-}
-
 class SectionBounds {
     var widthPercentage: CGFloat = 0
     var heightPercentage: CGFloat = 0
