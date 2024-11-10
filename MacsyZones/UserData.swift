@@ -116,7 +116,7 @@ class UserLayout {
             numberI += 1
         }
         
-        self.layoutWindow = LayoutWindow(name: name, sectionConfigs: sectionConfigs)
+        self.layoutWindow = LayoutWindow(name: name, sectionConfigs: Array(self.sectionConfigs.values))
     }
     
     func reArrange() {
