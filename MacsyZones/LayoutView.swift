@@ -517,8 +517,6 @@ class LayoutWindow {
             sectionWindow.window.orderFront(nil)
         }
         
-        let snapResizerThreshold: CGFloat = 100
-        
         let verticalButtonWidth: CGFloat = 8
         let verticalButtonHeight: CGFloat = 50
         
@@ -546,8 +544,8 @@ class LayoutWindow {
                     let otherTop = otherSectionFrame.minY
                     let otherBottom = otherSectionFrame.maxY
                     
-                    if abs(sectionRight - otherLeft) <= snapResizerThreshold &&
-                       (abs(sectionTop - otherTop) <= snapResizerThreshold || abs(sectionBottom - otherBottom) <= snapResizerThreshold) {
+                    if abs(sectionRight - otherLeft) <= appSettings.snapResizeThreshold &&
+                       (abs(sectionTop - otherTop) <= appSettings.snapResizeThreshold || abs(sectionBottom - otherBottom) <= appSettings.snapResizeThreshold) {
                         let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
                         
                         let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
@@ -560,10 +558,10 @@ class LayoutWindow {
                         
                         for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            if abs(sectionRight - possibleFrame.minX) <= snapResizerThreshold {
+                            if abs(sectionRight - possibleFrame.minX) <= appSettings.snapResizeThreshold {
                                 let direction: RelatedSectionDirection = possibleFrame.maxX <= sectionFrame.maxX ? .left : .right
                                 relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
-                            } else if abs(otherLeft - possibleFrame.maxX) <= snapResizerThreshold {
+                            } else if abs(otherLeft - possibleFrame.maxX) <= appSettings.snapResizeThreshold {
                                 let direction: RelatedSectionDirection = possibleFrame.minX >= sectionFrame.minX ? .left : .right
                                 relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
                             }
@@ -587,8 +585,8 @@ class LayoutWindow {
                     let otherRight = otherSectionFrame.maxX
                     let otherTop = otherSectionFrame.maxY
                     
-                    if abs(sectionBottom - otherTop) <= snapResizerThreshold &&
-                       (abs(sectionLeft - otherLeft) <= snapResizerThreshold || abs(sectionRight - otherRight) <= snapResizerThreshold) {
+                    if abs(sectionBottom - otherTop) <= appSettings.snapResizeThreshold &&
+                       (abs(sectionLeft - otherLeft) <= appSettings.snapResizeThreshold || abs(sectionRight - otherRight) <= appSettings.snapResizeThreshold) {
                         let buttonY = ((sectionBottom + otherTop) / 2) - (horizontalButtonHeight / 2)
                         
                         let leftX = min(sectionFrame.maxX, otherSectionFrame.maxX)
@@ -601,10 +599,10 @@ class LayoutWindow {
                         
                         for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            if abs(sectionBottom - possibleFrame.maxY) <= snapResizerThreshold {
+                            if abs(sectionBottom - possibleFrame.maxY) <= appSettings.snapResizeThreshold {
                                 let direction: RelatedSectionDirection = possibleFrame.minY >= sectionFrame.minY ? .top : .bottom
                                 relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
-                            } else if abs(otherTop - possibleFrame.minY) <= snapResizerThreshold {
+                            } else if abs(otherTop - possibleFrame.minY) <= appSettings.snapResizeThreshold {
                                 let direction: RelatedSectionDirection = possibleFrame.maxY <= sectionFrame.maxY ? .top : .bottom
                                 relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
                             }

@@ -23,6 +23,7 @@ struct AppSettingsData: Codable {
     var shakeToSnap: Bool
     var shakeAccelerationThreshold: CGFloat
     var snapResize: Bool
+    var snapResizeThreshold: CGFloat
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -35,6 +36,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var shakeToSnap: Bool = true
     @Published var shakeAccelerationThreshold: CGFloat = 55000.0
     @Published var snapResize: Bool = true
+    @Published var snapResizeThreshold: CGFloat = 33.0
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -57,6 +59,7 @@ class AppSettings: UserData, ObservableObject {
             self.shakeToSnap = settings.shakeToSnap
             self.shakeAccelerationThreshold = settings.shakeAccelerationThreshold
             self.snapResize = settings.snapResize
+            self.snapResizeThreshold = settings.snapResizeThreshold
         } catch {
             print("Error parsing settings JSON: \(error)")
         }
@@ -73,7 +76,8 @@ class AppSettings: UserData, ObservableObject {
                 prioritizeCenterToSnap: prioritizeCenterToSnap,
                 shakeToSnap: shakeToSnap,
                 shakeAccelerationThreshold: shakeAccelerationThreshold,
-                snapResize: snapResize
+                snapResize: snapResize,
+                snapResizeThreshold: snapResizeThreshold
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -237,7 +241,7 @@ struct Main: View {
                         Image(systemName: "trash")
                     }
                 }.disabled(layouts.layouts.count < 2)
-            }.padding(.bottom, 5)
+            }
 
             Divider()
 
@@ -259,7 +263,6 @@ struct Main: View {
             
             Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
                 .font(.subheadline)
-                .padding(.top, 5)
             Slider(value: Binding(
                 get: { Double(settings.modifierKeyDelay) },
                 set: { settings.modifierKeyDelay = Int($0) }
@@ -270,6 +273,8 @@ struct Main: View {
                 appSettings.save()
             }
             
+            Divider()
+            
             Text("Options:").font(.subheadline)
             
             HStack {
@@ -279,6 +284,21 @@ struct Main: View {
                 }
                 Spacer()
             }.padding(.bottom, 5)
+            
+            if settings.snapResize {
+                Text("Snap Threshold: \(Int(settings.snapResizeThreshold))px")
+                    .font(.subheadline)
+                Slider(value: Binding(
+                    get: { Double(settings.snapResizeThreshold) },
+                    set: { settings.snapResizeThreshold = CGFloat($0) }
+                ), in: 5...65, step: 2)
+                .frame(alignment: .center)
+                .onChange(of: settings.snapResizeThreshold) { _ in
+                    appSettings.save()
+                }
+                
+                Divider().padding(.bottom, 5)
+            }
             
             HStack {
                 Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)
