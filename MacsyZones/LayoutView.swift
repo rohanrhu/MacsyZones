@@ -545,25 +545,27 @@ class LayoutWindow {
                     let otherBottom = otherSectionFrame.maxY
                     
                     if abs(sectionRight - otherLeft) <= appSettings.snapResizeThreshold &&
-                       (abs(sectionTop - otherTop) <= appSettings.snapResizeThreshold || abs(sectionBottom - otherBottom) <= appSettings.snapResizeThreshold) {
-                        let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
+                        (abs(sectionTop - otherTop) <= appSettings.snapResizeThreshold || abs(sectionBottom - otherBottom) <= appSettings.snapResizeThreshold)
+                    {
                         
+                        let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
                         let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
                         let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
                         let buttonY = ((topY + bottomY) / 2) - (verticalButtonHeight / 2)
                         let xGap = abs(sectionRight - otherLeft)
                         let xGapToButton: CGFloat = xGap / 2
                         
-                        var relatedSections: [RelatedSection] = [.init(sectionWindow: sectionWindow, direction: .left, gapToButton: xGapToButton)]
+                        var relatedSections: [RelatedSection] = []
                         
-                        for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
+                        for possibleRelatedWindow in sectionWindows {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            if abs(sectionRight - possibleFrame.minX) <= appSettings.snapResizeThreshold {
-                                let direction: RelatedSectionDirection = possibleFrame.maxX <= sectionFrame.maxX ? .left : .right
-                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
-                            } else if abs(otherLeft - possibleFrame.maxX) <= appSettings.snapResizeThreshold {
-                                let direction: RelatedSectionDirection = possibleFrame.minX >= sectionFrame.minX ? .left : .right
-                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: xGapToButton))
+                            
+                            if abs(sectionRight - possibleFrame.minX) <= appSettings.snapResizeThreshold ||
+                                abs(otherLeft - possibleFrame.maxX) <= appSettings.snapResizeThreshold {
+                                
+                                relatedSections.append(.init(sectionWindow: possibleRelatedWindow,
+                                                             direction: (possibleFrame.minX + (possibleFrame.width / 2)) < buttonX ? .left : .right,
+                                                             gapToButton: xGapToButton))
                             }
                         }
                         
@@ -586,25 +588,26 @@ class LayoutWindow {
                     let otherTop = otherSectionFrame.maxY
                     
                     if abs(sectionBottom - otherTop) <= appSettings.snapResizeThreshold &&
-                       (abs(sectionLeft - otherLeft) <= appSettings.snapResizeThreshold || abs(sectionRight - otherRight) <= appSettings.snapResizeThreshold) {
+                       (abs(sectionLeft - otherLeft) <= appSettings.snapResizeThreshold || abs(sectionRight - otherRight) <= appSettings.snapResizeThreshold)
+                    {
                         let buttonY = ((sectionBottom + otherTop) / 2) - (horizontalButtonHeight / 2)
-                        
                         let leftX = min(sectionFrame.maxX, otherSectionFrame.maxX)
                         let rightX = max(sectionFrame.minX, otherSectionFrame.minX)
                         let buttonX = ((leftX + rightX) / 2) - (horizontalButtonWidth / 2)
                         let yGap = abs(sectionBottom - otherTop)
                         let yGapToButton: CGFloat = yGap / 2
                         
-                        var relatedSections: [RelatedSection] = [.init(sectionWindow: sectionWindow, direction: .top, gapToButton: yGapToButton)]
+                        var relatedSections: [RelatedSection] = []
                         
-                        for possibleRelatedWindow in sectionWindows where possibleRelatedWindow !== sectionWindow {
+                        for possibleRelatedWindow in sectionWindows {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            if abs(sectionBottom - possibleFrame.maxY) <= appSettings.snapResizeThreshold {
-                                let direction: RelatedSectionDirection = possibleFrame.minY >= sectionFrame.minY ? .top : .bottom
-                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
-                            } else if abs(otherTop - possibleFrame.minY) <= appSettings.snapResizeThreshold {
-                                let direction: RelatedSectionDirection = possibleFrame.maxY <= sectionFrame.maxY ? .top : .bottom
-                                relatedSections.append(RelatedSection(sectionWindow: possibleRelatedWindow, direction: direction, gapToButton: yGapToButton))
+                            
+                            if abs(sectionBottom - possibleFrame.maxY) <= appSettings.snapResizeThreshold ||
+                               abs(otherTop - possibleFrame.minY) <= appSettings.snapResizeThreshold
+                            {
+                                relatedSections.append(.init(sectionWindow: possibleRelatedWindow,
+                                                             direction: (possibleFrame.minY + (possibleFrame.height / 2)) < buttonY ? .bottom : .top,
+                                                             gapToButton: yGapToButton))
                             }
                         }
                         
