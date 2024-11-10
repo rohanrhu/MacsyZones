@@ -15,12 +15,12 @@ import SwiftUI
 import AppKit
 
 struct SectionView: View {
-    @State var number: Int = 0
+    @ObservedObject var sectionWindow: SectionWindow
     
     var body: some View {
         GeometryReader { geometry in
             VStack {
-                Text(String(number))
+                Text(String(sectionWindow.number))
                     .font(.system(size: 50))
                     .foregroundColor(Color(NSColor.selectedTextBackgroundColor))
                     .padding(50)
@@ -142,8 +142,15 @@ struct BlurredWindowBackground: NSViewRepresentable {
     }
 }
 
-class SectionWindow: Hashable {
-    var number: Int = 0
+class SectionWindow: Hashable, ObservableObject {
+    @Published var number: Int = 0 {
+        didSet {
+            guard let editorWindow else { return }
+            guard let editorSectionView = editorWindow.contentView as? EditorSectionView else { return }
+            
+            editorSectionView.number = number
+        }
+    }
     var editorWindow: NSWindow!
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
@@ -168,7 +175,7 @@ class SectionWindow: Hashable {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.title = "Macsy Section"
-        window.contentView = NSHostingView(rootView: SectionView(number: number))
+        window.contentView = NSHostingView(rootView: SectionView(sectionWindow: self))
         window.hasShadow = true
         window.ignoresMouseEvents = true
         window.level = .statusBar - 2
@@ -216,6 +223,7 @@ class SectionWindow: Hashable {
     }
     
     func reset(sectionConfig: SectionConfig) {
+        number = sectionConfig.number!
         self.sectionConfig = sectionConfig
         
         let contentRect = getConfiguredContentRect(sectionConfig: sectionConfig)
@@ -358,13 +366,18 @@ class LayoutWindow {
     
     var isEditing: Bool = false
     
-    var numberI = 1
-    
     var unsavedNewSectionWindows: [SectionWindow] = []
     var unsavedNewSectionConfigs: [Int:SectionConfig] = [:]
     var unsavedRemovedSectionWindows: [SectionWindow] = []
     
     var sectionResizers: [SnapResizer] = []
+    
+    var nextNumber: Int {
+        if unsavedNewSectionConfigs.count > 0 {
+            return (unsavedNewSectionConfigs.values.compactMap { $0.number ?? 0 }.max() ?? 0) + 1
+        }
+        return (sectionConfigs.values.compactMap { $0.number ?? 0 }.max() ?? 0) + 1
+    }
 
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
@@ -396,14 +409,18 @@ class LayoutWindow {
         editorBarWindow.orderOut(nil)
         editorBarWindow.level = .statusBar + 1
         
+        var numberI = 1
+        
         for i in 0..<sectionConfigs.count {
             let sectionConfig = sectionConfigs[i]
-            let sectionWindow = SectionWindow(number: numberI, layoutWindow: self, sectionConfig: sectionConfig, onDelete: onSectionDelete)
+            let sectionWindow = SectionWindow(number: sectionConfig.number!, layoutWindow: self, sectionConfig: sectionConfig, onDelete: onSectionDelete)
             
-            self.sectionConfigs[numberI] = sectionConfig
+            self.sectionConfigs[sectionConfig.number!] = sectionConfig
             sectionWindows.append(sectionWindow)
             
-            numberI += 1
+            if sectionConfig.number! > numberI {
+                numberI = sectionConfig.number!
+            }
         }
         
         window.orderOut(nil)
@@ -411,23 +428,30 @@ class LayoutWindow {
     }
     
     func onSectionDelete(unowned sectionWindow: SectionWindow) {
+        let number = sectionWindow.number
+        
         sectionWindow.window.orderOut(nil)
         sectionWindow.editorWindow.orderOut(nil)
         
-        sectionConfigs.removeValue(forKey: sectionWindow.number)
-        unsavedNewSectionConfigs.removeValue(forKey: sectionWindow.number)
+        let isUnsaved = unsavedNewSectionWindows.contains(where: { $0.number == number })
         
-        sectionWindows.removeAll { $0.number == sectionWindow.number }
-        unsavedNewSectionWindows.removeAll { $0.number == sectionWindow.number }
+        if !isUnsaved {
+            unsavedRemovedSectionWindows.append(sectionWindow)
+        }
         
-        unsavedRemovedSectionWindows.append(sectionWindow)
+        sectionConfigs.removeValue(forKey: number)
+        unsavedNewSectionConfigs.removeValue(forKey: number)
+        
+        sectionWindows.removeAll { $0.number == number }
+        unsavedNewSectionWindows.removeAll { $0.number == number }
     }
     
     func onNewSection() {
-        let newSectionConfig = SectionConfig.defaultSection
-        let sectionWindow = SectionWindow(number: numberI, layoutWindow: self, sectionConfig: newSectionConfig, onDelete: onSectionDelete)
+        let number = nextNumber
+        var newSectionConfig = SectionConfig.defaultSection
+        newSectionConfig.number = number
+        let sectionWindow = SectionWindow(number: number, layoutWindow: self, sectionConfig: newSectionConfig, onDelete: onSectionDelete)
         sectionWindows.append(sectionWindow)
-        numberI += 1
         
         sectionWindow.editorWindow.orderFront(nil)
         
@@ -441,9 +465,7 @@ class LayoutWindow {
         
         for number in unsavedNewSectionConfigs.keys {
             guard let newSectionConfig = unsavedNewSectionConfigs[number] else { continue }
-            guard let newSectionWindow = unsavedNewSectionWindows.first(where: { $0.number == number }) else { continue }
             sectionConfigs[number] = newSectionConfig
-            sectionWindows.append(newSectionWindow)
         }
 
         for number in sectionConfigs.keys {
@@ -464,7 +486,7 @@ class LayoutWindow {
             sectionWindow.reset(sectionConfig: sectionConfig)
         }
         
-        userLayouts.layouts[name]?.sectionConfigs = Array(sectionConfigs.values)
+        userLayouts.layouts[name]?.sectionConfigs = sectionConfigs
         
         userLayouts.save()
         
@@ -473,6 +495,8 @@ class LayoutWindow {
         unsavedRemovedSectionWindows.removeAll()
         
         macsyStopEditing()
+        
+        userLayouts.layouts[name]?.reArrange()
     }
     
     func onCancel() {
@@ -772,8 +796,8 @@ class SnapResizer: NSWindow {
         
         for relatedSection in relatedSections {
             let sectionWindow = relatedSection.sectionWindow
-            if relatedSection.sectionWindow.number-1 >= sectionConfigs.count { continue }
-            var sectionConfig = sectionConfigs[relatedSection.sectionWindow.number-1]
+            guard var sectionConfig = sectionConfigs[relatedSection.sectionWindow.number]
+            else { continue }
             
             let width = sectionWindow.window.frame.size.width
             let height = sectionWindow.window.frame.size.height
@@ -785,7 +809,7 @@ class SnapResizer: NSWindow {
             sectionConfig.xPercentage = x / screenSize.width
             sectionConfig.yPercentage = y / screenSize.height
             
-            userLayouts.currentLayout.sectionConfigs[relatedSection.sectionWindow.number-1] = sectionConfig
+            userLayouts.currentLayout.sectionConfigs[relatedSection.sectionWindow.number] = sectionConfig
             sectionWindow.reset(sectionConfig: sectionConfig)
         }
         
@@ -865,7 +889,4 @@ struct ResizeLayer: View {
 }
 
 #Preview {
-    VStack {
-        LayoutView(sections: [.init(number: 0)])
-    }.frame(width: 200, height: 200)
 }

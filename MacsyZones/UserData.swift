@@ -83,18 +83,68 @@ class UserData {
 
 class UserLayout {
     var name: String
-    var sectionConfigs: [SectionConfig]
+    var sectionConfigs: [Int:SectionConfig] {
+        didSet {
+            layoutWindow.sectionConfigs = sectionConfigs
+            
+            for sectionWindow in layoutWindow.sectionWindows {
+                sectionWindow.sectionConfig = sectionConfigs[sectionWindow.sectionConfig.number!]!
+            }
+        }
+    }
     let layoutWindow: LayoutWindow
     
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
-        self.sectionConfigs = sectionConfigs
+        self.sectionConfigs = [:]
+        
+        var numberI = 1
+        
+        for var sectionConfig in sectionConfigs {
+            let prevNumber = sectionConfig.number ?? 0
+            
+            if prevNumber == 0 {
+                sectionConfig.number = numberI
+                self.sectionConfigs[numberI] = sectionConfig
+            } else if prevNumber >= numberI {
+                self.sectionConfigs[prevNumber] = sectionConfig
+                numberI = prevNumber
+            } else {
+                self.sectionConfigs[prevNumber] = sectionConfig
+            }
+            
+            numberI += 1
+        }
+        
         self.layoutWindow = LayoutWindow(name: name, sectionConfigs: sectionConfigs)
+    }
+    
+    func reArrange() {
+        let sectionConfigs = self.sectionConfigs.values.sorted { $0.number! < $1.number! }
+        
+        var newSectionConfigs: [Int:SectionConfig] = [:]
+        
+        var numberI = 1
+        
+        for sectionConfig in sectionConfigs {
+            let sectionWindow = layoutWindow.sectionWindows.first(where: { $0.number == sectionConfig.number })!
+            
+            var newSectionConfig = sectionConfig
+            newSectionConfig.number = numberI
+            
+            sectionWindow.reset(sectionConfig: newSectionConfig)
+            
+            newSectionConfigs[numberI] = newSectionConfig
+            
+            numberI += 1
+        }
+        
+        self.sectionConfigs = newSectionConfigs
     }
 }
 
 class UserLayouts: UserData, ObservableObject {
-    @Published var layouts: [String:UserLayout] = [:]
+    @Published var layouts: [String: UserLayout] = [:]
     
     var defaultLayout: UserLayout {
         .init(name: "Default", sectionConfigs: [.defaultSection])
@@ -124,10 +174,11 @@ class UserLayouts: UserData, ObservableObject {
             
             if layouts.isEmpty {
                 layouts["Default"] = defaultLayout
-                save()
             } else {
                 currentLayoutName = layouts.keys.first!
             }
+            
+            save()
         } catch {
             print("Error parsing layouts JSON: \(error)")
         }
@@ -135,7 +186,9 @@ class UserLayouts: UserData, ObservableObject {
     
     override func save() {
         do {
-            let layoutConfigs = layouts.mapValues { $0.sectionConfigs }
+            let layoutConfigs = layouts.mapValues { userLayout in
+                Array(userLayout.sectionConfigs.values)
+            }
             let jsonData = try JSONEncoder().encode(layoutConfigs)
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 data = jsonString
@@ -168,6 +221,7 @@ class UserLayouts: UserData, ObservableObject {
 }
 
 struct SectionConfig: Codable {
+    var number: Int? = nil
     var widthPercentage: CGFloat
     var heightPercentage: CGFloat
     var xPercentage: CGFloat
