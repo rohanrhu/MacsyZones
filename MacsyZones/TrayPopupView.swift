@@ -169,7 +169,7 @@ struct Main: View {
                     spaceLayoutPreferences.save()
                 }.labelsHidden()
                     .pickerStyle(MenuPickerStyle())
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 5)
             } else {
                 Picker("Select Layout", selection: $selectedLayout) {
                     ForEach(Array(layouts.layouts.keys), id: \.self) { name in
@@ -182,7 +182,7 @@ struct Main: View {
                     }
                 }.labelsHidden()
                  .pickerStyle(MenuPickerStyle())
-                 .padding(.bottom, 10)
+                 .padding(.bottom, 5)
                  .onChange(of: selectedLayout) { _ in
                      let wasEditing = isEditing
                      stopEditing()
@@ -241,7 +241,7 @@ struct Main: View {
                         Image(systemName: "trash")
                     }
                 }.disabled(layouts.layouts.count < 2)
-            }
+            }.padding(.bottom, 5)
 
             Divider()
 
@@ -268,14 +268,14 @@ struct Main: View {
                 set: { settings.modifierKeyDelay = Int($0) }
             ), in: 0...2000, step: 100)
             .frame(alignment: .center)
-            .padding(.bottom, 10)
+            .padding(.bottom, 5)
             .onChange(of: settings.modifierKeyDelay) { _ in
                 appSettings.save()
             }
             
             Divider()
             
-            Text("Options:").font(.subheadline)
+            Text("Options:").font(.subheadline).padding(.top, 5)
             
             HStack {
                 Toggle("Enable snap resizing", isOn: $settings.snapResize)
@@ -291,7 +291,7 @@ struct Main: View {
                 Slider(value: Binding(
                     get: { Double(settings.snapResizeThreshold) },
                     set: { settings.snapResizeThreshold = CGFloat($0) }
-                ), in: 5...65, step: 2)
+                ), in: 5...67, step: 2)
                 .frame(alignment: .center)
                 .onChange(of: settings.snapResizeThreshold) { _ in
                     appSettings.save()
