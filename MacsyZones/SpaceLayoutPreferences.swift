@@ -116,7 +116,6 @@ class SpaceLayoutPreferences: UserData {
                 if !appSettings.selectPerDesktopLayout { return }
                 if let layoutName = self.getCurrent() {
                     userLayouts.currentLayoutName = layoutName
-                    actualSelectedLayout.selectedLayout = layoutName
                 }
             }
         )
@@ -129,7 +128,6 @@ class SpaceLayoutPreferences: UserData {
                 if !appSettings.selectPerDesktopLayout { return }
                 if let layoutName = self.getCurrent() {
                     userLayouts.currentLayoutName = layoutName
-                    actualSelectedLayout.selectedLayout = layoutName
                 }
             }
         )

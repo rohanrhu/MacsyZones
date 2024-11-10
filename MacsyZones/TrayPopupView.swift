@@ -100,8 +100,7 @@ struct Main: View {
     
     @ObservedObject var settings = appSettings
     
-    @Binding var layouts: UserLayouts
-    @Binding var selectedLayout: String
+    @ObservedObject var layouts = userLayouts
     
     @State var showNotProDialog: Bool = false
     @State var showAboutDialog: Bool = false
@@ -148,50 +147,49 @@ struct Main: View {
             Text("Layouts:").font(.subheadline)
             
             if #available(macOS 14.0, *) {
-                Picker("Select Layout", selection: $selectedLayout) {
+                Picker("Select Layout", selection: $layouts.currentLayoutName) {
                     ForEach(Array(layouts.layouts.keys), id: \.self) { name in
                         Text(name)
                     }
                 }.onAppear {
                     if let preferedLayout = spaceLayoutPreferences.getCurrent() {
-                        selectedLayout = preferedLayout
-                        userLayouts.currentLayoutName = selectedLayout
+                        layouts.currentLayoutName = preferedLayout
                     }
-                }.onChange(of: selectedLayout) {
+                }.onChange(of: layouts.currentLayoutName) {
                     let wasEditing = isEditing
                     stopEditing()
-                    userLayouts.selectLayout(selectedLayout)
+                    userLayouts.selectLayout(layouts.currentLayoutName)
                     if wasEditing {
                         startEditing()
                     }
                     
-                    spaceLayoutPreferences.setCurrent(layoutName: selectedLayout)
+                    spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
                     spaceLayoutPreferences.save()
                 }.labelsHidden()
                     .pickerStyle(MenuPickerStyle())
                     .padding(.bottom, 5)
             } else {
-                Picker("Select Layout", selection: $selectedLayout) {
+                Picker("Select Layout", selection: $layouts.currentLayoutName) {
                     ForEach(Array(layouts.layouts.keys), id: \.self) { name in
                         Text(name)
-                    }
-                }.onAppear {
-                    if let preferedLayout = spaceLayoutPreferences.getCurrent() {
-                        selectedLayout = preferedLayout
-                        userLayouts.currentLayoutName = selectedLayout
                     }
                 }.labelsHidden()
                  .pickerStyle(MenuPickerStyle())
                  .padding(.bottom, 5)
-                 .onChange(of: selectedLayout) { _ in
+                 .onAppear {
+                     if let preferedLayout = spaceLayoutPreferences.getCurrent() {
+                         layouts.currentLayoutName = preferedLayout
+                     }
+                 }
+                 .onChange(of: layouts.currentLayoutName) { _ in
                      let wasEditing = isEditing
                      stopEditing()
-                     userLayouts.selectLayout(selectedLayout)
+                     userLayouts.selectLayout(layouts.currentLayoutName)
                      if wasEditing {
                          startEditing()
                      }
                  
-                     spaceLayoutPreferences.setCurrent(layoutName: selectedLayout)
+                     spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
                      spaceLayoutPreferences.save()
                  }
             }
@@ -221,21 +219,7 @@ struct Main: View {
                     }
                 }
                 Button(action: {
-                    if layouts.layouts.count < 2 { return }
-                    
-                    stopEditing()
-                    
-                    let firstLayout = layouts.layouts.first!.value
-                    let toRemoveLayoutName = selectedLayout
-                    let toRemoveLayout = layouts.layouts[toRemoveLayoutName]
-                    
-                    layouts.layouts.removeValue(forKey: toRemoveLayoutName)
-                    layouts.currentLayoutName = firstLayout.name
-                    selectedLayout = firstLayout.name
-                    
-                    userLayouts.save()
-                    
-                    toRemoveLayout?.layoutWindow.closeAllWindows()
+                    layouts.removeCurrentLayout()
                 }) {
                     HStack {
                         Image(systemName: "trash")
@@ -429,10 +413,11 @@ struct Main: View {
 
 struct NewView: View {
     @Binding var page: String
-    @Binding var layouts: UserLayouts
-    @Binding var selectedLayout: String
+    @ObservedObject var layouts = userLayouts
 
     @State var layoutName: String = "My Layout"
+    
+    @State var showAlreadyExistsAlert: Bool = false
     
     var body: some View {
         VStack {
@@ -452,14 +437,12 @@ struct NewView: View {
                     }
                     
                     Button(action: {
-                        let newLayout = UserLayout(name: layoutName, sectionConfigs: [SectionConfig.defaultSection])
-                        layouts.layouts[layoutName] = newLayout
+                        if layouts.layouts.keys.contains(layoutName) {
+                            showAlreadyExistsAlert = true
+                            return
+                        }
                         
-                        selectedLayout = layoutName
-                        layouts.currentLayoutName = layoutName
-                        
-                        userLayouts.save()
-                        
+                        layouts.createLayout(name: layoutName)
                         startEditing()
                         
                         page = "main"
@@ -470,15 +453,21 @@ struct NewView: View {
                 }
             }
         }.padding()
+            .alert(isPresented: $showAlreadyExistsAlert) {
+                Alert(
+                    title: Text("Omg! 😊"),
+                    message: Text("Another layout with this name already exists. Please choose another name."),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
     }
 }
 
 struct RenameView: View {
     @Binding var page: String
-    @Binding var layouts: UserLayouts
-    @Binding var selectedLayout: String
+    @ObservedObject var layouts = userLayouts
     
-    @State var layoutName: String
+    @State var layoutName: String = ""
     
     var body: some View {
         VStack {
@@ -498,19 +487,7 @@ struct RenameView: View {
                     }
                     
                     Button(action: {
-                        if let layout = layouts.layouts[selectedLayout] {
-                            layouts.layouts.removeValue(forKey: selectedLayout)
-                            layouts.layouts[layoutName] = layout
-                            selectedLayout = layoutName
-                            
-                            layouts.layouts[layoutName]?.name = layoutName
-                            layouts.layouts[layoutName]?.layoutWindow.name = layoutName
-                            
-                            layouts.currentLayoutName = layoutName
-                            
-                            userLayouts.save()
-                        }
-                        
+                        userLayouts.renameCurrentLayout(to: layoutName)
                         page = "main"
                     }) {
                         Image(systemName: "checkmark").foregroundColor(.green)
@@ -612,8 +589,7 @@ struct TrayPopupView: View {
     @ObservedObject var proLock = macsyProLock
     
     @State private var page = "main"
-    @State var layouts: UserLayouts
-    @ObservedObject var selectedLayout = actualSelectedLayout
+    @ObservedObject var layouts = userLayouts
     
     var body: some View {
         if !ready.isReady {
@@ -627,13 +603,13 @@ struct TrayPopupView: View {
             VStack {
                 switch page {
                 case "new":
-                    NewView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
+                    NewView(page: $page)
                 case "rename":
-                    RenameView(page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout, layoutName: selectedLayout.selectedLayout)
+                    RenameView(page: $page, layoutName: layouts.currentLayoutName)
                 case "unlock":
                     UnlockProView(proLock: proLock, page: $page)
                 default:
-                    Main(proLock: proLock, page: $page, layouts: $layouts, selectedLayout: $selectedLayout.selectedLayout)
+                    Main(proLock: proLock, page: $page)
                 }
             }
         }
@@ -641,5 +617,5 @@ struct TrayPopupView: View {
 }
 
 #Preview {
-    TrayPopupView(layouts: UserLayouts(), selectedLayout: actualSelectedLayout)
+    TrayPopupView(layouts: UserLayouts())
 }

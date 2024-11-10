@@ -141,6 +141,15 @@ class UserLayout {
         
         self.sectionConfigs = newSectionConfigs
     }
+    
+    func hideAllWindows() {
+        for sectionWindow in layoutWindow.sectionWindows {
+            sectionWindow.window.orderOut(nil)
+            sectionWindow.editorWindow.orderOut(nil)
+        }
+        
+        layoutWindow.window.orderOut(nil)
+    }
 }
 
 class UserLayouts: UserData, ObservableObject {
@@ -217,6 +226,63 @@ class UserLayouts: UserData, ObservableObject {
                 sectionWindow.window.orderOut(nil)
             }
         }
+    }
+    
+    func createLayout(name: String) {
+        stopEditing()
+        currentLayout.hideAllWindows()
+        
+        if layouts.keys.contains(name) { return }
+        
+        let newLayout = UserLayout(name: name, sectionConfigs: [SectionConfig.defaultSection])
+        layouts[name] = newLayout
+        
+        currentLayoutName = name
+        spaceLayoutPreferences.setCurrent(layoutName: name)
+        
+        userLayouts.save()
+    }
+    
+    func renameCurrentLayout(to newName: String) {
+        stopEditing()
+        
+        if newName == currentLayoutName { return }
+        
+        if let layout = layouts[currentLayoutName] {
+            layout.hideAllWindows()
+            
+            layout.name = newName
+            layout.layoutWindow.name = newName
+            
+            layouts[newName] = layout
+            
+            let oldName = currentLayoutName
+            layouts.removeValue(forKey: oldName)
+            
+            currentLayoutName = newName
+            spaceLayoutPreferences.setCurrent(layoutName: newName)
+            
+            save()
+        }
+    }
+    
+    func removeCurrentLayout() {
+        stopEditing()
+        
+        if layouts.count < 2 { return }
+        
+        if let layout = layouts[currentLayoutName] {
+            layout.layoutWindow.closeAllWindows()
+            
+            layouts.removeValue(forKey: currentLayoutName)
+            
+            let fallbackLayout = layouts.keys.first!
+            
+            currentLayoutName = fallbackLayout
+            spaceLayoutPreferences.setCurrent(layoutName: fallbackLayout)
+        }
+        
+        save()
     }
 }
 

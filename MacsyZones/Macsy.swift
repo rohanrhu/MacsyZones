@@ -20,12 +20,6 @@ var userLayouts: UserLayouts = .init()
 var toLeaveElement: AXUIElement?
 var toLeaveSectionWindow: SectionWindow?
 
-class ActualSelectedLayout: ObservableObject {
-    @Published var selectedLayout: String = spaceLayoutPreferences.getCurrent() ?? userLayouts.currentLayoutName
-}
-
-let actualSelectedLayout = ActualSelectedLayout()
-
 var isFitting = false
 var isEditing = false
 
@@ -254,7 +248,6 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                     if appSettings.selectPerDesktopLayout {
                         if let layoutName = spaceLayoutPreferences.getCurrent() {
                             userLayouts.currentLayoutName = layoutName
-                            actualSelectedLayout.selectedLayout = layoutName
                         }
                     }
 

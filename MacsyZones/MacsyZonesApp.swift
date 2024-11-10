@@ -201,7 +201,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if appSettings.selectPerDesktopLayout {
                 if let layoutName = spaceLayoutPreferences.getCurrent() {
                     userLayouts.currentLayoutName = layoutName
-                    actualSelectedLayout.selectedLayout = layoutName
                 }
             }
             
