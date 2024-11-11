@@ -20,3 +20,7 @@ AXError _AXUIElementGetWindow(AXUIElementRef element, uint32_t *identifier);
 
 extern CFArrayRef CGSCopyManagedDisplaySpaces(int cid);
 extern int CGSMainConnectionID(void);
+
+typedef int CGSConnectionID;
+CGError CGSSetConnectionProperty(CGSConnectionID cid, CGSConnectionID targetCID, CFStringRef key, CFTypeRef value);
+int _CGSDefaultConnection();

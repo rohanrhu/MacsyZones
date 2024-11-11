@@ -35,6 +35,9 @@ struct SectionView: View {
 }
 
 class EditorSectionView: NSView {
+    private let blurView: NSVisualEffectView
+    private let edgeSize: CGFloat = 2
+    
     var onDelete: (() -> Void)?
     
     var number: Int = 0 {
@@ -48,18 +51,38 @@ class EditorSectionView: NSView {
     private let deleteButton = NSButton()
 
     override init(frame frameRect: NSRect) {
+        blurView = NSVisualEffectView(frame: frameRect)
+        blurView.material = .hudWindow
+        blurView.state = .active
+        blurView.wantsLayer = true
+        
+        blurView.layer?.cornerRadius = 7
+        blurView.layer?.opacity = 0.7
+        blurView.layer?.borderWidth = 5
+        blurView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        blurView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
+        
         super.init(frame: frameRect)
         setupViews()
     }
     
     required init?(coder: NSCoder) {
+        blurView = NSVisualEffectView(frame: .zero)
+        blurView.material = .hudWindow
+        blurView.blendingMode = .behindWindow
+        blurView.state = .active
+        
         super.init(coder: coder)
         setupViews()
     }
     
     private func setupViews() {
+        blurView.frame = bounds
+        blurView.autoresizingMask = [.width, .height]
+        addSubview(blurView)
+        
         label.font = NSFont.systemFont(ofSize: 50)
-        label.textColor = NSColor.selectedTextBackgroundColor
+        label.textColor = .white
         label.alignment = .center
         label.isEditable = false
         label.isSelectable = false
@@ -71,8 +94,8 @@ class EditorSectionView: NSView {
         circleView.layer = CALayer()
         circleView.layer?.cornerRadius = 75
         circleView.layer?.masksToBounds = true
-        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.25).cgColor
-        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
         circleView.layer?.borderWidth = 4
         addSubview(circleView)
         
@@ -105,22 +128,18 @@ class EditorSectionView: NSView {
             deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
             deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
         ])
+        
+        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
+        
+        deleteButton.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.25).cgColor
+        
+        let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
+        CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
     }
     
     @objc private func deleteSection() {
         onDelete?()
-    }
-    
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-                
-        NSColor.selectedTextBackgroundColor.withAlphaComponent(0.1).setFill()
-        dirtyRect.fill()
-        
-        let borderPath = NSBezierPath(roundedRect: dirtyRect, xRadius: 7, yRadius: 7)
-        NSColor.selectedTextBackgroundColor.withAlphaComponent(0.75).setStroke()
-        borderPath.lineWidth = 5
-        borderPath.stroke()
     }
 }
 
@@ -140,6 +159,12 @@ struct BlurredWindowBackground: NSViewRepresentable {
         nsView.material = material
         nsView.blendingMode = blendingMode
     }
+}
+
+class EditorSectionWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    override var areCursorRectsEnabled: Bool { true }
 }
 
 class SectionWindow: Hashable, ObservableObject {
@@ -182,16 +207,29 @@ class SectionWindow: Hashable, ObservableObject {
 
         layoutWindow.window.addChildWindow(window, ordered: .above)
         
-        editorWindow = NSWindow(contentRect: contentRect,
-                                styleMask: [.resizable, .fullSizeContentView],
-                                backing: .buffered,
-                                defer: false)
-        editorWindow.title = "Macsy Editor Section"
-        editorWindow.isOpaque = false
+        editorWindow = EditorSectionWindow(contentRect: contentRect,
+                                           styleMask: [.resizable, .fullSizeContentView, .titled, .unifiedTitleAndToolbar],
+                                           backing: .buffered,
+                                           defer: false)
+        editorWindow.title = ""
+        editorWindow.isOpaque = true
         editorWindow.backgroundColor = .clear
         editorWindow.titlebarAppearsTransparent = true
         editorWindow.isMovableByWindowBackground = true
         editorWindow.level = .statusBar - 1
+        editorWindow.hasShadow = true
+        editorWindow.acceptsMouseMovedEvents = true
+        
+        editorWindow.contentView?.wantsLayer = true
+        editorWindow.contentView?.layer?.cornerRadius = 7
+        
+        editorWindow.standardWindowButton(.closeButton)?.isEnabled = false
+        editorWindow.standardWindowButton(.miniaturizeButton)?.isEnabled = false
+        editorWindow.standardWindowButton(.zoomButton)?.isEnabled = true
+        
+        editorWindow.standardWindowButton(.closeButton)?.isHidden = false
+        editorWindow.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        editorWindow.standardWindowButton(.zoomButton)?.isHidden = false
         
         let editorSectionView = EditorSectionView(frame: NSRect(x: 0, y: 0, width: contentRect.width, height: contentRect.height))
         editorSectionView.onDelete = { [unowned self] in
