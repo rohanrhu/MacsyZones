@@ -395,7 +395,7 @@ struct Main: View {
                  message: Text("""
                      Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
                      
-                     MacsyZones helps you organize your windows efficiently on macOS. Finally it is here with you 🥳
+                     MacsyZones helps you organize your windows efficiently.
                      
                      Version: \(appVersion) (Build: \(appBuild))
                      \(licenseInfo)
