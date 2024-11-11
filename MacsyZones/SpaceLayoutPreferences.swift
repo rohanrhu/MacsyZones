@@ -32,7 +32,17 @@ class SpaceLayoutPreferences: UserData {
     }
 
     func get(screenNumber: Int, spaceNumber: Int) -> String? {
-        return spaces[ScreenSpacePair(screen: screenNumber, space: spaceNumber)]
+        let name = spaces[ScreenSpacePair(screen: screenNumber, space: spaceNumber)]
+        
+        if name == nil {
+            return nil
+        }
+        
+        if !userLayouts.layouts.keys.contains(name!) {
+            return userLayouts.layouts.values.first?.name
+        }
+        
+        return name
     }
 
     func setCurrent(layoutName: String) {
