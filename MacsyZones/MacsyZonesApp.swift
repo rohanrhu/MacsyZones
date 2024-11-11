@@ -138,6 +138,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         if response == .alertFirstButtonReturn {
             restartApp()
+        } else {
+            exit(0)
         }
     }
 
