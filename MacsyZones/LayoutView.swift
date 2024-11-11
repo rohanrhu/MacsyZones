@@ -22,14 +22,14 @@ struct SectionView: View {
             VStack {
                 Text(String(sectionWindow.number))
                     .font(.system(size: 50))
-                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor))
+                    .foregroundColor(.white)
                     .padding(50)
                     .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(0.25)))
                     .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(0.5), lineWidth: 4))
             }.frame(width: geometry.size.width, height: geometry.size.height)
-             .background(Color(NSColor.selectedTextBackgroundColor).opacity(0.1))
-             .border(Color(NSColor.selectedTextBackgroundColor).opacity(0.75), width: 5)
-             .cornerRadius(7)
+                .background(BlurredSectionBackground())
+                .border(Color(NSColor.selectedTextBackgroundColor).opacity(0.75), width: 5)
+                .cornerRadius(7)
         }
     }
 }
@@ -161,6 +161,41 @@ struct BlurredWindowBackground: NSViewRepresentable {
     }
 }
 
+struct BlurredSectionBackground: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    var blendingMode: NSVisualEffectView.BlendingMode
+    
+    init() {
+        material = .hudWindow
+        blendingMode = .behindWindow
+    }
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        
+        visualEffectView.material = .hudWindow
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        
+        visualEffectView.layer?.cornerRadius = 7
+        visualEffectView.layer?.opacity = 0.7
+        visualEffectView.layer?.borderWidth = 5
+        visualEffectView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        visualEffectView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
+        
+        return visualEffectView
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+
 class EditorSectionWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -201,7 +236,7 @@ class SectionWindow: Hashable, ObservableObject {
         window.backgroundColor = .clear
         window.title = "Macsy Section"
         window.contentView = NSHostingView(rootView: SectionView(sectionWindow: self))
-        window.hasShadow = true
+        window.hasShadow = false
         window.ignoresMouseEvents = true
         window.level = .statusBar - 2
 
