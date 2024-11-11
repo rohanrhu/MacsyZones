@@ -936,10 +936,11 @@ class SnapResizer: NSWindow {
             
             relatedSection.sectionWindow.window.setFrame(sectionFrame, display: true)
             
-            for (windowId, _) in PlacedWindows.windows {
+            for (windowId, sectionNumber) in PlacedWindows.windows {
                 let sectionWindow = relatedSection.sectionWindow
                 
-                if sectionWindow.number != PlacedWindows.windows[windowId] { continue }
+                if sectionWindow.number != sectionNumber { continue }
+                if PlacedWindows.layouts[windowId] != relatedSection.sectionWindow.layoutWindow.name { continue }
                 
                 let topLeftPosition = CGPoint(x: sectionWindow.window.frame.origin.x, y: screenSize.height - sectionWindow.window.frame.origin.y - sectionWindow.window.frame.height)
                 let element = PlacedWindows.elements[windowId]

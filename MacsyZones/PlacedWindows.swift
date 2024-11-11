@@ -15,18 +15,25 @@ import Foundation
 class PlacedWindows {
     static var windows: [UInt32: Int] = [:]
     static var elements: [UInt32: AXUIElement] = [:]
+    static var layouts: [UInt32: String] = [:]
     
-    static func place(windowId: UInt32, sectionNumber: Int, element: AXUIElement) {
+    static func place(windowId: UInt32, layoutName: String, sectionNumber: Int, element: AXUIElement) {
         windows[windowId] = sectionNumber
         elements[windowId] = element
+        layouts[windowId] = layoutName
     }
     
     static func unplace(windowId: UInt32) {
         windows.removeValue(forKey: windowId)
         elements.removeValue(forKey: windowId)
+        layouts.removeValue(forKey: windowId)
     }
     
     static func isPlaced(windowId: UInt32) -> Bool {
         return windows.keys.contains(windowId)
+    }
+    
+    static func isPlaced(layoutName: String, windowId: UInt32) -> Bool {
+        return layouts.keys.contains(windowId) && layouts[windowId] == layoutName
     }
 }

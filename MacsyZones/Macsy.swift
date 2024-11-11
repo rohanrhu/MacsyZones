@@ -338,7 +338,10 @@ func onMouseUp(event: NSEvent) {
             let topLeftPosition = CGPoint(x: sectionWindow.window.frame.origin.x, y: screenSize.height - sectionWindow.window.frame.origin.y - sectionWindow.window.frame.height)
             resizeAndMoveWindow(element: window, newPosition: topLeftPosition, newSize: sectionWindow.window.frame.size)
             
-            PlacedWindows.place(windowId: windowId, sectionNumber: toLeaveSectionWindow!.number, element: toLeaveElement!)
+            PlacedWindows.place(windowId: windowId,
+                                layoutName: userLayouts.currentLayoutName,
+                                sectionNumber: toLeaveSectionWindow!.number,
+                                element: toLeaveElement!)
             
             toLeaveElement = nil
             toLeaveSectionWindow = nil
