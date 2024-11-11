@@ -114,8 +114,13 @@ class SpaceLayoutPreferences: UserData {
                 userLayouts.hideAllSectionWindows()
                 
                 if !appSettings.selectPerDesktopLayout { return }
+                
                 if let layoutName = self.getCurrent() {
                     userLayouts.currentLayoutName = layoutName
+                    
+                    for (_, layout) in userLayouts.layouts {
+                        layout.hideAllWindows()
+                    }
                 }
             }
         )
@@ -126,8 +131,13 @@ class SpaceLayoutPreferences: UserData {
             queue: nil,
             using: { _ in
                 if !appSettings.selectPerDesktopLayout { return }
+                
                 if let layoutName = self.getCurrent() {
                     userLayouts.currentLayoutName = layoutName
+                    
+                    for (_, layout) in userLayouts.layouts {
+                        layout.hideAllWindows()
+                    }
                 }
             }
         )

@@ -149,6 +149,10 @@ class UserLayout {
         }
         
         layoutWindow.window.orderOut(nil)
+        
+        for sectionResizer in layoutWindow.sectionResizers {
+            sectionResizer.orderOut(nil)
+        }
     }
 }
 
