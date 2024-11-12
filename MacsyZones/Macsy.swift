@@ -308,6 +308,44 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
     }
 }
 
+func getAXPosition(for window: NSWindow) -> CGPoint? {
+    let windowId = CGWindowID(window.windowNumber)
+    
+    let windowList = CGWindowListCopyWindowInfo(.optionIncludingWindow, windowId) as NSArray?
+    
+    guard let windowInfoList = windowList as? [[String: AnyObject]], let windowInfo = windowInfoList.first else {
+        print("Failed to retrieve window info")
+        return nil
+    }
+    
+    if let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] {
+        guard let x = boundsDict["X"], let y = boundsDict["Y"] else {
+            print("Failed to retrieve window bounds from bounds dict")
+            return nil
+        }
+        
+        let position = CGPoint(x: x, y: y)
+        
+        return position
+    } else {
+        print("Failed to retrieve window bounds")
+    }
+    
+    return nil
+}
+
+func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScreen: NSScreen) {
+    if let position = getAXPosition(for: targetWindow) {
+        resizeAndMoveWindow(
+            element: element,
+            newPosition: position,
+            newSize: targetWindow.frame.size
+        )
+    } else {
+        print("moveWindowToMatch() failed to retrieve window AX position")
+    }
+}
+
 func resizeWindow(element: AXUIElement, newSize: CGSize) {
     var sizeValue = newSize
     let sizeAXValue = AXValueCreate(.cgSize, &sizeValue)
@@ -325,9 +363,8 @@ func onMouseUp(event: NSEvent) {
     if isEditing { return }
     if isSnapResizing { return }
     
-    let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
     
-    guard let screenSize = focusedScreen?.frame else { return }
     guard let window = toLeaveElement else { return }
     guard let windowId = getWindowID(from: window) else { return }
     
@@ -335,8 +372,7 @@ func onMouseUp(event: NSEvent) {
         if isFitting {
             OriginalWindowProperties.updateWindowSize(windowID: windowId)
             
-            let topLeftPosition = CGPoint(x: sectionWindow.window.frame.origin.x, y: screenSize.height - sectionWindow.window.frame.origin.y - sectionWindow.window.frame.height)
-            resizeAndMoveWindow(element: window, newPosition: topLeftPosition, newSize: sectionWindow.window.frame.size)
+            moveWindowToMatch(element: window, targetWindow: sectionWindow.window, targetScreen: focusedScreen)
             
             PlacedWindows.place(windowId: windowId,
                                 layoutName: userLayouts.currentLayoutName,
