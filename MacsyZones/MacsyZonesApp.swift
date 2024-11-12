@@ -129,7 +129,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func showAccessibilityPermissionPopover() {
         let alert = NSAlert()
         alert.messageText = "MacsyZones needs accessibility permissions."
-        alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility."
+        alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility. "
+                              + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
+                              + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Restart")
         alert.addButton(withTitle: "Cancel")
