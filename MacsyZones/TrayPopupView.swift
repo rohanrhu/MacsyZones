@@ -355,30 +355,32 @@ struct Main: View {
                 }.padding(.bottom, 5)
             }
 
-            if !proLock.isPro {
-                Divider()
-                
-                Button(action: {
-                    page = "unlock"
-                }) {
-                    HStack {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(.red)
-                        Text("Unlock Pro Version")
-                            .fontWeight(.bold)
-                    }
-                }.padding()
-                 .frame(maxWidth: .infinity)
-                 .background(Color.pink.opacity(0.2))
-                 .cornerRadius(7)
-                 .alert(isPresented: $showNotProDialog) {
-                     Alert(
-                         title: Text("Omg! 😊"),
-                         message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                         dismissButton: .default(Text("OK"))
-                     )
-                 }
-            }
+            #if !APPSTORE
+                if !proLock.isPro {
+                    Divider()
+                    
+                    Button(action: {
+                        page = "unlock"
+                    }) {
+                        HStack {
+                            Image(systemName: "heart.fill")
+                                .foregroundColor(.red)
+                            Text("Unlock Pro Version")
+                                .fontWeight(.bold)
+                        }
+                    }.padding()
+                     .frame(maxWidth: .infinity)
+                     .background(Color.pink.opacity(0.2))
+                     .cornerRadius(7)
+                     .alert(isPresented: $showNotProDialog) {
+                         Alert(
+                             title: Text("Omg! 😊"),
+                             message: Text("You must buy MacsyZones Pro to unlock this feature."),
+                             dismissButton: .default(Text("OK"))
+                         )
+                     }
+                }
+            #endif
             
             Divider()
 
