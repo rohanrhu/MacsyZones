@@ -11,7 +11,11 @@ Visit [https://macsyzones.com](https://macsyzones.com) for more information.
 | ![MacsyZones](media/MacsyZonesAppIcon.png) | MacsyZones is a FancyZones equivalent for macOS. MacsyZones allows you to create layouts and sections in your layouts as you want and fit your windows into sections with ease. |
 | --- | --- |
 
-![alt text](media/Demo.png)
+![alt text](media/Demo.jpg)
+
+## MacsyZones in action
+
+https://github.com/user-attachments/assets/8eb32b96-de3f-4ff8-9fae-4683332d8c3a
 
 ## Buy to support me
 
