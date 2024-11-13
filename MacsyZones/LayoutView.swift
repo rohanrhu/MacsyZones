@@ -547,8 +547,20 @@ class LayoutWindow {
             
             let width = sectionWindow.editorWindow.frame.size.width
             let height = sectionWindow.editorWindow.frame.size.height
-            let x = sectionWindow.editorWindow.frame.origin.x
-            let y = sectionWindow.editorWindow.frame.origin.y
+            
+            var x: CGFloat
+            let y: CGFloat
+            
+            if let screen = sectionWindow.editorWindow.screen {
+                let windowFrame = sectionWindow.editorWindow.frame
+                let screenFrame = screen.frame
+                
+                x = windowFrame.origin.x - screenFrame.origin.x
+                y = windowFrame.origin.y - screenFrame.origin.y
+            } else {
+                x = sectionWindow.editorWindow.frame.origin.x
+                y = sectionWindow.editorWindow.frame.origin.y
+            }
             
             sectionConfig.heightPercentage = height / screenSize.height
             sectionConfig.widthPercentage = width / screenSize.width
