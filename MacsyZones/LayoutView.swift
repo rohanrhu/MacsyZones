@@ -533,8 +533,7 @@ class LayoutWindow {
     }
     
     func onSave() {
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
-        let screenSize = focusedScreen.frame
+        let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
         
         for number in unsavedNewSectionConfigs.keys {
             guard let newSectionConfig = unsavedNewSectionConfigs[number] else { continue }
@@ -551,13 +550,20 @@ class LayoutWindow {
             var x: CGFloat
             let y: CGFloat
             
+            var screenSize: CGSize
+            
             if let screen = sectionWindow.editorWindow.screen {
                 let windowFrame = sectionWindow.editorWindow.frame
                 let screenFrame = screen.frame
+                screenSize = screenFrame.size
                 
                 x = windowFrame.origin.x - screenFrame.origin.x
                 y = windowFrame.origin.y - screenFrame.origin.y
             } else {
+                guard let focusedScreen else { continue }
+                
+                screenSize = focusedScreen.frame.size
+                
                 x = sectionWindow.editorWindow.frame.origin.x
                 y = sectionWindow.editorWindow.frame.origin.y
             }
@@ -877,6 +883,7 @@ class SnapResizer: NSWindow {
         
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
         let screenSize = focusedScreen.frame
+        let screenFrame = focusedScreen.frame
         
         let sectionConfigs = userLayouts.currentLayout.sectionConfigs
         
@@ -885,10 +892,16 @@ class SnapResizer: NSWindow {
             guard var sectionConfig = sectionConfigs[relatedSection.sectionWindow.number]
             else { continue }
             
-            let width = sectionWindow.window.frame.size.width
-            let height = sectionWindow.window.frame.size.height
-            let x = sectionWindow.window.frame.origin.x
-            let y = sectionWindow.window.frame.origin.y
+            let windowFrame = sectionWindow.window.frame
+            
+            let width = windowFrame.size.width
+            let height = windowFrame.size.height
+            
+            var x: CGFloat
+            let y: CGFloat
+            
+            x = windowFrame.origin.x - screenFrame.origin.x
+            y = windowFrame.origin.y - screenFrame.origin.y
             
             sectionConfig.heightPercentage = height / screenSize.height
             sectionConfig.widthPercentage = width / screenSize.width
