@@ -142,19 +142,17 @@ var lastShakeTime: TimeInterval = 0
 
 var justDidMouseUp = false
 
-func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
-    if isEditing { return }
-    if isSnapResizing { return }
+func getHoveredSectionWindow() -> SectionWindow? {
+    var hoveredSectionWindow: SectionWindow?
     
-    let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return nil }
     
     let mouseLocation = NSEvent.mouseLocation
-    var hoveredSectionWindow: SectionWindow?
     
     if isFitting {
         if appSettings.prioritizeCenterToSnap {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-                let screenSize = focusedScreen?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+                let screenSize = focusedScreen.frame
                 let bounds = sectionWindow.getBounds()
                 let width = bounds.widthPercentage * screenSize.width
                 let height = bounds.heightPercentage * screenSize.height
@@ -170,7 +168,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         
         if hoveredSectionWindow == nil {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-                let screenSize = focusedScreen?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+                let screenSize = focusedScreen.frame
                 let bounds = sectionWindow.getBounds()
                 let width = bounds.widthPercentage * screenSize.width
                 let height = bounds.heightPercentage * screenSize.height
@@ -183,7 +181,16 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                 }
             }
         }
-        
+    }
+    
+    return hoveredSectionWindow
+}
+
+func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
+    if isEditing { return }
+    if isSnapResizing { return }
+    
+    if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = element
         toLeaveSectionWindow = hoveredSectionWindow
     }
@@ -386,12 +393,43 @@ func resizeWindow(element: AXUIElement, newSize: CGSize) {
     }
 }
 
+func getFocusedWindowAXUIElement() -> AXUIElement? {
+    guard let frontmostApp = NSWorkspace.shared.frontmostApplication else { return nil }
+    
+    let pid = frontmostApp.processIdentifier
+    let focusedApp = AXUIElementCreateApplication(pid)
+    
+    var focusedWindow: AnyObject?
+    let windowResult = AXUIElementCopyAttributeValue(focusedApp, kAXFocusedWindowAttribute as CFString, &focusedWindow)
+    
+    guard windowResult == .success else {
+        print("Failed to get focused window!")
+        return nil
+    }
+    
+    return focusedWindow as! AXUIElement?
+}
+
 func onMouseUp(event: NSEvent) {
+    if !isFitting { return }
     if isEditing { return }
     if isSnapResizing { return }
     
-    guard let window = toLeaveElement else { return }
-    guard let windowId = getWindowID(from: window) else { return }
+    if let hoveredSectionWindow = getHoveredSectionWindow() {
+        toLeaveElement = toLeaveElement ?? getFocusedWindowAXUIElement()
+        toLeaveSectionWindow = hoveredSectionWindow
+    }
+    
+    guard let window = toLeaveElement else {
+        isFitting = false
+        userLayouts.currentLayout.layoutWindow.hide()
+        return
+    }
+    guard let windowId = getWindowID(from: window) else {
+        isFitting = false
+        userLayouts.currentLayout.layoutWindow.hide()
+        return
+    }
     
     if let sectionWindow = toLeaveSectionWindow {
         if isFitting {
