@@ -226,7 +226,7 @@ class SectionWindow: Hashable, ObservableObject {
         self.layoutWindow = layoutWindow
         self.onDelete = onDelete
         
-        let contentRect = getConfiguredContentRect(sectionConfig: sectionConfig)
+        let contentRect = sectionConfig.getRect()
 
         window = NSWindow(contentRect: contentRect,
                           styleMask: [.borderless],
@@ -279,27 +279,11 @@ class SectionWindow: Hashable, ObservableObject {
         editorWindow.orderOut(nil)
     }
     
-    func getConfiguredContentRect(sectionConfig: SectionConfig) -> NSRect {
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
-            return NSRect(x: 0, y: 0, width: 800, height: 600)
-        }
-
-        let screenFrame = focusedScreen.frame
-
-        let width = screenFrame.width * sectionConfig.widthPercentage
-        let height = screenFrame.height * sectionConfig.heightPercentage
-
-        let x = screenFrame.origin.x + (screenFrame.width * sectionConfig.xPercentage)
-        let y = screenFrame.origin.y + (screenFrame.height * sectionConfig.yPercentage)
-
-        return NSRect(x: x, y: y, width: width, height: height)
-    }
-    
     func reset(sectionConfig: SectionConfig) {
         number = sectionConfig.number!
         self.sectionConfig = sectionConfig
         
-        let contentRect = getConfiguredContentRect(sectionConfig: sectionConfig)
+        let contentRect = sectionConfig.getRect()
         window.setFrame(contentRect, display: true, animate: false)
         editorWindow.setFrame(contentRect, display: true, animate: false)
     }
@@ -842,6 +826,9 @@ class SnapResizer: NSWindow {
     
     var draggedOnce = false
     
+    var resizeDelay = 0.1
+    var resizeTask: DispatchWorkItem? = nil
+    
     init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                    styleMask: [.borderless],
@@ -882,34 +869,19 @@ class SnapResizer: NSWindow {
         }
         
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
-        let screenSize = focusedScreen.frame
-        let screenFrame = focusedScreen.frame
         
         let sectionConfigs = userLayouts.currentLayout.sectionConfigs
         
         for relatedSection in relatedSections {
             let sectionWindow = relatedSection.sectionWindow
-            guard var sectionConfig = sectionConfigs[relatedSection.sectionWindow.number]
+            guard let sectionConfig = sectionConfigs[relatedSection.sectionWindow.number]
             else { continue }
             
-            let windowFrame = sectionWindow.window.frame
+            let newSectionConfig = sectionConfig.getUpdated(for: sectionWindow.window,
+                                                            on: focusedScreen)
             
-            let width = windowFrame.size.width
-            let height = windowFrame.size.height
-            
-            var x: CGFloat
-            let y: CGFloat
-            
-            x = windowFrame.origin.x - screenFrame.origin.x
-            y = windowFrame.origin.y - screenFrame.origin.y
-            
-            sectionConfig.heightPercentage = height / screenSize.height
-            sectionConfig.widthPercentage = width / screenSize.width
-            sectionConfig.xPercentage = x / screenSize.width
-            sectionConfig.yPercentage = y / screenSize.height
-            
-            userLayouts.currentLayout.sectionConfigs[relatedSection.sectionWindow.number] = sectionConfig
-            sectionWindow.reset(sectionConfig: sectionConfig)
+            userLayouts.currentLayout.sectionConfigs[relatedSection.sectionWindow.number] = newSectionConfig
+            sectionWindow.reset(sectionConfig: newSectionConfig)
         }
         
         userLayouts.save()
@@ -921,7 +893,7 @@ class SnapResizer: NSWindow {
         draggedOnce = true
         
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
-        let screenSize = focusedScreen.frame
+        let focusedScreenNumber = NSScreen.screens.firstIndex(of: focusedScreen)
         
         resizerX += event.deltaX
         resizerY -= event.deltaY
@@ -937,42 +909,68 @@ class SnapResizer: NSWindow {
             
             switch relatedSection.direction {
             case .left:
-                let newX = resizerX - relatedSection.gapToButton + (frame.width / 2)
-                let newWidth = max(0, newX - sectionFrame.origin.x)
+                let newWidth = max(0, sectionFrame.width + event.deltaX)
                 sectionFrame.size.width = newWidth
+                break
                 
             case .right:
-                let newX = (resizerX + relatedSection.gapToButton) + (frame.width / 2)
-                let newWidth = max(0, sectionFrame.maxX - newX)
+                let newX = sectionFrame.origin.x + event.deltaX
+                let newWidth = max(0, sectionFrame.width - event.deltaX)
                 sectionFrame.origin.x = newX
                 sectionFrame.size.width = newWidth
+                break
                 
             case .top:
-                let newY = resizerY + relatedSection.gapToButton + (frame.height / 2)
-                let newHeight = max(0, sectionFrame.maxY - newY)
+                let newY = sectionFrame.origin.y - event.deltaY
+                let newHeight = max(0, sectionFrame.size.height + event.deltaY)
                 sectionFrame.origin.y = newY
                 sectionFrame.size.height = newHeight
+                break
                 
             case .bottom:
-                let newY = resizerY - relatedSection.gapToButton + (frame.height / 2)
-                let newHeight = max(0, newY - sectionFrame.origin.y)
+                let newHeight = max(0, sectionFrame.size.height - event.deltaY)
                 sectionFrame.size.height = newHeight
+                break
             }
             
-            relatedSection.sectionWindow.window.setFrame(sectionFrame, display: true)
+            relatedSection.sectionWindow.window.setFrame(sectionFrame, display: true, animate: false)
             
-            for (windowId, sectionNumber) in PlacedWindows.windows {
-                let sectionWindow = relatedSection.sectionWindow
-                
-                if sectionWindow.number != sectionNumber { continue }
-                if PlacedWindows.layouts[windowId] != relatedSection.sectionWindow.layoutWindow.name { continue }
-                
-                let topLeftPosition = CGPoint(x: sectionWindow.window.frame.origin.x, y: screenSize.height - sectionWindow.window.frame.origin.y - sectionWindow.window.frame.height)
-                let element = PlacedWindows.elements[windowId]
-                let size = sectionWindow.window.frame.size
-                
-                resizeAndMoveWindow(element: element!, newPosition: topLeftPosition, newSize: size)
+        }
+        
+        resizeTask?.cancel()
+        
+        resizeTask = DispatchWorkItem {
+            for relatedSection in self.relatedSections {
+                for (windowId, sectionNumber) in PlacedWindows.windows {
+                    guard let element = PlacedWindows.elements[windowId] else { continue }
+                    
+                    let sectionWindow = relatedSection.sectionWindow
+                    
+                    if sectionWindow.number != sectionNumber { continue }
+                    if PlacedWindows.layouts[windowId] != relatedSection.sectionWindow.layoutWindow.name { continue }
+                    
+                    guard let screenNumber = PlacedWindows.screens[windowId] else { continue }
+                    if NSScreen.screens.count <= screenNumber { continue }
+                    
+                    if focusedScreenNumber != screenNumber {
+                        let screen = NSScreen.screens[screenNumber]
+                        let sectionConfig = sectionWindow.sectionConfig.getUpdated(for: sectionWindow.window,
+                                                                                   on: focusedScreen)
+                        
+                        moveWindowToMatch(element: element,
+                                          targetWindow: sectionWindow.window,
+                                          targetScreen: screen,
+                                          sectionConfig: sectionConfig)
+                    } else {
+                        moveWindowToMatch(element: element,
+                                          targetWindow: sectionWindow.window)
+                    }
+                }
             }
+        }
+        
+        if let resizeTask {
+            DispatchQueue.main.asyncAfter(deadline: .now() + resizeDelay, execute: resizeTask)
         }
     }
 }

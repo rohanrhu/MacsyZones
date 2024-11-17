@@ -16,17 +16,23 @@ class PlacedWindows {
     static var windows: [UInt32: Int] = [:]
     static var elements: [UInt32: AXUIElement] = [:]
     static var layouts: [UInt32: String] = [:]
+    static var workspaces: [UInt32: Int] = [:]
+    static var screens: [UInt32: Int] = [:]
     
-    static func place(windowId: UInt32, layoutName: String, sectionNumber: Int, element: AXUIElement) {
+    static func place(windowId: UInt32, screenNumber: Int, workspaceNumber: Int, layoutName: String, sectionNumber: Int, element: AXUIElement) {
         windows[windowId] = sectionNumber
         elements[windowId] = element
         layouts[windowId] = layoutName
+        screens[windowId] = screenNumber
+        workspaces[windowId] = workspaceNumber
     }
     
     static func unplace(windowId: UInt32) {
         windows.removeValue(forKey: windowId)
         elements.removeValue(forKey: windowId)
         layouts.removeValue(forKey: windowId)
+        screens.removeValue(forKey: windowId)
+        workspaces.removeValue(forKey: windowId)
     }
     
     static func isPlaced(windowId: UInt32) -> Bool {

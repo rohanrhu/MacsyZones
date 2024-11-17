@@ -300,6 +300,96 @@ struct SectionConfig: Codable {
     static var defaultSection: SectionConfig {
         .init(widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.25, yPercentage: 0.25)
     }
+    
+    func getRect(on targetScreen: NSScreen? = nil) -> NSRect {
+        var screen: NSScreen
+        
+        if let targetScreen {
+            screen = targetScreen
+        } else {
+            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+                return NSRect(x: 0, y: 0, width: 800, height: 600)
+            }
+            
+            screen = focusedScreen
+        }
+
+        let width = screen.frame.width * widthPercentage
+        let height = screen.frame.height * heightPercentage
+
+        let x = screen.frame.origin.x + (screen.frame.width * xPercentage)
+        let y = screen.frame.origin.y + (screen.frame.height * yPercentage)
+
+        return NSRect(x: x, y: y, width: width, height: height)
+    }
+    
+    func getAXRect(on targetScreen: NSScreen? = nil) -> NSRect {
+        var screen: NSScreen
+        
+        if let targetScreen {
+            screen = targetScreen
+        } else {
+            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+                return NSRect(x: 0, y: 0, width: 800, height: 600)
+            }
+            
+            screen = focusedScreen
+        }
+
+        let width = screen.frame.width * widthPercentage
+        let height = screen.frame.height * heightPercentage
+
+        let x = screen.frame.origin.x + (screen.frame.width * xPercentage)
+        
+        let relY = (screen.frame.height - (screen.frame.height * yPercentage)) - height
+        let y = screen.axY + relY
+
+        return NSRect(x: x,
+                      y: y,
+                      width: width,
+                      height: height)
+    }
+    
+    func getUpdated(for targetWindow: NSWindow, on targetScreen: NSScreen) -> SectionConfig {
+        var sectionConfig = self
+        
+        let width = targetWindow.frame.size.width
+        let height = targetWindow.frame.size.height
+        
+        var x: CGFloat
+        let y: CGFloat
+        
+        x = targetWindow.frame.origin.x - targetScreen.frame.origin.x
+        y = targetWindow.frame.origin.y - targetScreen.frame.origin.y
+        
+        sectionConfig.heightPercentage = height / targetScreen.frame.size.height
+        sectionConfig.widthPercentage = width / targetScreen.frame.size.width
+        sectionConfig.xPercentage = x / targetScreen.frame.size.width
+        sectionConfig.yPercentage = y / targetScreen.frame.size.height
+        
+        return sectionConfig
+    }
+    
+    static func create(number: Int, for targetWindow: NSWindow, on targetScreen: NSScreen) -> SectionConfig {
+        let width = targetWindow.frame.size.width
+        let height = targetWindow.frame.size.height
+        
+        let x: CGFloat = targetWindow.frame.origin.x - targetScreen.frame.origin.x
+        let y: CGFloat = targetWindow.frame.origin.y - targetScreen.frame.origin.y
+        
+        let heightPercentage = height / targetScreen.frame.size.height
+        let widthPercentage = width / targetScreen.frame.size.width
+        let xPercentage = x / targetScreen.frame.size.width
+        let yPercentage = y / targetScreen.frame.size.height
+        
+        let sectionConfig = SectionConfig(number: number,
+                                          widthPercentage: widthPercentage,
+                                          heightPercentage: heightPercentage,
+                                          xPercentage: xPercentage,
+                                          yPercentage: yPercentage)
+        
+        return sectionConfig
+    }
 }
 
 class SectionBounds {

@@ -285,10 +285,27 @@ func getWindowTitle(from axElement: AXUIElement?) -> String? {
 }
 
 func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize) {
-    var positionValue = newPosition
-    let positionAXValue = AXValueCreate(.cgPoint, &positionValue)
+    var sizeValue: CGSize
     
-    if let positionAXValue = positionAXValue {
+    /*
+     * Fix macOS bug!
+     * --------------
+     * macOS has a bug, when you move & resize a window downward, the window is not being resized correctly.
+     * This code fixes this buggy behavior of macOS 😇
+     */
+    if NSScreen.screens.count > 1 {
+        sizeValue = CGSize(width: newSize.width, height: newSize.height - 10)
+        if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
+            let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
+            
+            if result != .success {
+                print("Failed to set window size, error code: \(result.rawValue)")
+            }
+        }
+    }
+    
+    var positionValue = newPosition
+    if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
         let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
         
         if result != .success {
@@ -296,10 +313,8 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
         }
     }
     
-    var sizeValue = newSize
-    let sizeAXValue = AXValueCreate(.cgSize, &sizeValue)
-    
-    if let sizeAXValue = sizeAXValue {
+    sizeValue = newSize
+    if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
         let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
         
         if result != .success {
@@ -334,16 +349,28 @@ func getAXPosition(for window: NSWindow) -> CGPoint? {
     return nil
 }
 
-func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScreen: NSScreen) {
-    if let position = getAXPosition(for: targetWindow) {
-        resizeAndMoveWindow(
-            element: element,
-            newPosition: position,
-            newSize: targetWindow.frame.size
-        )
-    } else {
-        print("moveWindowToMatch() failed to retrieve window AX position")
+extension NSScreen {
+    var axY: CGFloat {
+        let toppestY = NSScreen.screens.first!.frame.origin.y + NSScreen.screens.first!.frame.height
+        return toppestY - (frame.origin.y + frame.height)
     }
+}
+
+func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScreen: NSScreen? = nil, sectionConfig: SectionConfig? = nil) {
+    guard let position = getAXPosition(for: targetWindow) else { return }
+    
+    var newPosition: CGPoint = position
+    var newSize: CGSize = targetWindow.frame.size
+    
+    if let targetScreen, let sectionConfig {
+        let rect = sectionConfig.getAXRect(on: targetScreen)
+        newPosition = rect.origin
+        newSize = rect.size
+    }
+    
+    resizeAndMoveWindow(element: element,
+                        newPosition: newPosition,
+                        newSize: newSize)
 }
 
 func resizeWindow(element: AXUIElement, newSize: CGSize) {
@@ -363,8 +390,6 @@ func onMouseUp(event: NSEvent) {
     if isEditing { return }
     if isSnapResizing { return }
     
-    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
-    
     guard let window = toLeaveElement else { return }
     guard let windowId = getWindowID(from: window) else { return }
     
@@ -372,9 +397,13 @@ func onMouseUp(event: NSEvent) {
         if isFitting {
             OriginalWindowProperties.updateWindowSize(windowID: windowId)
             
-            moveWindowToMatch(element: window, targetWindow: sectionWindow.window, targetScreen: focusedScreen)
+            moveWindowToMatch(element: window, targetWindow: sectionWindow.window)
+            
+            guard let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else { return }
             
             PlacedWindows.place(windowId: windowId,
+                                screenNumber: screenNumber,
+                                workspaceNumber: workspaceNumber,
                                 layoutName: userLayouts.currentLayoutName,
                                 sectionNumber: toLeaveSectionWindow!.number,
                                 element: toLeaveElement!)
