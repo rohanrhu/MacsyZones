@@ -169,7 +169,7 @@ struct QuickSnapperView: View {
                             .font(.system(size: 12, weight: .medium))
                     } icon: {
                         Image(systemName: "rectangle.split.3x3")
-                            .foregroundColor(.black)
+                            .renderingMode(.template).foregroundColor(.primary)
                     }
                     
                     Label {
@@ -177,7 +177,7 @@ struct QuickSnapperView: View {
                             .font(.system(size: 12, weight: .medium))
                     } icon: {
                         Image(systemName: "window.vertical.closed")
-                            .foregroundColor(.black)
+                            .renderingMode(.template).foregroundColor(.primary)
                     }
                     
                     Label {
@@ -185,7 +185,7 @@ struct QuickSnapperView: View {
                             .font(.system(size: 12, weight: .medium))
                     } icon: {
                         Image(systemName: "square.grid.3x3")
-                            .foregroundColor(.black)
+                            .renderingMode(.template).foregroundColor(.primary)
                     }
                     
                     Label {
@@ -193,7 +193,7 @@ struct QuickSnapperView: View {
                             .font(.system(size: 12, weight: .medium))
                     } icon: {
                         Image(systemName: "arrow.uturn.backward")
-                            .foregroundColor(.black)
+                            .renderingMode(.template).foregroundColor(.primary)
                     }
                 }
                 .padding(.vertical, 5).padding(.top, 10)
@@ -216,7 +216,6 @@ struct QuickSnapperView: View {
                                         .frame(width: 24, height: 24)
                                         .padding(.trailing, 8)
                                     Text(window.name)
-                                        .foregroundColor(.black)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .id(index)
