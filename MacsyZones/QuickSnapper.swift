@@ -416,7 +416,9 @@ class QuickSnapper {
             quickSnapper.loadVisibleWindows()
         }
         
-        if let layoutName = spaceLayoutPreferences.getCurrent() {
+        if appSettings.selectPerDesktopLayout,
+           let layoutName = spaceLayoutPreferences.getCurrent()
+        {
             userLayouts.currentLayoutName = layoutName
         }
         
