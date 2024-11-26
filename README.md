@@ -15,7 +15,7 @@ Visit [https://macsyzones.com](https://macsyzones.com) for more information.
 
 ## MacsyZones in action
 
-https://github.com/user-attachments/assets/8eb32b96-de3f-4ff8-9fae-4683332d8c3a
+https://github.com/user-attachments/assets/5b26c5cf-90f3-4ace-b324-b2f6404c3ea8
 
 ## Buy to support me
 
