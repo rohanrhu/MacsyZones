@@ -154,6 +154,10 @@ class UserLayout {
             sectionResizer.orderOut(nil)
         }
     }
+    
+    func show(showSnapresizers: Bool = false) {
+        layoutWindow.show(showSnapResizers: showSnapresizers)
+    }
 }
 
 class UserLayouts: UserData, ObservableObject {

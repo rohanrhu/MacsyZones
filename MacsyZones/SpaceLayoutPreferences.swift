@@ -122,6 +122,7 @@ class SpaceLayoutPreferences: UserData {
                 stopEditing()
                 isFitting = false
                 userLayouts.hideAllSectionWindows()
+                if #available(macOS 12.0, *) { quickSnapper.close() }
                 
                 if !appSettings.selectPerDesktopLayout { return }
                 
@@ -140,6 +141,7 @@ class SpaceLayoutPreferences: UserData {
             object: nil,
             queue: nil,
             using: { _ in
+                if #available(macOS 12.0, *) { quickSnapper.close() }
                 if !appSettings.selectPerDesktopLayout { return }
                 
                 if let layoutName = self.getCurrent() {

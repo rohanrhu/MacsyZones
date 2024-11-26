@@ -15,8 +15,9 @@ import CoreGraphics
 
 class OriginalWindowProperties {
     static var windowSizeMap: [UInt32: CGSize] = [:]
+    static var windowPositionMap: [UInt32: CGPoint] = [:]
     
-    static func updateWindowSize(windowID: UInt32) {
+    static func update(windowID: UInt32) {
         let windowList = CGWindowListCopyWindowInfo(.optionIncludingWindow, windowID) as NSArray?
         
         guard let windowInfoList = windowList as? [[String: AnyObject]], let windowInfo = windowInfoList.first else {
@@ -28,8 +29,12 @@ class OriginalWindowProperties {
             let width = boundsDict["Width"] ?? 0
             let height = boundsDict["Height"] ?? 0
             let size = CGSize(width: width, height: height)
-            
             windowSizeMap[windowID] = size
+            
+            let x = boundsDict["X"] ?? 0
+            let y = boundsDict["Y"] ?? 0
+            let position = CGPoint(x: x, y: y)
+            windowPositionMap[windowID] = position
         } else {
             print("Failed to retrieve window bounds")
         }
@@ -37,5 +42,9 @@ class OriginalWindowProperties {
     
     static func getWindowSize(for windowID: UInt32) -> CGSize? {
         return windowSizeMap[windowID]
+    }
+    
+    static func getWindowPosition(for windowID: UInt32) -> CGPoint? {
+        return windowPositionMap[windowID]
     }
 }

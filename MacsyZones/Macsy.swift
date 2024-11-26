@@ -22,6 +22,7 @@ var toLeaveSectionWindow: SectionWindow?
 
 var isFitting = false
 var isEditing = false
+var isQuickSnapping = false
 
 var isSnapResizing = false
 
@@ -189,6 +190,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
     if isEditing { return }
     if isSnapResizing { return }
+    if isQuickSnapping { return }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = element
@@ -414,6 +416,7 @@ func onMouseUp(event: NSEvent) {
     if !isFitting { return }
     if isEditing { return }
     if isSnapResizing { return }
+    if isQuickSnapping { return }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = toLeaveElement ?? getFocusedWindowAXUIElement()
@@ -433,7 +436,7 @@ func onMouseUp(event: NSEvent) {
     
     if let sectionWindow = toLeaveSectionWindow {
         if isFitting {
-            OriginalWindowProperties.updateWindowSize(windowID: windowId)
+            OriginalWindowProperties.update(windowID: windowId)
             
             moveWindowToMatch(element: window, targetWindow: sectionWindow.window)
             

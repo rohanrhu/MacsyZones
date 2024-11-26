@@ -24,6 +24,9 @@ let macsyReady = MacsyReady()
 
 let macsyProLock = ProLock()
 
+@available(macOS 12.0, *)
+let quickSnapper = QuickSnapper()
+
 @main
 struct MacsyZonesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -72,10 +75,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         spaceLayoutPreferences.startObserving()
         monitorModifierKey()
+        if #available(macOS 12, *) {
+            monitorQuickSnapShortcut()
+        }
         
         macsyReady.isReady = true
     }
-
+    
     func createTrayIcon() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -108,6 +114,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showPopover(sender: NSStatusBarButton) {
+        if #available (macOS 12.0, *) {
+            quickSnapper.close()
+        }
         popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
     }
 
@@ -186,7 +195,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
             
-            if isEditing {
+            if isEditing || isQuickSnapping {
                 return
             }
             
@@ -235,6 +244,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
+        }
+    }
+    
+    @available(macOS 12.0, *)
+    private func monitorQuickSnapShortcut() {
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 {
+                quickSnapper.close()
+                return
+            }
+            
+            let quickSnapShortcut = appSettings.quickSnapShortcut.split(separator: "+")
+            let requiredModifiers = Array(quickSnapShortcut.dropLast())
+            let requiredKey = quickSnapShortcut.last
+            
+            if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
+                quickSnapper.toggle()
+                return
+            }
         }
     }
     

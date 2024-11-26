@@ -24,6 +24,7 @@ struct AppSettingsData: Codable {
     var shakeAccelerationThreshold: CGFloat
     var snapResize: Bool
     var snapResizeThreshold: CGFloat
+    var quickSnapShortcut: String
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -37,6 +38,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var shakeAccelerationThreshold: CGFloat = 55000.0
     @Published var snapResize: Bool = true
     @Published var snapResizeThreshold: CGFloat = 33.0
+    @Published var quickSnapShortcut: String = "Control+Shift+S"
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -60,6 +62,7 @@ class AppSettings: UserData, ObservableObject {
             self.shakeAccelerationThreshold = settings.shakeAccelerationThreshold
             self.snapResize = settings.snapResize
             self.snapResizeThreshold = settings.snapResizeThreshold
+            self.quickSnapShortcut = settings.quickSnapShortcut
         } catch {
             print("Error parsing settings JSON: \(error)")
         }
@@ -77,7 +80,8 @@ class AppSettings: UserData, ObservableObject {
                 shakeToSnap: shakeToSnap,
                 shakeAccelerationThreshold: shakeAccelerationThreshold,
                 snapResize: snapResize,
-                snapResizeThreshold: snapResizeThreshold
+                snapResizeThreshold: snapResizeThreshold,
+                quickSnapShortcut: quickSnapShortcut
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -92,6 +96,140 @@ class AppSettings: UserData, ObservableObject {
 }
 
 let appSettings = AppSettings()
+
+import SwiftUI
+
+struct ShortcutInputView: View {
+    @Binding var shortcut: String
+    @State private var isListening = false
+    @State private var flagsMonitor: Any?
+    @State private var keyMonitor: Any?
+    @State private var currentModifiers: NSEvent.ModifierFlags = []
+
+    var body: some View {
+        VStack {
+            Button(action: {
+                toggleListening()
+            }) {
+                Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : shortcut)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .cornerRadius(7)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .frame(height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(isListening ? Color(NSColor.selectedTextBackgroundColor) : Color.gray, lineWidth: 1)
+            )
+        }
+        .onDisappear {
+            stopListening()
+        }
+    }
+    
+    private func toggleListening() {
+        isListening.toggle()
+        if isListening {
+            startListening()
+        } else {
+            stopListening()
+        }
+    }
+
+    private func startListening() {
+        isListening = true
+        
+        flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            self.currentModifiers = event.modifierFlags
+            return event
+        }
+        
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { // Esc
+                self.stopListening()
+                return nil
+            }
+            
+            let keyString: String
+            switch event.keyCode {
+            case 48: keyString = "Tab"
+            case 36: keyString = "Return"
+            case 51: keyString = "Delete"
+            case 123: keyString = "Left"
+            case 124: keyString = "Right"
+            case 125: keyString = "Down"
+            case 126: keyString = "Up"
+            case 49: keyString = "Space"
+            default:
+                keyString = event.charactersIgnoringModifiers?.uppercased() ?? ""
+            }
+            
+            var components = [String]()
+            
+            if self.currentModifiers.contains(.command) {
+                components.append("Command")
+            }
+            if self.currentModifiers.contains(.option) {
+                components.append("Option")
+            }
+            if self.currentModifiers.contains(.control) {
+                components.append("Control")
+            }
+            if self.currentModifiers.contains(.shift) {
+                components.append("Shift")
+            }
+            
+            if !keyString.isEmpty {
+                components.append(keyString)
+            }
+            
+            self.shortcut = components.joined(separator: "+")
+            self.stopListening()
+            return nil
+        }
+    }
+
+    private func stopListening() {
+        if let monitor = flagsMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        flagsMonitor = nil
+        keyMonitor = nil
+        currentModifiers = []
+        isListening = false
+    }
+
+    private func createShortcutString(from event: NSEvent) -> String {
+        var components = [String]()
+
+        if event.modifierFlags.contains(.command) {
+            components.append("Command")
+        }
+        if event.modifierFlags.contains(.option) {
+            components.append("Option")
+        }
+        if event.modifierFlags.contains(.control) {
+            components.append("Control")
+        }
+        if event.modifierFlags.contains(.shift) {
+            components.append("Shift")
+        }
+
+        if let characters = event.charactersIgnoringModifiers {
+            components.append(characters.uppercased())
+        }
+
+        return components.joined(separator: "+")
+    }
+}
 
 struct Main: View {
     @State var proLock: ProLock
@@ -144,7 +282,7 @@ struct Main: View {
             }
             .padding(.bottom, 10)
 
-            Text("Layouts:").font(.subheadline)
+            Text("Layouts").font(.subheadline)
             
             if #available(macOS 14.0, *) {
                 Picker("Select Layout", selection: $layouts.currentLayoutName) {
@@ -229,7 +367,7 @@ struct Main: View {
 
             Divider()
 
-            Text("Modifier Key:")
+            Text("Modifier Key")
                 .font(.subheadline)
                 .padding(.top, 5)
             Picker("Modifier Key", selection: $settings.modifierKey) {
@@ -245,7 +383,7 @@ struct Main: View {
                 appSettings.save()
             }
             
-            Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
+            Text("Long Press Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
                 .font(.subheadline)
             Slider(value: Binding(
                 get: { Double(settings.modifierKeyDelay) },
@@ -259,7 +397,16 @@ struct Main: View {
             
             Divider()
             
-            Text("Options:").font(.subheadline).padding(.top, 5)
+            Text("Quick Snap Shortcut")
+                .font(.subheadline)
+                .padding(.top, 5).padding(.bottom, 5)
+            ShortcutInputView(shortcut: $settings.quickSnapShortcut).onChange(of: settings.quickSnapShortcut) { _ in
+                appSettings.save()
+            }.padding(.bottom, 5)
+
+            Divider()
+            
+            Text("Options").font(.subheadline).padding(.top, 5)
             
             HStack {
                 Toggle("Enable snap resizing", isOn: $settings.snapResize)
