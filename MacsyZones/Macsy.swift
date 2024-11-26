@@ -23,8 +23,9 @@ var toLeaveSectionWindow: SectionWindow?
 var isFitting = false
 var isEditing = false
 var isQuickSnapping = false
-
 var isSnapResizing = false
+
+var isMovingAWindow = false
 
 let spaceLayoutPreferences = SpaceLayoutPreferences()
 
@@ -191,6 +192,10 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     if isEditing { return }
     if isSnapResizing { return }
     if isQuickSnapping { return }
+    
+    if NSEvent.pressedMouseButtons & 1 != 0 {
+        isMovingAWindow = true
+    }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = element
@@ -413,6 +418,8 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
 }
 
 func onMouseUp(event: NSEvent) {
+    isMovingAWindow = false
+    
     if !isFitting { return }
     if isEditing { return }
     if isSnapResizing { return }

@@ -25,6 +25,7 @@ struct AppSettingsData: Codable {
     var snapResize: Bool
     var snapResizeThreshold: CGFloat
     var quickSnapShortcut: String
+    var snapWithRightClick: Bool
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -39,6 +40,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var snapResize: Bool = true
     @Published var snapResizeThreshold: CGFloat = 33.0
     @Published var quickSnapShortcut: String = "Control+Shift+S"
+    @Published var snapWithRightClick: Bool = true
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -63,6 +65,7 @@ class AppSettings: UserData, ObservableObject {
             self.snapResize = settings.snapResize
             self.snapResizeThreshold = settings.snapResizeThreshold
             self.quickSnapShortcut = settings.quickSnapShortcut
+            self.snapWithRightClick = settings.snapWithRightClick
         } catch {
             print("Error parsing settings JSON: \(error)")
         }
@@ -81,7 +84,8 @@ class AppSettings: UserData, ObservableObject {
                 shakeAccelerationThreshold: shakeAccelerationThreshold,
                 snapResize: snapResize,
                 snapResizeThreshold: snapResizeThreshold,
-                quickSnapShortcut: quickSnapShortcut
+                quickSnapShortcut: quickSnapShortcut,
+                snapWithRightClick: snapWithRightClick
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -384,7 +388,7 @@ struct Main: View {
             }
             
             Text("Long Press Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
-                .font(.subheadline)
+                .font(.subheadline).padding(.bottom, 2)
             Slider(value: Binding(
                 get: { Double(settings.modifierKeyDelay) },
                 set: { settings.modifierKeyDelay = Int($0) }
@@ -394,6 +398,11 @@ struct Main: View {
             .onChange(of: settings.modifierKeyDelay) { _ in
                 appSettings.save()
             }
+            
+            Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
+            .onChange(of: settings.snapWithRightClick) { _ in
+                appSettings.save()
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 5)
             
             Divider()
             

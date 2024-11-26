@@ -75,6 +75,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         spaceLayoutPreferences.startObserving()
         monitorModifierKey()
+        monitorRightClick()
         if #available(macOS 12, *) {
             monitorQuickSnapShortcut()
         }
@@ -272,6 +273,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
                 quickSnapper.toggle()
                 return
+            }
+        }
+    }
+    
+    private func monitorRightClick() {
+        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { event in
+            if event.buttonNumber != 1 { return }
+            if !appSettings.snapWithRightClick { return }
+            if isEditing { return }
+            if isQuickSnapping { return }
+            if isSnapResizing { return }
+            if !isMovingAWindow { return }
+            
+            if !isFitting {
+                if appSettings.selectPerDesktopLayout,
+                   let layoutName = spaceLayoutPreferences.getCurrent()
+                {
+                    userLayouts.currentLayoutName = layoutName
+                }
+                
+                userLayouts.currentLayout.layoutWindow.show()
+                isFitting = true
+            } else {
+                userLayouts.currentLayout.layoutWindow.hide()
+                isFitting = false
             }
         }
     }
