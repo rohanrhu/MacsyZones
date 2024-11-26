@@ -290,6 +290,8 @@ struct QuickSnapperView: View {
                     guard let originalSize = OriginalWindowProperties.getWindowSize(for: windowId) else { return }
                     guard let originalPosition = OriginalWindowProperties.getWindowPosition(for: windowId) else { return }
                     
+                    PlacedWindows.unplace(windowId: windowId)
+                    
                     resizeAndMoveWindow(element: element,
                                         newPosition: originalPosition,
                                         newSize: originalSize)
