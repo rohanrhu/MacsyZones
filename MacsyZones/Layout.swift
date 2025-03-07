@@ -47,6 +47,8 @@ class EditorSectionView: NSView {
     }
     
     private let label = NSTextField(labelWithString: "")
+    private let sizeLabel = NSTextField(labelWithString: "")
+
     private let circleView = NSView()
     private let deleteButton = NSButton()
 
@@ -89,6 +91,15 @@ class EditorSectionView: NSView {
         label.isBezeled = false
         label.backgroundColor = .clear
         addSubview(label)
+        
+        sizeLabel.font = NSFont.systemFont(ofSize: 20)
+        sizeLabel.textColor = .white
+        sizeLabel.alignment = .center
+        sizeLabel.isEditable = false
+        sizeLabel.isSelectable = false
+        sizeLabel.isBezeled = false
+        sizeLabel.backgroundColor = .clear
+        addSubview(sizeLabel)
 
         circleView.wantsLayer = true
         circleView.layer = CALayer()
@@ -113,6 +124,7 @@ class EditorSectionView: NSView {
         addSubview(deleteButton)
         
         label.translatesAutoresizingMaskIntoConstraints = false
+        sizeLabel.translatesAutoresizingMaskIntoConstraints = false
         circleView.translatesAutoresizingMaskIntoConstraints = false
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
 
@@ -124,6 +136,9 @@ class EditorSectionView: NSView {
             
             label.centerXAnchor.constraint(equalTo: centerXAnchor),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            sizeLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 110),
             
             deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
             deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
@@ -136,6 +151,11 @@ class EditorSectionView: NSView {
         
         let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
         CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
+    }
+    
+    override func layout() {
+        super.layout()
+        sizeLabel.stringValue = "\(Int(bounds.width))x\(Int(bounds.height))"
     }
     
     @objc private func deleteSection() {
