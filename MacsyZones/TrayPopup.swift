@@ -15,6 +15,7 @@ import ServiceManagement
 
 struct AppSettingsData: Codable {
     var modifierKey: String
+    var snapKey: String
     var modifierKeyDelay: Int
     var fallbackToPreviousSize: Bool
     var onlyFallbackToPreviousSizeWithUserEvent: Bool
@@ -30,6 +31,7 @@ struct AppSettingsData: Codable {
 
 class AppSettings: UserData, ObservableObject {
     @Published var modifierKey: String = "Control"
+    @Published var snapKey: String = "Shift"
     @Published var modifierKeyDelay: Int = 500
     @Published var fallbackToPreviousSize: Bool = true
     @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
@@ -55,6 +57,7 @@ class AppSettings: UserData, ObservableObject {
             let settings = try JSONDecoder().decode(AppSettingsData.self, from: jsonData)
             
             self.modifierKey = settings.modifierKey
+            self.snapKey = settings.snapKey
             self.modifierKeyDelay = settings.modifierKeyDelay
             self.fallbackToPreviousSize = settings.fallbackToPreviousSize
             self.onlyFallbackToPreviousSizeWithUserEvent = settings.onlyFallbackToPreviousSizeWithUserEvent
@@ -75,6 +78,7 @@ class AppSettings: UserData, ObservableObject {
         do {
             let settings = AppSettingsData(
                 modifierKey: modifierKey,
+                snapKey: snapKey,
                 modifierKeyDelay: modifierKeyDelay,
                 fallbackToPreviousSize: fallbackToPreviousSize,
                 onlyFallbackToPreviousSizeWithUserEvent: onlyFallbackToPreviousSizeWithUserEvent,
@@ -247,6 +251,22 @@ struct Main: View {
     @State var showNotProDialog: Bool = false
     @State var showAboutDialog: Bool = false
     
+    @State var showDialog: Bool = false
+    @State var showLayoutHelpDialog: Bool = false
+    @State var showModifierKeyHelpDialog: Bool = false
+    @State var showSnapKeyHelpDialog: Bool = false
+    @State var showQuickSnapperHelpDialog: Bool = false
+    @State var showSnapResizeHelpDialog: Bool = false
+    
+    func resetDialogs() {
+        showDialog = false
+        showLayoutHelpDialog = false
+        showModifierKeyHelpDialog = false
+        showSnapKeyHelpDialog = false
+        showQuickSnapperHelpDialog = false
+        showSnapResizeHelpDialog = false
+    }
+    
     @State private var startAtLogin = false
     
     func toggleRunAtStartup() {
@@ -276,6 +296,8 @@ struct Main: View {
                 }
                 
                 Button(action: {
+                    resetDialogs()
+                    showDialog = true
                     showAboutDialog = true
                 }) {
                     Image(systemName: "info.circle")
@@ -286,7 +308,20 @@ struct Main: View {
             }
             .padding(.bottom, 10)
 
-            Text("Layouts").font(.subheadline)
+            HStack(alignment: .center, spacing: 5) {
+                Text("Layouts").font(.subheadline)
+                
+                Button(action: {
+                    resetDialogs()
+                    showDialog = true
+                    showLayoutHelpDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.gray)
+                        .imageScale(.small)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
             
             if #available(macOS 14.0, *) {
                 Picker("Select Layout", selection: $layouts.currentLayoutName) {
@@ -371,9 +406,23 @@ struct Main: View {
 
             Divider()
 
-            Text("Modifier Key")
-                .font(.subheadline)
-                .padding(.top, 5)
+            HStack(alignment: .center, spacing: 5) {
+                Text("Modifier Key").font(.subheadline)
+                
+                Button(action: {
+                    resetDialogs()
+                    showDialog = true
+                    showModifierKeyHelpDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.gray)
+                        .imageScale(.small)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
+            .font(.subheadline)
+            .padding(.top, 5)
+            
             Picker("Modifier Key", selection: $settings.modifierKey) {
                 Text("None").tag("None")
                 Text("Command").tag("Command")
@@ -399,6 +448,39 @@ struct Main: View {
                 appSettings.save()
             }
             
+            Divider()
+            
+            HStack(alignment: .center, spacing: 5) {
+                Text("Snap Key").font(.subheadline)
+                
+                Button(action: {
+                    resetDialogs()
+                    showDialog = true
+                    showSnapKeyHelpDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.gray)
+                        .imageScale(.small)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
+            .font(.subheadline)
+            .padding(.top, 5)
+            
+            Picker("Snap Key", selection: $settings.snapKey) {
+                Text("None").tag("None")
+                Text("Shift").tag("Shift")
+                Text("Command").tag("Command")
+                Text("Option").tag("Option")
+                Text("Control").tag("Control")
+            }
+            .labelsHidden()
+            .pickerStyle(MenuPickerStyle())
+            .padding(.bottom, 5)
+            .onChange(of: settings.snapKey) { _ in
+                appSettings.save()
+            }
+            
             Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
             .onChange(of: settings.snapWithRightClick) { _ in
                 appSettings.save()
@@ -406,9 +488,23 @@ struct Main: View {
             
             Divider()
             
-            Text("Quick Snap Shortcut")
+            HStack(alignment: .center, spacing: 5) {
+                Text("Quick Snapper Shortcut").font(.subheadline)
+                
+                Button(action: {
+                    resetDialogs()
+                    showDialog = true
+                    showQuickSnapperHelpDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.gray)
+                        .imageScale(.small)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+            }
                 .font(.subheadline)
                 .padding(.top, 5).padding(.bottom, 5)
+            
             ShortcutInputView(shortcut: $settings.quickSnapShortcut).onChange(of: settings.quickSnapShortcut) { _ in
                 appSettings.save()
             }.padding(.bottom, 5)
@@ -422,6 +518,18 @@ struct Main: View {
                 .onChange(of: settings.snapResize) { _ in
                     appSettings.save()
                 }
+                
+                Button(action: {
+                    resetDialogs()
+                    showDialog = true
+                    showSnapResizeHelpDialog = true
+                }) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.gray)
+                        .imageScale(.small)
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                
                 Spacer()
             }.padding(.bottom, 5)
             
@@ -498,7 +606,29 @@ struct Main: View {
                 .padding(.bottom, 10)
             }
             
-            if #available(macOS 13.0, *) {
+            if #available(macOS 14.0, *) {
+                HStack {
+                    Toggle("Start at login", isOn: $startAtLogin)
+                        .onChange(of: startAtLogin) { oldValue, newValue in
+                            if oldValue != newValue {
+                                do {
+                                    if startAtLogin {
+                                        try SMAppService.mainApp.register()
+                                    } else {
+                                        try SMAppService.mainApp.unregister()
+                                    }
+                                } catch {
+                                    print("Failed to toggle run at startup: \(error)")
+                                    startAtLogin = false
+                                }
+                            }
+                        }
+                        .onAppear {
+                            startAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    Spacer()
+                }.padding(.bottom, 5)
+            } else if #available(macOS 13.0, *) {
                 HStack {
                     Toggle("Start at login", isOn: $startAtLogin)
                         .onChange(of: startAtLogin) { value in
@@ -545,26 +675,102 @@ struct Main: View {
             }
         }.padding()
          .frame(width: 240)
-         .alert(isPresented: $showAboutDialog) {
-             let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
-             
-             return Alert(
-                 title: Text("About MacsyZones"),
-                 message: Text("""
-                     Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
-                     
-                     MacsyZones helps you organize your windows efficiently.
-                     
-                     Version: \(appVersion) (Build: \(appBuild))
-                     \(licenseInfo)
-                 """),
-                 primaryButton: .default(Text("Visit Website")) {
-                     if let url = URL(string: "https://macsyzones.com") {
-                         NSWorkspace.shared.open(url)
-                     }
-                 },
-                 secondaryButton: .cancel(Text("OK"))
-             )
+         .alert(isPresented: $showDialog) {
+             if showLayoutHelpDialog {
+                 return Alert(
+                    title: Text("Layouts"),
+                    message: Text("""
+                    You can add, remove, rename layouts and select a layout for your current (screen, workspace) pair.
+                
+                    MacsyZones will remember the layout you selected for each (screen, workspace) pair.
+                
+                    Important: Please do NOT place your zones on multiple screens while you are editing a layout. It is an undefined behavior for MacsyZones so far.
+                
+                    Instead, you can create many layouts for each screen (or workspace) and switch between them easily; MacsyZones will remember the layout you selected for each (screen, workspace) pair.
+                
+                    Enjoy! 🥳
+                """),
+                    dismissButton: .default(Text("OK"))
+                 )
+             } else if showModifierKeyHelpDialog {
+                 return Alert(
+                    title: Text("Modifier Key"),
+                    message: Text("""
+                        Modifier key is mainly for performing snap resize but you can also use it to snap your windowst to your zones.
+                    
+                        Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
+                    
+                        You can hold the modifier key and perform snap resizing with your mouse or trackpad.
+                        
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                 )
+             } else if showSnapKeyHelpDialog {
+                 return Alert(
+                    title: Text("Snap Key"),
+                    message: Text("""
+                        Snap key is for snapping your windows to your zones.
+                    
+                        You can hold the snap key and drag your windows to the zones.
+                    
+                        Snap key works only while you are moving a window.
+                    
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                 )
+            } else if showQuickSnapperHelpDialog {
+                return Alert(
+                    title: Text("Quick Snap Shortcut"),
+                    message: Text("""
+                        Quick Snap shortcut is for activating the Quick Snapper. 
+                        
+                        Quick Snapper is a feature that allows you to snap your windows to your zones with your keyboard easily and very quickly.
+                    
+                        It is also useful as a window switcher. (Like Windows' Alt+Tab window switcher.)
+                        
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                 )
+            } else if showSnapResizeHelpDialog {
+                return Alert(
+                   title: Text("Snap Resize"),
+                   message: Text("""
+                       Snap resizing is a feature that allows you to resize your windows to your zones.
+                       
+                       You can enable or disable snap resizing and adjust the snap threshold.
+                   
+                       Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
+                   
+                       You can hold the modifier key and perform snap resizing with your mouse or trackpad.
+                       
+                       Enjoy! 🥳
+                   """),
+                   dismissButton: .default(Text("OK"))
+                )
+             } else {
+                 let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
+                 
+                 return Alert(
+                     title: Text("About MacsyZones"),
+                     message: Text("""
+                         Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
+                         
+                         MacsyZones helps you organize your windows efficiently.
+                         
+                         Version: \(appVersion) (Build: \(appBuild))
+                         \(licenseInfo)
+                     """),
+                     primaryButton: .default(Text("Visit Website")) {
+                         if let url = URL(string: "https://macsyzones.com") {
+                             NSWorkspace.shared.open(url)
+                         }
+                     },
+                     secondaryButton: .cancel(Text("OK"))
+                 )
+             }
          }
     }
 }

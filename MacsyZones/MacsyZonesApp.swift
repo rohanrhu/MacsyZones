@@ -13,6 +13,8 @@
 import Foundation
 import SwiftUI
 
+import AppUpdater
+
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
 let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
 
@@ -21,8 +23,8 @@ class MacsyReady: ObservableObject {
 }
 
 let macsyReady = MacsyReady()
-
 let macsyProLock = ProLock()
+let donationReminder = DonationReminder()
 
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
@@ -36,16 +38,18 @@ struct MacsyZonesApp: App {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    var statusItem: NSStatusItem!
-    var popover: NSPopover!
-    
-    var mouseUpMonitor: Any?
+var statusItem: NSStatusItem!
+var popover: NSPopover!
 
+var mouseUpMonitor: Any?
+
+final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != nil { return }
         
         NSApp.setActivationPolicy(.prohibited)
+        
+        checkIfRunning()
         
         createTrayIcon()
         setupPopover()
@@ -53,34 +57,106 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         userLayouts.load()
         requestAccessibilityPermissions()
         
-        let apps = NSWorkspace.shared.runningApplications
-        for app in apps {
-            startObservingApp(pid: app.processIdentifier)
-        }
-        
-        print("All apps are being observed for window movement.")
-        
-        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
-                                                          object: nil, queue: nil) { notification in
-            if let userInfo = notification.userInfo,
-               let launchedApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
-                print("Newly launched app is being observed: \(launchedApp)")
-                self.startObservingApp(pid: launchedApp.processIdentifier)
+        Thread { [self] in
+            let apps = NSWorkspace.shared.runningApplications
+            
+            for app in apps {
+                let pid = app.processIdentifier
+                let element = AXUIElementCreateApplication(pid)
+                
+                var windowList: CFArray
+                var windowListRef: CFTypeRef?
+                let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
+                if result != .success { continue }
+                windowList = windowListRef as! CFArray
+                
+                if result == .success,
+                   let windowList = windowList as? [AXUIElement]
+                {
+                    Task { @MainActor in
+                        startObserving(pid: pid)
+                    }
+                    
+                    for window in windowList {
+                        var titleValue: CFTypeRef?
+                        AXUIElementCopyAttributeValue(window,
+                                                      kAXTitleAttribute as CFString,
+                                                      &titleValue)
+                        
+                        if let title = titleValue as? String, !title.isEmpty {
+                            print("Window is being observed: \(title)")
+                        }
+                        
+                        Task { @MainActor in
+                            startObserving(pid: pid, element: window)
+                        }
+                    }
+                }
+            }
+            
+            print("All apps are being observed for window movement.")
+            
+            NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
+                                                              object: nil, queue: nil) { notification in
+                if let userInfo = notification.userInfo,
+                   let launchedApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+                    print("Newly launched app is being observed: \(launchedApp)")
+                    Task { @MainActor in
+                        self.startObserving(pid: launchedApp.processIdentifier)
+                    }
+                }
+            }
+            
+            Task { @MainActor in
+                mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
+                    onMouseUp(event: event)
+                }
+                
+                spaceLayoutPreferences.startObserving()
+                monitorKeys()
+                monitorRightClick()
+                if #available(macOS 12, *) {
+                    monitorQuickSnapShortcut()
+                }
+                
+                macsyReady.isReady = true
             }
         }
+        .start()
+    }
+    
+    func checkIfRunning() {
+        let notificationName = "MeowingCat.MacsyZones.CheckIfRunning"
+        let uniqueNotification = Notification.Name(notificationName)
         
-        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
-            onMouseUp(event: event)
+        let runningApps = NSWorkspace.shared.runningApplications
+        let isRunning = runningApps.contains {
+            $0.bundleIdentifier == Bundle.main.bundleIdentifier && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
         }
         
-        spaceLayoutPreferences.startObserving()
-        monitorModifierKey()
-        monitorRightClick()
-        if #available(macOS 12, *) {
-            monitorQuickSnapShortcut()
+        if isRunning {
+            DistributedNotificationCenter.default().postNotificationName(
+                uniqueNotification,
+                object: nil,
+                userInfo: nil,
+                deliverImmediately: true
+            )
+            
+            let alert = NSAlert()
+            alert.window.level = .floating
+            alert.alertStyle = .informational
+            alert.messageText = "MacsyZones is already running"
+            alert.informativeText = "Another instance of MacsyZones is already running. This instance will exit."
+            alert.addButton(withTitle: "OK")
+            
+            alert.window.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            
+            alert.runModal()
+            
+            NSApp.terminate(nil)
+            return
         }
-        
-        macsyReady.isReady = true
     }
     
     func createTrayIcon() {
@@ -152,9 +228,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility. "
                               + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
                               + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
-        alert.alertStyle = .warning
+        alert.window.level = .floating
+        alert.alertStyle = .critical
         alert.addButton(withTitle: "Restart")
         alert.addButton(withTitle: "Cancel")
+        
+        alert.window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
         
         let response = alert.runModal()
         
@@ -174,9 +254,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
     
-    func startObservingApp(pid: pid_t) {
+    func startObserving(pid: pid_t, element: AXUIElement? = nil) {
         var result: AXError
-        let element = AXUIElementCreateApplication(pid)
+        let toObserveElement: AXUIElement
+        
+        if element == nil {
+            toObserveElement = AXUIElementCreateApplication(pid)
+        } else {
+            toObserveElement = element!
+        }
+        
         let observerPtr: UnsafeMutablePointer<AXObserver?> = UnsafeMutablePointer<AXObserver?>.allocate(capacity: 1)
         defer { observerPtr.deallocate() }
         
@@ -188,66 +275,98 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let observer = observerPtr.pointee!
          
-        result = AXObserverAddNotification(observer, element, kAXWindowMovedNotification as CFString, nil)
+        result = AXObserverAddNotification(observer, toObserveElement, kAXWindowMovedNotification as CFString, nil)
         guard result == .success else {
             return
         }
         
-        result = AXObserverAddNotification(observer, element, kAXUIElementDestroyedNotification as CFString, nil)
+        result = AXObserverAddNotification(observer, toObserveElement, kAXUIElementDestroyedNotification as CFString, nil)
         guard result == .success else { return }
 
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
     
-    func monitorModifierKey() {
+    func monitorKeys() {
         var dispatchWorkItem: DispatchWorkItem?
+        var snapKeyUsed = false
 
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
             
             if isEditing || isQuickSnapping {
+                isFitting = false
+                userLayouts.currentLayout.layoutWindow.hide()
                 return
             }
             
-            if appSettings.modifierKey == "None" {
-                return
-            }
-            
-            var modifierKey: NSEvent.ModifierFlags = .control
-            
-            if appSettings.modifierKey == "Command" {
-                modifierKey = .command
-            } else if appSettings.modifierKey == "Option" {
-                modifierKey = .option
-            }
-            
-            if appSettings.selectPerDesktopLayout {
-                if let layoutName = spaceLayoutPreferences.getCurrent() {
-                    userLayouts.currentLayoutName = layoutName
-                }
-            }
-            
-            let delay = Double(appSettings.modifierKeyDelay) / 1000.0
-
-            if event.modifierFlags.contains(modifierKey) {
-                if !isFitting {
-                    dispatchWorkItem = DispatchWorkItem {
-                        if isFitting {
-                            userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
-                        }
-                    }
-                    
-                    isFitting = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: dispatchWorkItem!)
-                }
-            } else {
-                dispatchWorkItem?.cancel()
-                dispatchWorkItem = nil
+            if appSettings.snapKey != "None" {
+                var snapKey: NSEvent.ModifierFlags = .shift
                 
-                if isFitting {
+                if appSettings.snapKey == "Control" {
+                    snapKey = .control
+                } else if appSettings.snapKey == "Command" {
+                    snapKey = .command
+                } else if appSettings.snapKey == "Option" {
+                    snapKey = .option
+                }
+                
+                if appSettings.selectPerDesktopLayout {
+                    if let layoutName = spaceLayoutPreferences.getCurrent() {
+                        userLayouts.currentLayoutName = layoutName
+                    }
+                }
+                
+                if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
+                    snapKeyUsed = true
+                    isFitting = true
+                    userLayouts.currentLayout.layoutWindow.show()
+                } else if isFitting {
                     isFitting = false
                     userLayouts.currentLayout.layoutWindow.hide()
+                }
+                
+                if !event.modifierFlags.contains(snapKey) {
+                    snapKeyUsed = false
+                }
+            }
+            
+            if !snapKeyUsed && appSettings.modifierKey != "None" {
+                var modifierKey: NSEvent.ModifierFlags = .control
+                
+                if appSettings.modifierKey == "Command" {
+                    modifierKey = .command
+                } else if appSettings.modifierKey == "Option" {
+                    modifierKey = .option
+                }
+                
+                if appSettings.selectPerDesktopLayout {
+                    if let layoutName = spaceLayoutPreferences.getCurrent() {
+                        userLayouts.currentLayoutName = layoutName
+                    }
+                }
+                
+                let delay = Double(appSettings.modifierKeyDelay) / 1000.0
+                
+                if event.modifierFlags.contains(modifierKey) {
+                    if !isFitting {
+                        dispatchWorkItem = DispatchWorkItem {
+                            if isFitting {
+                                userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
+                            }
+                        }
+                        
+                        isFitting = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: dispatchWorkItem!)
+                    }
+                } else {
+                    dispatchWorkItem?.cancel()
+                    dispatchWorkItem = nil
+                    
+                    if isFitting {
+                        isFitting = false
+                        userLayouts.currentLayout.layoutWindow.hide()
+                    }
                 }
             }
         }

@@ -104,6 +104,14 @@ func onObserverNotification(observer: AXObserver, element: AXUIElement, notifica
     
     var result: AXError
     
+    var roleRef: CFTypeRef?
+    result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+    let role = roleRef as? String ?? "Unknown"
+    
+    if role != kAXWindowRole {
+        return
+    }
+    
     var app: CFTypeRef?
     result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &app)
     guard result == .success else {
@@ -115,17 +123,18 @@ func onObserverNotification(observer: AXObserver, element: AXUIElement, notifica
     if result != .success {
         title = "" as CFTypeRef
     }
-    
-    var position: CGPoint = .zero
-    var positionRef: CFTypeRef?
-    result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
-    if result == .success {
-        AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
-    }
  
     switch notification as String {
     case kAXWindowMovedNotification:
+        var position: CGPoint = .zero
+        var positionRef: CFTypeRef?
+        result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
+        if result == .success {
+            AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
+        }
+        
         onWindowMoved(observer: observer, element: element, notification: notification, title: title as! String, position: position)
+        
         break
     case kAXUIElementDestroyedNotification:
         print("App exited: \(title as! String)")
@@ -193,6 +202,24 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     if isSnapResizing { return }
     if isQuickSnapping { return }
     
+    var subroleRef: CFTypeRef?
+    AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef)
+    
+    let subrole = subroleRef as? String ?? "Unknown"
+    
+    if subrole != kAXStandardWindowSubrole {
+        return
+    }
+    
+    var roleRef: CFTypeRef?
+    AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+    
+    let role = roleRef as? String ?? "Unknown"
+    
+    if role != kAXWindowRole {
+        return
+    }
+    
     if NSEvent.pressedMouseButtons & 1 != 0 {
         isMovingAWindow = true
     }
@@ -207,18 +234,18 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         return
     }
     
-    if PlacedWindows.isPlaced(windowId: windowId) && !justDidMouseUp &&
+    let isPlaced = PlacedWindows.isPlaced(windowId: windowId)
+    let originalSize = OriginalWindowProperties.getWindowSize(for: windowId)
+    
+    if isPlaced && !justDidMouseUp &&
         (!appSettings.onlyFallbackToPreviousSizeWithUserEvent || (NSEvent.pressedMouseButtons & 0x1) != 0)
     {
         PlacedWindows.unplace(windowId: windowId)
         
         if appSettings.fallbackToPreviousSize {
-            guard let originalSize = OriginalWindowProperties.getWindowSize(for: windowId) else {
-                print("Failed to get original window size")
-                return
-            }
-
-            if case let (currentSize?, currentPosition?) = getWindowSizeAndPosition(from: windowId) {
+            if let originalSize,
+               case let (currentSize?, currentPosition?) = getWindowSizeAndPosition(from: windowId)
+            {
                 let mouseLocation = NSEvent.mouseLocation
                 let relativeX = (mouseLocation.x - currentPosition.x) / currentSize.width
 
@@ -230,7 +257,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                                         newPosition: CGPoint(x: newXPosition, y: currentPosition.y),
                                         newSize: originalSize)
                 }
-            } else {
+            } else if let originalSize {
                 resizeWindow(element: element, newSize: originalSize)
                 print("Window resized to original size!")
             }
@@ -238,6 +265,10 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     }
     
     justDidMouseUp = false
+    
+    if isPlaced {
+        return
+    }
     
     if appSettings.shakeToSnap {
         let dependingPosition = NSEvent.mouseLocation
@@ -298,8 +329,51 @@ func getWindowTitle(from axElement: AXUIElement?) -> String? {
     return title
 }
 
-func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize) {
-    var sizeValue: CGSize
+func getWindowDetails(element: AXUIElement) -> String {
+    var details = "Window details: "
+    
+    var title: CFTypeRef?
+    AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &title)
+    if let windowTitle = title as? String {
+        details += "Title: \(windowTitle)"
+    } else {
+        details += "Title: Unknown"
+    }
+    
+    return details
+}
+
+func isElementResizable(element: AXUIElement) -> Bool {
+    var resizable: DarwinBoolean = true
+    AXUIElementIsAttributeSettable(element, kAXSizeAttribute as CFString, &resizable)
+    return resizable.boolValue
+}
+
+func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0) {
+    if !isElementResizable(element: element) {
+        print("Window is not resizable! Trying parent window...")
+        
+        while true {
+            var result: AXError
+            var parentElementRef: CFTypeRef?
+            
+            result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &parentElementRef)
+            if result != .success { return }
+            
+            var subroleRef: CFTypeRef?
+            result = AXUIElementCopyAttributeValue(parentElementRef as! AXUIElement, kAXSubroleAttribute as CFString, &subroleRef)
+            if result != .success { return }
+            let subrole = subroleRef as! String
+            
+            let parentElement = parentElementRef as! AXUIElement
+            
+            if subrole == kAXStandardWindowSubrole {
+                return resizeAndMoveWindow(element: parentElement, newPosition: newPosition, newSize: newSize, retries: retries)
+            }
+        }
+        
+        return
+    }
     
     /*
      * Fix macOS bug!
@@ -308,33 +382,74 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
      * This code fixes this buggy behavior of macOS 😇
      */
     if NSScreen.screens.count > 1 {
-        sizeValue = CGSize(width: newSize.width, height: newSize.height - 10)
+        var sizeValue = CGSize(width: newSize.width, height: newSize.height - 10)
         if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
             let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
             
             if result != .success {
                 print("Failed to set window size, error code: \(result.rawValue)")
+                print(getWindowDetails(element: element))
             }
         }
     }
     
-    var positionValue = newPosition
-    if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
-        let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
+    for i in 0..<(retries == 0 ? 1 : retries) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (0.05 * Double(i))) { [element] in
+            var sizeValue: CGSize
+            
+            var positionValue = newPosition
+            if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
+                let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
+                
+                if result != .success {
+                    print("Failed to set window position, error code: \(result.rawValue)")
+                    print(getWindowDetails(element: element))
+                }
+            }
+            
+            sizeValue = newSize
+            if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
+                let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
+                
+                if result != .success {
+                    print("Failed to set window size, error code: \(result.rawValue)")
+                    print(getWindowDetails(element: element))
+                }
+            }
+        }
         
-        if result != .success {
-            print("Failed to set window position, error code: \(result.rawValue)")
+        if let windowId = getWindowID(from: element),
+           case let (currentSize, currentPosition) = getWindowSizeAndPosition(from: windowId)
+        {
+            if currentSize == newSize && currentPosition == newPosition {
+                break
+            }
+        } else {
+            break
         }
     }
+}
+
+func getElementSizeAndPosition(element: AXUIElement) -> (size: CGSize, position: CGPoint)? {
+    var result: AXError
     
-    sizeValue = newSize
-    if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
-        let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
-        
-        if result != .success {
-            print("Failed to set window size, error code: \(result.rawValue)")
-        }
+    var sizeRef: CFTypeRef?
+    result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &sizeRef)
+    if result != .success {
+        print("Failed to get window size, error code: \(result.rawValue)")
+        return nil
     }
+    let size = sizeRef as! CGSize
+    
+    var positionRef: CFTypeRef?
+    result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
+    if result != .success {
+        print("Failed to get window position, error code: \(result.rawValue)")
+        return nil
+    }
+    let position = positionRef as! CGPoint
+    
+    return (size, position)
 }
 
 func getAXPosition(for window: NSWindow) -> CGPoint? {
@@ -384,7 +499,8 @@ func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScree
     
     resizeAndMoveWindow(element: element,
                         newPosition: newPosition,
-                        newSize: newSize)
+                        newSize: newSize,
+                        retries: 10)
 }
 
 func resizeWindow(element: AXUIElement, newSize: CGSize) {
@@ -420,10 +536,13 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
 func onMouseUp(event: NSEvent) {
     isMovingAWindow = false
     
-    if !isFitting { return }
-    if isEditing { return }
-    if isSnapResizing { return }
     if isQuickSnapping { return }
+    
+    if !isFitting { return }
+    
+    if isEditing || isSnapResizing || isQuickSnapping {
+        isFitting = false
+    }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = toLeaveElement ?? getFocusedWindowAXUIElement()
@@ -438,6 +557,7 @@ func onMouseUp(event: NSEvent) {
     guard let windowId = getWindowID(from: window) else {
         isFitting = false
         userLayouts.currentLayout.layoutWindow.hide()
+        toLeaveElement = nil
         return
     }
     
@@ -447,14 +567,14 @@ func onMouseUp(event: NSEvent) {
             
             moveWindowToMatch(element: window, targetWindow: sectionWindow.window)
             
-            guard let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else { return }
-            
-            PlacedWindows.place(windowId: windowId,
-                                screenNumber: screenNumber,
-                                workspaceNumber: workspaceNumber,
-                                layoutName: userLayouts.currentLayoutName,
-                                sectionNumber: toLeaveSectionWindow!.number,
-                                element: toLeaveElement!)
+            if let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() {
+                PlacedWindows.place(windowId: windowId,
+                                    screenNumber: screenNumber,
+                                    workspaceNumber: workspaceNumber,
+                                    layoutName: userLayouts.currentLayoutName,
+                                    sectionNumber: toLeaveSectionWindow!.number,
+                                    element: toLeaveElement!)
+            }
             
             toLeaveElement = nil
             toLeaveSectionWindow = nil

@@ -82,6 +82,10 @@ class QuickSnapperItem: Identifiable {
     var windowId: UInt32?
     var element: AXUIElement?
     
+    var id: Int {
+        return windowId?.hashValue ?? name.hashValue
+    }
+    
     init(name: String, icon: Image, element: AXUIElement?, windowId: UInt32?) {
         self.name = name
         self.icon = icon
@@ -223,7 +227,7 @@ struct QuickSnapperView: View {
                                 .background(index == selectedIndex
                                             ? Color(NSColor.selectedTextBackgroundColor).opacity(0.75)
                                             : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 7))
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .onHover() { isHovered in
                                     if isHovered {
@@ -256,7 +260,7 @@ struct QuickSnapperView: View {
         .padding()
         .background(BlurredWindowBackground(material: .hudWindow,
                                             blendingMode: .behindWindow)
-            .cornerRadius(7).padding(.horizontal, 10))
+            .cornerRadius(16).padding(.horizontal, 10))
         .overlay(KeyboardHandlingView { event in
             if [18, 19, 20, 21, 23, 22, 26, 28, 25].contains(event.keyCode) {
                 let keyCodeToNumber = [18, 19, 20, 21, 23, 22, 26, 28, 25]
@@ -464,11 +468,11 @@ class QuickSnapper {
         
         for app in runningApps {
             let pid = app.processIdentifier as pid_t
-            let appRef = AXUIElementCreateApplication(pid)
+            let element = AXUIElementCreateApplication(pid)
             
             var windowList: CFArray
             var windowListRef: CFTypeRef?
-            let result = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowListRef)
+            let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
             if result != .success { continue }
             windowList = windowListRef as! CFArray
             
