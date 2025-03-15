@@ -303,7 +303,8 @@ struct Main: View {
                     showAboutDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -319,7 +320,8 @@ struct Main: View {
                     showLayoutHelpDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -417,7 +419,8 @@ struct Main: View {
                     showModifierKeyHelpDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -461,7 +464,8 @@ struct Main: View {
                     showSnapKeyHelpDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -499,7 +503,8 @@ struct Main: View {
                     showQuickSnapperHelpDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -527,7 +532,8 @@ struct Main: View {
                     showSnapResizeHelpDialog = true
                 }) {
                     Image(systemName: "info.circle")
-                        .foregroundColor(.gray)
+                        .font(.system(size: 14))
+                        .foregroundColor(.pink.opacity(0.9))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -710,6 +716,7 @@ struct Main: View {
                     Text("Quit MacsyZones")
                 }
             }
+            .padding(.top, 10)
         }.padding()
          .frame(width: 240)
          .alert(isPresented: $showDialog) {

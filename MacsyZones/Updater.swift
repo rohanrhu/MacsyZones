@@ -109,7 +109,7 @@ class GitHubAPI {
                 {
                     let version = tagName.replacingOccurrences(of: "v", with: "")
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String
-                    let isGreater = isVersionGreater(version, than: appVersion)
+                    let isGreater = true || isVersionGreater(version, than: appVersion)
                     
                     onChecked(isGreater ? (version: version, url: URL(string: downloadUrl)!): nil)
                 } else {
@@ -188,13 +188,9 @@ class GitHubUpdater {
             let scriptURL = tempDirectory.appendingPathComponent("update.sh")
             let script = """
             #!/bin/bash
-            osascript -e 'tell application "System Events" to display dialog "MacsyZones is being updated..." with title "MacsyZones Updater" buttons {"Please Wait"} giving up after 999999 with icon caution' &
-            DIALOG_PID=$!
             sleep 2
             rm -rf "\(destinationApp.path)"
             mv "\(extractedAppURL.path)" "\(destinationApp.path)"
-            kill $DIALOG_PID 2>/dev/null
-            osascript -e 'tell application "System Events" to display dialog "Update complete!" with title "Success" buttons {"OK"} default button 1 with icon note'
             open "\(destinationApp.path)"
             rm -rf "\(tempDirectory.path)"
             exit 0
@@ -204,8 +200,8 @@ class GitHubUpdater {
             try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
             
             let updateProcess = Process()
-            updateProcess.executableURL = URL(fileURLWithPath: "/usr/bin/nohup")
-            updateProcess.arguments = [scriptURL.path, ">", "/dev/null", "2>&1", "&"]
+            updateProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
+            updateProcess.arguments = ["-c", "nohup \"\(scriptURL.path)\" > /dev/null 2>&1 &"]
             try updateProcess.run()
             
             DispatchQueue.main.async {
@@ -242,13 +238,4 @@ func downloadFile(from url: URL, to destination: URL, onComplete: @escaping (URL
         onComplete(tempURL)
     }
     task.resume()
-}
-
-func executeCommand(_ command: String, onComplete: ((Bool) -> Void)?) {
-    let process = Process()
-    process.launchPath = "/bin/zsh"
-    process.arguments = ["-c", command]
-    process.launch()
-    process.waitUntilExit()
-    onComplete?(process.terminationStatus == 0)
 }
