@@ -13,8 +13,6 @@
 import Foundation
 import SwiftUI
 
-import AppUpdater
-
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
 let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
 
@@ -25,6 +23,7 @@ class MacsyReady: ObservableObject {
 let macsyReady = MacsyReady()
 let macsyProLock = ProLock()
 let donationReminder = DonationReminder()
+let appUpdater = AppUpdater()
 
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
@@ -123,6 +122,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             }
         }
         .start()
+        
+        appUpdater.checkForUpdates()
     }
     
     func checkIfRunning() {
@@ -243,15 +244,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         } else {
             exit(0)
         }
-    }
-
-    func restartApp() {
-        let task = Process()
-        task.launchPath = "/bin/sh"
-        task.arguments = ["-c", "sleep 1; open \"\(Bundle.main.bundlePath)\""]
-        task.launch()
-        
-        NSApp.terminate(nil)
     }
     
     func startObserving(pid: pid_t, element: AXUIElement? = nil) {
@@ -426,4 +418,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             NSEvent.removeMonitor(mouseUpMonitor)
         }
     }
+}
+
+func restartApp() {
+    let task = Process()
+    task.launchPath = "/bin/sh"
+    task.arguments = ["-c", "sleep 1; open \"\(Bundle.main.bundlePath)\""]
+    task.launch()
+    
+    NSApp.terminate(nil)
 }

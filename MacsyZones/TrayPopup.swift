@@ -269,6 +269,8 @@ struct Main: View {
     
     @State private var startAtLogin = false
     
+    @ObservedObject var updater = appUpdater
+    
     func toggleRunAtStartup() {
         if #available(macOS 13.0, *) {
             do {
@@ -669,9 +671,44 @@ struct Main: View {
             #endif
             
             Divider()
+            
+            VStack(alignment: .center) {
+                Button(action: {
+                    updater.checkForUpdates()
+                }) {
+                    HStack {
+                        if updater.isChecking {
+                            Image(systemName: "arrow.clockwise.circle")
+                            Text("Checking for Updates...")
+                        } else if updater.isDownloading {
+                            ProgressView()
+                                .font(.system(size: 12))
+                            Text("Downloading Update...")
+                        } else if let isUpdatable = updater.isUpdatable,
+                                  let latestVersion = updater.latestVersion,
+                                  isUpdatable
+                        {
+                            Image(systemName: "arrow.down.circle.fill")
+                            Text("Update to \(latestVersion)")
+                        } else {
+                            Image(systemName: "arrow.clockwise.circle")
+                            Text("Check for Updates")
+                        }
+                    }
+                }
+                .disabled(updater.isChecking || updater.isDownloading)
+            }
+            .padding(.vertical, 10)
+            
+            Divider()
 
-            Button("Quit MacsyZones") {
+            Button(action: {
                 NSApp.terminate(nil)
+            }) {
+                HStack {
+                    Image(systemName: "power")
+                    Text("Quit MacsyZones")
+                }
             }
         }.padding()
          .frame(width: 240)
