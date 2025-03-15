@@ -109,7 +109,7 @@ class GitHubAPI {
                 {
                     let version = tagName.replacingOccurrences(of: "v", with: "")
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String
-                    let isGreater = true || isVersionGreater(version, than: appVersion)
+                    let isGreater = isVersionGreater(version, than: appVersion)
                     
                     onChecked(isGreater ? (version: version, url: URL(string: downloadUrl)!): nil)
                 } else {

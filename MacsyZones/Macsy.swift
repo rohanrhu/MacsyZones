@@ -349,8 +349,8 @@ func isElementResizable(element: AXUIElement) -> Bool {
     return resizable.boolValue
 }
 
-func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0) {
-    if !isElementResizable(element: element) {
+func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0, retryParent: Bool = false) {
+    if retryParent && !isElementResizable(element: element) {
         print("Window is not resizable! Trying parent window...")
         
         while true {
