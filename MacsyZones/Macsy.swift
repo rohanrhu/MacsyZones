@@ -271,6 +271,25 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     }
     
     if appSettings.shakeToSnap {
+
+        var isSnapKeyPressed = NSEvent.modifierFlags.contains(.shift)
+
+        if appSettings.snapKey != "None" {
+            var snapKey: NSEvent.ModifierFlags = .shift
+            
+            if appSettings.snapKey == "Control" {
+                snapKey = .control
+            } else if appSettings.snapKey == "Command" {
+                snapKey = .command
+            } else if appSettings.snapKey == "Option" {
+                snapKey = .option
+            }
+            
+            isSnapKeyPressed = NSEvent.modifierFlags.contains(snapKey)
+        }
+
+        guard !isSnapKeyPressed else { return }
+        
         let dependingPosition = NSEvent.mouseLocation
         let currentTime = Date().timeIntervalSince1970
 
