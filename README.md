@@ -3,6 +3,7 @@
 [![GitHub release](https://img.shields.io/github/release/rohanrhu/MacsyZones.svg?style=flat-square&color=informational)](https://github.com/rohanrhu/MacsyZones/releases)
 [![GitHub stars](https://img.shields.io/github/stars/rohanrhu/MacsyZones?style=flat-square)](https://github.com/rohanrhu/MacsyZones/stargazers)
 [![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3DEvrenselKisilik%26type%3Dpatrons&style=flat-square)](https://patreon.com/EvrenselKisilik)
+[![MacsyZones Discord](https://img.shields.io/discord/1293725442238447737.svg?color=7289da&label=Discord&logo=discord&style=flat-square)](https://discord.gg/C4axTA6rpn)
 
 Make your workflow more efficient with MacsyZones. Organize your windows with ease.
 
@@ -39,6 +40,10 @@ You love [MacsyZones](https://macsyzones.com)? You can support the development b
 | XMR               | 88qvS4sfUnLZ7nehFrz3PG1pWovvEgprcUhkmVLaiL8PVAFgfHjspjKPLhWLj3DUcm92rwNQENbJ1ZbvESdukWvh3epBUty |
 
 Preferably, donating USDT or USDC is recommended but you can donate any of the above currencies. 🥳
+
+## Discord
+
+You can join [MacsyZones Discord server](https://discord.gg/C4axTA6rpn).
 
 ## Contributing
 
