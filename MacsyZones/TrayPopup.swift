@@ -740,7 +740,7 @@ struct Main: View {
                  return Alert(
                     title: Text("Modifier Key"),
                     message: Text("""
-                        Modifier key is mainly for performing snap resize but you can also use it to snap your windowst to your zones.
+                        Modifier key is mainly for performing snap resize but you can also use it to snap your windows to your zones.
                     
                         Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
                     
