@@ -304,7 +304,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -321,7 +321,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -420,7 +420,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -465,7 +465,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -504,7 +504,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -533,7 +533,7 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(.pink.opacity(0.9))
+                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -1021,6 +1021,22 @@ struct TrayPopupView: View {
                 }
             }
         }
+    }
+}
+
+extension NSColor {
+    func saturate(by factor: CGFloat) -> NSColor {
+        guard let rgb = self.usingColorSpace(.deviceRGB) else { return self }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return NSColor(hue: h, saturation: min(s * factor, 1.0), brightness: b, alpha: a)
+    }
+
+    func enlighten(by factor: CGFloat) -> NSColor {
+        guard let rgb = self.usingColorSpace(.deviceRGB) else { return self }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return NSColor(hue: h, saturation: s, brightness: min(b * factor, 1.0), alpha: a)
     }
 }
 
