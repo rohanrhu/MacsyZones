@@ -34,7 +34,7 @@ class UserData {
             do {
                 try fileManager.createDirectory(at: appSupportDirectory, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("Error creating config directory: \(error)")
+                debugLog("Error creating config directory: \(error)")
             }
         }
         
@@ -51,7 +51,7 @@ class UserData {
             do {
                 try fileManager.createDirectory(at: appDirectory, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("Error creating directory: \(error)")
+                debugLog("Error creating directory: \(error)")
                 return
             }
         }
@@ -61,7 +61,7 @@ class UserData {
         do {
             try data.write(to: filePath, atomically: true, encoding: .utf8)
         } catch (let error) {
-            print("Error saving user data: \(error)")
+            debugLog("Error saving user data: \(error)")
         }
     }
     
@@ -69,13 +69,13 @@ class UserData {
         let fileManager = FileManager.default
         
         if !fileManager.fileExists(atPath: filePath.path) {
-            print("File doesn't exist, creating it with default data")
+            debugLog("File doesn't exist, creating it with default data")
             save()
         } else {
             do {
                 data = try String(contentsOf: filePath, encoding: .utf8)
             } catch (let error) {
-                print("Error loading user data: \(error)")
+                debugLog("Error loading user data: \(error)")
             }
         }
     }
@@ -197,7 +197,7 @@ class UserLayouts: UserData, ObservableObject {
             
             save()
         } catch {
-            print("Error parsing layouts JSON: \(error)")
+            debugLog("Error parsing layouts JSON: \(error)")
         }
     }
     
@@ -212,7 +212,7 @@ class UserLayouts: UserData, ObservableObject {
                 super.save()
             }
         } catch {
-            print("Error encoding layouts JSON: \(error)")
+            debugLog("Error encoding layouts JSON: \(error)")
         }
     }
     

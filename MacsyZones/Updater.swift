@@ -116,7 +116,7 @@ class GitHubAPI {
                     onChecked(nil)
                 }
             } catch {
-                print("Error parsing JSON:")
+                debugLog("Error parsing JSON:")
                 dump(error)
                 onChecked(nil)
             }
@@ -152,7 +152,7 @@ class GitHubUpdater {
         
         downloadFile(from: url, to: destination) { [self] tmpPath in
             guard let tmpPath = tmpPath else {
-                print("Error downloading update!")
+                debugLog("Error downloading update!")
                 onCompleted?(false)
                 return
             }
@@ -180,7 +180,7 @@ class GitHubUpdater {
             
             let extractedAppURL = tempDirectory.appendingPathComponent("MacsyZones.app")
             guard fileManager.fileExists(atPath: extractedAppURL.path) else {
-                print("Error: Extracted app not found.")
+                debugLog("Error: Extracted app not found.")
                 try? fileManager.removeItem(at: tempDirectory)
                 return
             }
@@ -222,7 +222,7 @@ class GitHubUpdater {
                 NSApp.terminate(nil)
             }
         } catch {
-            print("Update error: \(error.localizedDescription)")
+            debugLog("Update error: \(error.localizedDescription)")
             try? fileManager.removeItem(at: tempDirectory)
         }
     }

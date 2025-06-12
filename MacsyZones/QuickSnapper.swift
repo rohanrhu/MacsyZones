@@ -232,7 +232,7 @@ struct QuickSnapperView: View {
                                 .onHover() { isHovered in
                                     if isHovered {
                                         selectedIndex = index
-                                        print("Selected window: \(index)")
+                                        debugLog("Selected window: \(index)")
                                     }
                                 }
                             }
@@ -265,7 +265,7 @@ struct QuickSnapperView: View {
             if [18, 19, 20, 21, 23, 22, 26, 28, 25].contains(event.keyCode) {
                 let keyCodeToNumber = [18, 19, 20, 21, 23, 22, 26, 28, 25]
                 let sectionNumber = keyCodeToNumber.firstIndex(of: Int(event.keyCode))! + 1
-                print("Quick snapping to \(sectionNumber)")
+                debugLog("Quick snapping to \(sectionNumber)")
                 
                 let selectedWindow = windows[selectedIndex]
                 

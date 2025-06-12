@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                                                       &titleValue)
                         
                         if let title = titleValue as? String, !title.isEmpty {
-                            print("Window is being observed: \(title)")
+                            debugLog("Window is being observed: \(title)")
                         }
                         
                         Task { @MainActor in
@@ -94,13 +94,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 }
             }
             
-            print("All apps are being observed for window movement.")
+            debugLog("All apps are being observed for window movement.")
             
             NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
                                                               object: nil, queue: nil) { notification in
                 if let userInfo = notification.userInfo,
                    let launchedApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
-                    print("Newly launched app is being observed: \(launchedApp)")
+                    debugLog("Newly launched app is being observed: \(launchedApp)")
                     Task { @MainActor in
                         self.startObserving(pid: launchedApp.processIdentifier)
                     }
@@ -226,7 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         if !isTrusted {
             showAccessibilityPermissionPopover()
         } else {
-            print("Accessibility permissions granted.")
+            debugLog("Accessibility permissions granted.")
         }
     }
 
@@ -268,7 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         
         result = AXObserverCreate(pid, onObserverNotification, observerPtr)
         guard result == .success else {
-            print("Failed to create observer: \(result)")
+            debugLog("Failed to create observer: \(result)")
             return
         }
         

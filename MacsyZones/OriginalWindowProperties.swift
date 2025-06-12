@@ -36,7 +36,7 @@ class OriginalWindowProperties {
             let position = CGPoint(x: x, y: y)
             windowPositionMap[windowID] = position
         } else {
-            print("Failed to retrieve window bounds")
+            debugLog("Failed to retrieve window bounds")
         }
     }
     

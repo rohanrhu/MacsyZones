@@ -81,7 +81,7 @@ func getWindowSizeAndPosition(from windowID: UInt32) -> (CGSize?, CGPoint?) {
         let position = CGPoint(x: x, y: y)
         return (size, position)
     } else {
-        print("Failed to retrieve window bounds")
+        debugLog("Failed to retrieve window bounds")
         return (nil, nil)
     }
 }
@@ -93,7 +93,7 @@ func getWindowID(from axElement: AXUIElement) -> UInt32? {
     if result == .success {
         return windowID
     } else {
-        print("Failed to get window ID, error code: \(result.rawValue)")
+        debugLog("Failed to get window ID, error code: \(result.rawValue)")
         return nil
     }
 }
@@ -137,7 +137,7 @@ func onObserverNotification(observer: AXObserver, element: AXUIElement, notifica
         
         break
     case kAXUIElementDestroyedNotification:
-        print("App exited: \(title as! String)")
+        debugLog("App exited: \(title as! String)")
         break
     default:
         break
@@ -239,7 +239,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     }
     
     guard let windowId = getWindowID(from: element) else {
-        print("Failed to get window ID")
+        debugLog("Failed to get window ID")
         return
     }
     
@@ -268,7 +268,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                 }
             } else if let originalSize {
                 resizeWindow(element: element, newSize: originalSize)
-                print("Window resized to original size!")
+                debugLog("Window resized to original size!")
             }
         }
     }
@@ -350,7 +350,7 @@ func getWindowTitle(from axElement: AXUIElement?) -> String? {
     let result = AXUIElementCopyAttributeValue(axElement, kAXTitleAttribute as CFString, &titleRef)
     
     guard result == .success, let title = titleRef as? String else {
-        print("Failed to get window title, error code: \(result.rawValue)")
+        debugLog("Failed to get window title, error code: \(result.rawValue)")
         return nil
     }
     
@@ -379,7 +379,7 @@ func isElementResizable(element: AXUIElement) -> Bool {
 
 func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0, retryParent: Bool = false) {
     if retryParent && !isElementResizable(element: element) {
-        print("Window is not resizable! Trying parent window...")
+        debugLog("Window is not resizable! Trying parent window...")
         
         while true {
             var result: AXError
@@ -415,8 +415,8 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
             let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
             
             if result != .success {
-                print("Failed to set window size, error code: \(result.rawValue)")
-                print(getWindowDetails(element: element))
+                debugLog("Failed to set window size, error code: \(result.rawValue)")
+                debugLog(getWindowDetails(element: element))
             }
         }
     }
@@ -430,8 +430,8 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
                 let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
                 
                 if result != .success {
-                    print("Failed to set window position, error code: \(result.rawValue)")
-                    print(getWindowDetails(element: element))
+                    debugLog("Failed to set window position, error code: \(result.rawValue)")
+                    debugLog(getWindowDetails(element: element))
                 }
             }
             
@@ -440,8 +440,8 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
                 let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
                 
                 if result != .success {
-                    print("Failed to set window size, error code: \(result.rawValue)")
-                    print(getWindowDetails(element: element))
+                    debugLog("Failed to set window size, error code: \(result.rawValue)")
+                    debugLog(getWindowDetails(element: element))
                 }
             }
         }
@@ -464,7 +464,7 @@ func getElementSizeAndPosition(element: AXUIElement) -> (size: CGSize, position:
     var sizeRef: CFTypeRef?
     result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &sizeRef)
     if result != .success {
-        print("Failed to get window size, error code: \(result.rawValue)")
+        debugLog("Failed to get window size, error code: \(result.rawValue)")
         return nil
     }
     let size = sizeRef as! CGSize
@@ -472,7 +472,7 @@ func getElementSizeAndPosition(element: AXUIElement) -> (size: CGSize, position:
     var positionRef: CFTypeRef?
     result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
     if result != .success {
-        print("Failed to get window position, error code: \(result.rawValue)")
+        debugLog("Failed to get window position, error code: \(result.rawValue)")
         return nil
     }
     let position = positionRef as! CGPoint
@@ -492,7 +492,7 @@ func getAXPosition(for window: NSWindow) -> CGPoint? {
     
     if let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] {
         guard let x = boundsDict["X"], let y = boundsDict["Y"] else {
-            print("Failed to retrieve window bounds from bounds dict")
+            debugLog("Failed to retrieve window bounds from bounds dict")
             return nil
         }
         
@@ -500,7 +500,7 @@ func getAXPosition(for window: NSWindow) -> CGPoint? {
         
         return position
     } else {
-        print("Failed to retrieve window bounds")
+        debugLog("Failed to retrieve window bounds")
     }
     
     return nil
@@ -539,7 +539,7 @@ func resizeWindow(element: AXUIElement, newSize: CGSize) {
         let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
         
         if result != .success {
-            print("Failed to set window size, error code: \(result.rawValue)")
+            debugLog("Failed to set window size, error code: \(result.rawValue)")
         }
     }
 }
@@ -554,7 +554,7 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
     let windowResult = AXUIElementCopyAttributeValue(focusedApp, kAXFocusedWindowAttribute as CFString, &focusedWindow)
     
     guard windowResult == .success else {
-        print("Failed to get focused window!")
+        debugLog("Failed to get focused window!")
         return nil
     }
     

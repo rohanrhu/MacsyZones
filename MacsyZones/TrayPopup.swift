@@ -73,7 +73,7 @@ class AppSettings: UserData, ObservableObject {
             self.snapWithRightClick = settings.snapWithRightClick
             self.showSnapResizersOnHover = settings.showSnapResizersOnHover
         } catch {
-            print("Error parsing settings JSON: \(error)")
+            debugLog("Error parsing settings JSON: \(error)")
         }
     }
 
@@ -102,7 +102,7 @@ class AppSettings: UserData, ObservableObject {
                 super.save()
             }
         } catch {
-            print("Error encoding settings JSON: \(error)")
+            debugLog("Error encoding settings JSON: \(error)")
         }
     }
 }
@@ -286,7 +286,7 @@ struct Main: View {
                     startAtLogin = true
                 }
             } catch {
-                print("Failed to toggle run at startup: \(error)")
+                debugLog("Failed to toggle run at startup: \(error)")
                 startAtLogin = false
             }
         }
@@ -842,7 +842,7 @@ struct UnlockProView: View {
     }
     
     func unlockProVersion(with key: String) {
-        print("Pro version unlocked 🥳")
+        debugLog("Pro version unlocked 🥳")
     }
     
     func openPurchaseLink() {

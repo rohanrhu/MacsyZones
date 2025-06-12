@@ -51,10 +51,10 @@ class ProLock: ObservableObject {
                     isPro = false
                 }
             } catch {
-                print("Error loading license key: \(error)")
+                debugLog("Error loading license key: \(error)")
             }
         } else {
-            print("LicenseKey.txt file does not exist")
+            debugLog("LicenseKey.txt file does not exist")
         }
     }
     
@@ -68,7 +68,7 @@ class ProLock: ObservableObject {
             do {
                 try fileManager.createDirectory(at: appDirectory, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                print("Error creating app directory: \(error)")
+                debugLog("Error creating app directory: \(error)")
                 return
             }
         }
@@ -77,9 +77,9 @@ class ProLock: ObservableObject {
         
         do {
             try licenseKey.write(to: filePath, atomically: true, encoding: .utf8)
-            print("License key saved")
+            debugLog("License key saved")
         } catch {
-            print("Error saving license key: \(error)")
+            debugLog("Error saving license key: \(error)")
         }
     }
     
