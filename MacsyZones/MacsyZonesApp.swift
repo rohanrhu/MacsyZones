@@ -123,6 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     monitorQuickSnapShortcut()
                 }
                 
+                spaceLayoutPreferences.switchToCurrent()
+                
                 macsyReady.isReady = true
             }
         }

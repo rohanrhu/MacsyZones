@@ -47,7 +47,7 @@ class SpaceLayoutPreferences: UserData {
 
     func setCurrent(layoutName: String) {
         guard let (screenNumber, spaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else {
-            print("Unable to get the current screen and space")
+            debugLog("Unable to get the current screen and space")
             return
         }
 
@@ -56,7 +56,7 @@ class SpaceLayoutPreferences: UserData {
 
     func getCurrent() -> String? {
         guard let (screenNumber, spaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else {
-            print("Unable to get the current screen and space")
+            debugLog("Unable to get the current screen and space")
             return nil
         }
 
@@ -97,7 +97,7 @@ class SpaceLayoutPreferences: UserData {
             data = jsonString
             super.save()
         } catch {
-            print("Error saving SpaceLayoutPreferences: \(error)")
+            debugLog("Error saving SpaceLayoutPreferences: \(error)")
         }
     }
 
@@ -106,10 +106,20 @@ class SpaceLayoutPreferences: UserData {
         do {
             if let jsonData = data.data(using: .utf8) {
                 spaces = try JSONDecoder().decode([ScreenSpacePair: String].self, from: jsonData)
-                print("Preferences loaded successfully.")
+                debugLog("Preferences loaded successfully.")
             }
         } catch {
-            print("Error loading SpaceLayoutPreferences: \(error)")
+            debugLog("Error loading SpaceLayoutPreferences: \(error)")
+        }
+    }
+    
+    func switchToCurrent() {
+        if let layoutName = self.getCurrent() {
+            userLayouts.currentLayoutName = layoutName
+            
+            for (_, layout) in userLayouts.layouts {
+                layout.hideAllWindows()
+            }
         }
     }
     
@@ -126,13 +136,7 @@ class SpaceLayoutPreferences: UserData {
                 
                 if !appSettings.selectPerDesktopLayout { return }
                 
-                if let layoutName = self.getCurrent() {
-                    userLayouts.currentLayoutName = layoutName
-                    
-                    for (_, layout) in userLayouts.layouts {
-                        layout.hideAllWindows()
-                    }
-                }
+                self.switchToCurrent()
             }
         )
         
