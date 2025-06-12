@@ -27,6 +27,7 @@ struct AppSettingsData: Codable {
     var snapResizeThreshold: CGFloat
     var quickSnapShortcut: String
     var snapWithRightClick: Bool
+    var showSnapResizersOnHover: Bool
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -43,6 +44,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var snapResizeThreshold: CGFloat = 33.0
     @Published var quickSnapShortcut: String = "Control+Shift+S"
     @Published var snapWithRightClick: Bool = true
+    @Published var showSnapResizersOnHover: Bool = false
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -69,6 +71,7 @@ class AppSettings: UserData, ObservableObject {
             self.snapResizeThreshold = settings.snapResizeThreshold
             self.quickSnapShortcut = settings.quickSnapShortcut
             self.snapWithRightClick = settings.snapWithRightClick
+            self.showSnapResizersOnHover = settings.showSnapResizersOnHover
         } catch {
             print("Error parsing settings JSON: \(error)")
         }
@@ -89,7 +92,8 @@ class AppSettings: UserData, ObservableObject {
                 snapResize: snapResize,
                 snapResizeThreshold: snapResizeThreshold,
                 quickSnapShortcut: quickSnapShortcut,
-                snapWithRightClick: snapWithRightClick
+                snapWithRightClick: snapWithRightClick,
+                showSnapResizersOnHover: showSnapResizersOnHover
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -459,15 +463,24 @@ struct Main: View {
                         Toggle("Snap resize", isOn: $settings.snapResize)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.snapResize) { _ in appSettings.save() }
+                        
                         if settings.snapResize {
                             Text("Threshold: \(Int(settings.snapResizeThreshold))px")
                                 .font(.caption2)
+                            
                             Slider(value: Binding(
                                 get: { Double(settings.snapResizeThreshold) },
                                 set: { settings.snapResizeThreshold = CGFloat($0) }
                             ), in: 5...67, step: 2)
                             .onChange(of: settings.snapResizeThreshold) { _ in appSettings.save() }
+                            
+                            Toggle("Show snap resizers on hover", isOn: $settings.showSnapResizersOnHover)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.showSnapResizersOnHover) { _ in appSettings.save() }
+                            
+                            Divider().padding(.vertical, 2)
                         }
+                        
                         Toggle("Prioritze zone center", isOn: $settings.prioritizeCenterToSnap)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }

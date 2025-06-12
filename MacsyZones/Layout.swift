@@ -523,6 +523,7 @@ class LayoutWindow {
     }
     
     func handleMouseMoved(event: NSEvent) {
+        guard appSettings.showSnapResizersOnHover else { return }
         guard !isFitting else { return }
         guard !isEditing else { return }
         guard appSettings.snapResize else { return }
