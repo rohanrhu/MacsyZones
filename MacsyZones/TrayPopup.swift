@@ -289,14 +289,13 @@ struct Main: View {
     }
     
     var body: some View {
-        VStack(alignment: .center) {
+        VStack(alignment: .center, spacing: 8) {
             HStack(alignment: .center, spacing: 5) {
                 if proLock.isPro {
                     Text("MacsyZones Pro").font(.headline)
                 } else {
                     Text("MacsyZones").font(.headline)
                 }
-                
                 Button(action: {
                     resetDialogs()
                     showDialog = true
@@ -311,389 +310,242 @@ struct Main: View {
             }
             .padding(.bottom, 10)
 
-            HStack(alignment: .center, spacing: 5) {
-                Text("Layouts").font(.subheadline)
-                
-                Button(action: {
-                    resetDialogs()
-                    showDialog = true
-                    showLayoutHelpDialog = true
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                        .imageScale(.small)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
-            
-            if #available(macOS 14.0, *) {
-                Picker("Select Layout", selection: $layouts.currentLayoutName) {
-                    ForEach(Array(layouts.layouts.keys), id: \.self) { name in
-                        Text(name)
-                    }
-                }.onAppear {
-                    if let preferedLayout = spaceLayoutPreferences.getCurrent() {
-                        layouts.currentLayoutName = preferedLayout
-                    }
-                }.onChange(of: layouts.currentLayoutName) {
-                    let wasEditing = isEditing
-                    stopEditing()
-                    userLayouts.selectLayout(layouts.currentLayoutName)
-                    if wasEditing {
-                        startEditing()
-                    }
-                    
-                    spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
-                    spaceLayoutPreferences.save()
-                }.labelsHidden()
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.bottom, 5)
-            } else {
-                Picker("Select Layout", selection: $layouts.currentLayoutName) {
-                    ForEach(Array(layouts.layouts.keys), id: \.self) { name in
-                        Text(name)
-                    }
-                }.labelsHidden()
-                 .pickerStyle(MenuPickerStyle())
-                 .padding(.bottom, 5)
-                 .onAppear {
-                     if let preferedLayout = spaceLayoutPreferences.getCurrent() {
-                         layouts.currentLayoutName = preferedLayout
-                     }
-                 }
-                 .onChange(of: layouts.currentLayoutName) { _ in
-                     let wasEditing = isEditing
-                     stopEditing()
-                     userLayouts.selectLayout(layouts.currentLayoutName)
-                     if wasEditing {
-                         startEditing()
-                     }
-                 
-                     spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
-                     spaceLayoutPreferences.save()
-                 }
-            }
-            
-            HStack {
-                Button(action: {
-                    toggleEditing()
-                }) {
-                    HStack {
-                        Image(systemName: "pencil")
-                    }
-                }
-                Button(action: {
-                    stopEditing()
-                    page = "rename"
-                }) {
-                    HStack {
-                        Image(systemName: "rectangle.and.pencil.and.ellipsis")
-                    }
-                }
-                Button(action: {
-                    stopEditing()
-                    page = "new"
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                    }
-                }
-                Button(action: {
-                    layouts.removeCurrentLayout()
-                }) {
-                    HStack {
-                        Image(systemName: "trash")
-                    }
-                }.disabled(layouts.layouts.count < 2)
-            }.padding(.bottom, 5)
-
-            Divider()
-
-            HStack(alignment: .center, spacing: 5) {
-                Text("Modifier Key").font(.subheadline)
-                
-                Button(action: {
-                    resetDialogs()
-                    showDialog = true
-                    showModifierKeyHelpDialog = true
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                        .imageScale(.small)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
-            .font(.subheadline)
-            .padding(.top, 5)
-            
-            Picker("Modifier Key", selection: $settings.modifierKey) {
-                Text("None").tag("None")
-                Text("Command").tag("Command")
-                Text("Option").tag("Option")
-                Text("Control").tag("Control")
-            }
-            .labelsHidden()
-            .pickerStyle(MenuPickerStyle())
-            .padding(.bottom, 5)
-            .onChange(of: settings.modifierKey) { _ in
-                appSettings.save()
-            }
-            
-            Text("Long Press Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0)) secs")
-                .font(.subheadline).padding(.bottom, 2)
-            Slider(value: Binding(
-                get: { Double(settings.modifierKeyDelay) },
-                set: { settings.modifierKeyDelay = Int($0) }
-            ), in: 0...2000, step: 100)
-            .frame(alignment: .center)
-            .padding(.bottom, 5)
-            .onChange(of: settings.modifierKeyDelay) { _ in
-                appSettings.save()
-            }
-            
-            Divider()
-            
-            HStack(alignment: .center, spacing: 5) {
-                Text("Snap Key").font(.subheadline)
-                
-                Button(action: {
-                    resetDialogs()
-                    showDialog = true
-                    showSnapKeyHelpDialog = true
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                        .imageScale(.small)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
-            .font(.subheadline)
-            .padding(.top, 5)
-            
-            Picker("Snap Key", selection: $settings.snapKey) {
-                Text("None").tag("None")
-                Text("Shift").tag("Shift")
-                Text("Command").tag("Command")
-                Text("Option").tag("Option")
-                Text("Control").tag("Control")
-            }
-            .labelsHidden()
-            .pickerStyle(MenuPickerStyle())
-            .padding(.bottom, 5)
-            .onChange(of: settings.snapKey) { _ in
-                appSettings.save()
-            }
-            
-            Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
-            .onChange(of: settings.snapWithRightClick) { _ in
-                appSettings.save()
-            }.frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 5)
-            
-            Divider()
-            
-            HStack(alignment: .center, spacing: 5) {
-                Text("Quick Snapper Shortcut").font(.subheadline)
-                
-                Button(action: {
-                    resetDialogs()
-                    showDialog = true
-                    showQuickSnapperHelpDialog = true
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                        .imageScale(.small)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-            }
-                .font(.subheadline)
-                .padding(.top, 5).padding(.bottom, 5)
-            
-            ShortcutInputView(shortcut: $settings.quickSnapShortcut).onChange(of: settings.quickSnapShortcut) { _ in
-                appSettings.save()
-            }.padding(.bottom, 5)
-
-            Divider()
-            
-            Text("Options").font(.subheadline).padding(.top, 5)
-            
-            HStack {
-                Toggle("Enable snap resizing", isOn: $settings.snapResize)
-                .onChange(of: settings.snapResize) { _ in
-                    appSettings.save()
-                }
-                
-                Button(action: {
-                    resetDialogs()
-                    showDialog = true
-                    showSnapResizeHelpDialog = true
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                        .imageScale(.small)
-                }
-                .buttonStyle(BorderlessButtonStyle())
-                
-                Spacer()
-            }.padding(.bottom, 5)
-            
-            if settings.snapResize {
-                Text("Snap Threshold: \(Int(settings.snapResizeThreshold))px")
-                    .font(.subheadline)
-                Slider(value: Binding(
-                    get: { Double(settings.snapResizeThreshold) },
-                    set: { settings.snapResizeThreshold = CGFloat($0) }
-                ), in: 5...67, step: 2)
-                .frame(alignment: .center)
-                .onChange(of: settings.snapResizeThreshold) { _ in
-                    appSettings.save()
-                }
-                
-                Divider().padding(.bottom, 5)
-            }
-            
-            HStack {
-                Toggle("Prioritize section center", isOn: $settings.prioritizeCenterToSnap)
-                .onChange(of: settings.prioritizeCenterToSnap) { _ in
-                    appSettings.save()
-                }
-                Spacer()
-            }.padding(.bottom, 5)
-            
-            Divider()
-
-            HStack {
-                Toggle("Fallback to previous size", isOn: $settings.fallbackToPreviousSize)
-                .onChange(of: settings.fallbackToPreviousSize) { _ in
-                    appSettings.save()
-                }
-                Spacer()
-            }.padding(.bottom, 5)
-            if settings.fallbackToPreviousSize {
-                HStack {
-                    Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
-                    .onChange(of: settings.onlyFallbackToPreviousSizeWithUserEvent) { _ in
-                        appSettings.save()
-                    }
-                    Spacer()
-                }.padding(.bottom, 5)
-                
-                Divider()
-            }
-            
-            HStack {
-                Toggle("Select per-desktop layout", isOn: $settings.selectPerDesktopLayout)
-                .onChange(of: settings.selectPerDesktopLayout) { _ in
-                    appSettings.save()
-                }
-                Spacer()
-            }.padding(.bottom, 5)
-            HStack {
-                Toggle("Shake to snap", isOn: $settings.shakeToSnap)
-                .onChange(of: settings.shakeToSnap) { _ in
-                    appSettings.save()
-                }
-                Spacer()
-            }.padding(.bottom, 5)
-            
-            if settings.shakeToSnap {
-                VStack {
-                    Text("Shake Hardness").font(.subheadline)
-                    Slider(value: Binding(
-                        get: { Double(settings.shakeAccelerationThreshold) },
-                        set: { settings.shakeAccelerationThreshold = CGFloat($0) }
-                    ), in: 10000...110000, step: 10000)
-                    .onChange(of: settings.shakeAccelerationThreshold) { _ in
-                        appSettings.save()
-                    }
-                }
-                .padding(.bottom, 10)
-            }
-            
-            if #available(macOS 14.0, *) {
-                HStack {
-                    Toggle("Start at login", isOn: $startAtLogin)
-                        .onChange(of: startAtLogin) { oldValue, newValue in
-                            if oldValue != newValue {
-                                do {
-                                    if startAtLogin {
-                                        try SMAppService.mainApp.register()
-                                    } else {
-                                        try SMAppService.mainApp.unregister()
-                                    }
-                                } catch {
-                                    print("Failed to toggle run at startup: \(error)")
-                                    startAtLogin = false
-                                }
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Layouts").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showLayoutHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        
+                        Picker("Select Layout", selection: $layouts.currentLayoutName) {
+                            ForEach(Array(layouts.layouts.keys), id: \.self) { name in
+                                Text(name)
                             }
                         }
+                        .labelsHidden()
+                        .pickerStyle(MenuPickerStyle())
                         .onAppear {
-                            startAtLogin = SMAppService.mainApp.status == .enabled
+                            if let preferedLayout = spaceLayoutPreferences.getCurrent() {
+                                layouts.currentLayoutName = preferedLayout
+                            }
                         }
-                    Spacer()
-                }.padding(.bottom, 5)
-            } else if #available(macOS 13.0, *) {
-                HStack {
-                    Toggle("Start at login", isOn: $startAtLogin)
-                        .onChange(of: startAtLogin) { value in
-                            toggleRunAtStartup()
+                        .onChange(of: layouts.currentLayoutName) { _ in
+                            let wasEditing = isEditing
+                            stopEditing()
+                            userLayouts.selectLayout(layouts.currentLayoutName)
+                            if wasEditing { startEditing() }
+                            spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
+                            spaceLayoutPreferences.save()
                         }
-                        .onAppear {
-                            startAtLogin = SMAppService.mainApp.status == .enabled
+                        
+                        HStack(alignment: .center, spacing: 2) {
+                            Button(action: { toggleEditing() }) {
+                                Image(systemName: "pencil")
+                            }
+                            Button(action: { stopEditing(); page = "rename" }) {
+                                Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                            }
+                            Button(action: { stopEditing(); page = "new" }) {
+                                Image(systemName: "plus")
+                            }
+                            Button(action: { layouts.removeCurrentLayout() }) {
+                                Image(systemName: "trash")
+                            }.disabled(layouts.layouts.count < 2)
                         }
-                    Spacer()
-                }.padding(.bottom, 5)
-            }
-
-            #if !APPSTORE
-                if !proLock.isPro {
-                    Divider()
+                        .frame(maxWidth: .infinity)
+                    }
                     
-                    Button(action: {
-                        page = "unlock"
-                    }) {
-                        HStack {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.red)
-                            Text("Unlock Pro Version")
-                                .fontWeight(.bold)
+                    Divider().padding(.vertical, 2)
+                    
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Modifier Key").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showModifierKeyHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
                         }
-                    }.padding()
-                     .frame(maxWidth: .infinity)
-                     .background(Color.pink.opacity(0.2))
-                     .cornerRadius(7)
-                     .alert(isPresented: $showNotProDialog) {
-                         Alert(
-                             title: Text("Omg! 😊"),
-                             message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                             dismissButton: .default(Text("OK"))
-                         )
-                     }
+                        Picker("Modifier Key", selection: $settings.modifierKey) {
+                            Text("None").tag("None")
+                            Text("Command").tag("Command")
+                            Text("Option").tag("Option")
+                            Text("Control").tag("Control")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(MenuPickerStyle())
+                        .onChange(of: settings.modifierKey) { _ in appSettings.save() }
+                        Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0))s")
+                            .font(.caption2)
+                        Slider(value: Binding(
+                            get: { Double(settings.modifierKeyDelay) },
+                            set: { settings.modifierKeyDelay = Int($0) }
+                        ), in: 0...2000, step: 100)
+                        .onChange(of: settings.modifierKeyDelay) { _ in appSettings.save() }
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Snap Key").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showSnapKeyHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        Picker("Snap Key", selection: $settings.snapKey) {
+                            Text("None").tag("None")
+                            Text("Shift").tag("Shift")
+                            Text("Command").tag("Command")
+                            Text("Option").tag("Option")
+                            Text("Control").tag("Control")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(MenuPickerStyle())
+                        .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
+                            .toggleStyle(.checkbox)
+                            .font(.caption2)
+                            .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
+                    }
+                    Divider().padding(.vertical, 2)
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Quick Snapper").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showQuickSnapperHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        ShortcutInputView(shortcut: $settings.quickSnapShortcut)
+                            .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
+                    }
                 }
-            #endif
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Group {
+                        Toggle("Snap resize", isOn: $settings.snapResize)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.snapResize) { _ in appSettings.save() }
+                        if settings.snapResize {
+                            Text("Threshold: \(Int(settings.snapResizeThreshold))px")
+                                .font(.caption2)
+                            Slider(value: Binding(
+                                get: { Double(settings.snapResizeThreshold) },
+                                set: { settings.snapResizeThreshold = CGFloat($0) }
+                            ), in: 5...67, step: 2)
+                            .onChange(of: settings.snapResizeThreshold) { _ in appSettings.save() }
+                        }
+                        Toggle("Prioritze zone center", isOn: $settings.prioritizeCenterToSnap)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                        
+                        Divider().padding(.vertical, 2)
+                        
+                        Toggle("Fallback previous size when unsnapped", isOn: $settings.fallbackToPreviousSize)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.fallbackToPreviousSize) { _ in appSettings.save() }
+                        
+                        if settings.fallbackToPreviousSize {
+                            Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.onlyFallbackToPreviousSizeWithUserEvent) { _ in appSettings.save() }
+                        }
+                        
+                        Divider().padding(.vertical, 2)
+                        
+                        Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                        
+                        Toggle("Shake to snap", isOn: $settings.shakeToSnap)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.shakeToSnap) { _ in appSettings.save() }
+                        
+                        if settings.shakeToSnap {
+                            Text("Shake Hardness").font(.caption2)
+                            Slider(value: Binding(
+                                get: { Double(settings.shakeAccelerationThreshold) },
+                                set: { settings.shakeAccelerationThreshold = CGFloat($0) }
+                            ), in: 10000...110000, step: 10000)
+                            .onChange(of: settings.shakeAccelerationThreshold) { _ in appSettings.save() }
+                        }
+                    }
+                    
+                    if #available(macOS 13.0, *) {
+                        Toggle("Start at login", isOn: $startAtLogin)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: startAtLogin) { _ in toggleRunAtStartup() }
+                            .onAppear { startAtLogin = SMAppService.mainApp.status == .enabled }
+                    }
+                    
+                    #if !APPSTORE
+                    if !proLock.isPro {
+                        Divider().padding(.vertical, 2)
+                        Button(action: { page = "unlock" }) {
+                            HStack {
+                                Image(systemName: "heart.fill").foregroundColor(.red)
+                                Text("Unlock Pro Version").fontWeight(.bold)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(10)
+                        .background(Color.pink.opacity(0.2))
+                        .cornerRadius(7)
+                        .alert(isPresented: $showNotProDialog) {
+                            Alert(
+                                title: Text("Omg! 😊"),
+                                message: Text("You must buy MacsyZones Pro to unlock this feature."),
+                                dismissButton: .default(Text("OK"))
+                            )
+                        }
+                    }
+                    #endif
+                }
+            }
             
-            Divider()
-            
-            VStack(alignment: .center) {
-                Button(action: {
-                    updater.checkForUpdates()
-                }) {
+            HStack {
+                Button(action: { updater.checkForUpdates() }) {
                     HStack {
                         if updater.isChecking {
                             Image(systemName: "arrow.clockwise.circle")
-                            Text("Checking for Updates...")
+                            Text("Checking...")
                         } else if updater.isDownloading {
-                            ProgressView()
-                                .font(.system(size: 12))
-                            Text("Downloading Update...")
-                        } else if let isUpdatable = updater.isUpdatable,
-                                  let latestVersion = updater.latestVersion,
-                                  isUpdatable
-                        {
+                            ProgressView().font(.system(size: 12))
+                            Text("Downloading...")
+                        } else if let isUpdatable = updater.isUpdatable, let latestVersion = updater.latestVersion, isUpdatable {
                             Image(systemName: "arrow.down.circle.fill")
                             Text("Update to \(latestVersion)")
                         } else {
@@ -703,88 +555,39 @@ struct Main: View {
                     }
                 }
                 .disabled(updater.isChecking || updater.isDownloading)
-            }
-            .padding(.vertical, 10)
-            
-            Divider()
-
-            Button(action: {
-                NSApp.terminate(nil)
-            }) {
-                HStack {
-                    Image(systemName: "power")
-                    Text("Quit MacsyZones")
+                
+                Button(action: { NSApp.terminate(nil) }) {
+                    HStack {
+                        Image(systemName: "power")
+                        Text("Quit")
+                    }
                 }
             }
-            .padding(.top, 10)
-        }.padding()
-         .frame(width: 240)
-         .alert(isPresented: $showDialog) {
-             if showLayoutHelpDialog {
-                 return Alert(
-                    title: Text("Layouts"),
-                    message: Text("""
-                    You can add, remove, rename layouts and select a layout for your current (screen, workspace) pair.
-                
-                    MacsyZones will remember the layout you selected for each (screen, workspace) pair.
-                
-                    Important: Please do NOT place your zones on multiple screens while you are editing a layout. It is an undefined behavior for MacsyZones so far.
-                
-                    Instead, you can create many layouts for each screen (or workspace) and switch between them easily; MacsyZones will remember the layout you selected for each (screen, workspace) pair.
-                
-                    Enjoy! 🥳
-                """),
-                    dismissButton: .default(Text("OK"))
-                 )
-             } else if showModifierKeyHelpDialog {
-                 return Alert(
-                    title: Text("Modifier Key"),
-                    message: Text("""
-                        Modifier key is mainly for performing snap resize but you can also use it to snap your windows to your zones.
-                    
-                        Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
-                    
-                        You can hold the modifier key and perform snap resizing with your mouse or trackpad.
-                        
-                        Enjoy! 🥳
-                    """),
-                    dismissButton: .default(Text("OK"))
-                 )
-             } else if showSnapKeyHelpDialog {
-                 return Alert(
-                    title: Text("Snap Key"),
-                    message: Text("""
-                        Snap key is for snapping your windows to your zones.
-                    
-                        You can hold the snap key and drag your windows to the zones.
-                    
-                        Snap key works only while you are moving a window.
-                    
-                        Enjoy! 🥳
-                    """),
-                    dismissButton: .default(Text("OK"))
-                 )
-            } else if showQuickSnapperHelpDialog {
+            .padding(.top, 5)
+        }
+        .frame(minWidth: 400)
+        .alert(isPresented: $showDialog) {
+            if showLayoutHelpDialog {
                 return Alert(
-                    title: Text("Quick Snap Shortcut"),
-                    message: Text("""
-                        Quick Snap shortcut is for activating the Quick Snapper. 
-                        
-                        Quick Snapper is a feature that allows you to snap your windows to your zones with your keyboard easily and very quickly.
-                    
-                        It is also useful as a window switcher. (Like Windows' Alt+Tab window switcher.)
-                        
-                        Enjoy! 🥳
-                    """),
-                    dismissButton: .default(Text("OK"))
-                 )
-            } else if showSnapResizeHelpDialog {
-                return Alert(
-                   title: Text("Snap Resize"),
+                   title: Text("Layouts"),
                    message: Text("""
-                       Snap resizing is a feature that allows you to resize your windows to your zones.
-                       
-                       You can enable or disable snap resizing and adjust the snap threshold.
+                   You can add, remove, rename layouts and select a layout for your current (screen, workspace) pair.
+               
+                   MacsyZones will remember the layout you selected for each (screen, workspace) pair.
+               
+                   Important: Please do NOT place your zones on multiple screens while you are editing a layout. It is an undefined behavior for MacsyZones so far.
+               
+                   Instead, you can create many layouts for each screen (or workspace) and switch between them easily; MacsyZones will remember the layout you selected for each (screen, workspace) pair.
+               
+                   Enjoy! 🥳
+               """),
+                   dismissButton: .default(Text("OK"))
+                )
+            } else if showModifierKeyHelpDialog {
+                return Alert(
+                   title: Text("Modifier Key"),
+                   message: Text("""
+                       Modifier key is mainly for performing snap resize but you can also use it to snap your windows to your zones.
                    
                        Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
                    
@@ -794,28 +597,72 @@ struct Main: View {
                    """),
                    dismissButton: .default(Text("OK"))
                 )
-             } else {
-                 let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
-                 
-                 return Alert(
-                     title: Text("About MacsyZones"),
-                     message: Text("""
-                         Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
-                         
-                         MacsyZones helps you organize your windows efficiently.
-                         
-                         Version: \(appVersion) (Build: \(appBuild))
-                         \(licenseInfo)
-                     """),
-                     primaryButton: .default(Text("Visit Website")) {
-                         if let url = URL(string: "https://macsyzones.com") {
-                             NSWorkspace.shared.open(url)
-                         }
-                     },
-                     secondaryButton: .cancel(Text("OK"))
-                 )
-             }
-         }
+            } else if showSnapKeyHelpDialog {
+                return Alert(
+                   title: Text("Snap Key"),
+                   message: Text("""
+                       Snap key is for snapping your windows to your zones.
+                   
+                       You can hold the snap key and drag your windows to the zones.
+                   
+                       Snap key works only while you are moving a window.
+                   
+                       Enjoy! 🥳
+                   """),
+                   dismissButton: .default(Text("OK"))
+                )
+           } else if showQuickSnapperHelpDialog {
+               return Alert(
+                   title: Text("Quick Snap Shortcut"),
+                   message: Text("""
+                       Quick Snap shortcut is for activating the Quick Snapper. 
+                       
+                       Quick Snapper is a feature that allows you to snap your windows to your zones with your keyboard easily and very quickly.
+                   
+                       It is also useful as a window switcher. (Like Windows' Alt+Tab window switcher.)
+                       
+                       Enjoy! 🥳
+                   """),
+                   dismissButton: .default(Text("OK"))
+                )
+           } else if showSnapResizeHelpDialog {
+               return Alert(
+                  title: Text("Snap Resize"),
+                  message: Text("""
+                      Snap resizing is a feature that allows you to resize your windows to your zones.
+                      
+                      You can enable or disable snap resizing and adjust the snap threshold.
+                  
+                      Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
+                  
+                      You can hold the modifier key and perform snap resizing with your mouse or trackpad.
+                      
+                      Enjoy! 🥳
+                  """),
+                  dismissButton: .default(Text("OK"))
+               )
+            } else {
+                let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
+                
+                return Alert(
+                    title: Text("About MacsyZones"),
+                    message: Text("""
+                        Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
+                        
+                        MacsyZones helps you organize your windows efficiently.
+                        
+                        Version: \(appVersion) (Build: \(appBuild))
+                        \(licenseInfo)
+                    """),
+                    primaryButton: .default(Text("Visit Website")) {
+                        if let url = URL(string: "https://macsyzones.com") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    },
+                    secondaryButton: .cancel(Text("OK"))
+                )
+            }
+        }
     }
 }
 
@@ -860,14 +707,14 @@ struct NewView: View {
                     }
                 }
             }
-        }.padding()
-            .alert(isPresented: $showAlreadyExistsAlert) {
-                Alert(
-                    title: Text("Omg! 😊"),
-                    message: Text("Another layout with this name already exists. Please choose another name."),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
+        }
+        .alert(isPresented: $showAlreadyExistsAlert) {
+            Alert(
+                title: Text("Omg! 😊"),
+                message: Text("Another layout with this name already exists. Please choose another name."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
@@ -903,7 +750,7 @@ struct RenameView: View {
                     }
                 }
             }
-        }.padding()
+        }
     }
 }
 
@@ -973,8 +820,8 @@ struct UnlockProView: View {
                     Text("Buy Pro License Key")
                 }
             }
-        }.frame(minWidth: 300)
-         .padding()
+        }
+        .frame(minWidth: 300)
     }
     
     func validateLicenseKey(_ key: String) -> Bool {
@@ -1020,6 +867,7 @@ struct TrayPopupView: View {
                     Main(proLock: proLock, page: $page)
                 }
             }
+            .padding()
         }
     }
 }
