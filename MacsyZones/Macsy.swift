@@ -67,7 +67,7 @@ func getWindowSizeAndPosition(from windowID: UInt32) -> (CGSize?, CGPoint?) {
     let windowList = CGWindowListCopyWindowInfo(.optionIncludingWindow, windowID) as NSArray?
     
     guard let windowInfoList = windowList as? [[String: AnyObject]], let windowInfo = windowInfoList.first else {
-        print("Failed to retrieve window info")
+        debugLog("Failed to retrieve window info")
         return (nil, nil)
     }
     
@@ -156,7 +156,12 @@ var justDidMouseUp = false
 func getHoveredSectionWindow() -> SectionWindow? {
     var hoveredSectionWindow: SectionWindow?
     
-    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return nil }
+    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+        for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
+            sectionWindow.isHovered = false
+        }
+        return nil 
+    }
     
     let mouseLocation = NSEvent.mouseLocation
     
@@ -192,6 +197,10 @@ func getHoveredSectionWindow() -> SectionWindow? {
                 }
             }
         }
+    }
+
+    for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
+        sectionWindow.isHovered = (sectionWindow === hoveredSectionWindow)
     }
     
     return hoveredSectionWindow
@@ -477,7 +486,7 @@ func getAXPosition(for window: NSWindow) -> CGPoint? {
     let windowList = CGWindowListCopyWindowInfo(.optionIncludingWindow, windowId) as NSArray?
     
     guard let windowInfoList = windowList as? [[String: AnyObject]], let windowInfo = windowInfoList.first else {
-        print("Failed to retrieve window info")
+        debugLog("Failed to retrieve window info")
         return nil
     }
     
@@ -613,3 +622,11 @@ func onMouseUp(event: NSEvent) {
     previousTime = nil
     lastShakeTime = Date().timeIntervalSince1970 + 0.75
 }
+
+func onMouseMove(event: NSEvent) {
+    if isEditing { return }
+    if isSnapResizing { return }
+    
+    
+}
+

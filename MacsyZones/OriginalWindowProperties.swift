@@ -21,7 +21,7 @@ class OriginalWindowProperties {
         let windowList = CGWindowListCopyWindowInfo(.optionIncludingWindow, windowID) as NSArray?
         
         guard let windowInfoList = windowList as? [[String: AnyObject]], let windowInfo = windowInfoList.first else {
-            print("Failed to retrieve window info")
+            debugLog("Failed to retrieve window info")
             return
         }
         

@@ -51,38 +51,6 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "0AA03DB1-2B38-4E6C-84C8-FA0A1075673A"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "MacsyZones/MacsyZonesApp.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "422"
-            endingLineNumber = "422"
-            landmarkName = "restartApp()"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "0F4D74BF-A121-434F-9D14-49E98B573DA2"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "MacsyZones/Layout.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "703"
-            endingLineNumber = "703"
-            landmarkName = "show(showSnapResizers:)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
             uuid = "D6DCCC17-85AE-443B-B3B9-47366A6F5ED9"
             shouldBeEnabled = "No"
             ignoreCount = "0"
@@ -92,7 +60,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "390"
             endingLineNumber = "390"
-            landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:)"
+            landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:retryParent:)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -108,8 +76,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "514"
             endingLineNumber = "514"
-            landmarkName = "resizeWindow(element:newSize:)"
-            landmarkType = "9">
+            landmarkName = "NSScreen"
+            landmarkType = "21">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -124,7 +92,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "548"
             endingLineNumber = "548"
-            landmarkName = "onMouseUp(event:)"
+            landmarkName = "getFocusedWindowAXUIElement()"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -156,7 +124,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "386"
             endingLineNumber = "386"
-            landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:)"
+            landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:retryParent:)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -172,7 +140,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "494"
             endingLineNumber = "494"
-            landmarkName = "moveWindowToMatch(element:targetWindow:targetScreen:sectionConfig:)"
+            landmarkName = "getAXPosition(for:)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
@@ -350,6 +318,22 @@
             endingLineNumber = "114"
             landmarkName = "checkLatestRelease(onChecked:)"
             landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "C4BBDCD8-5EE7-452E-B1CE-9F41261A979C"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MacsyZones/Macsy.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "480"
+            endingLineNumber = "480"
+            landmarkName = "getElementSizeAndPosition(element:)"
+            landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

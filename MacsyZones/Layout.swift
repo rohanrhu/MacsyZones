@@ -1,10 +1,10 @@
 //
 // MacsyZones, macOS system utility for managing windows on your Mac.
-// 
+//
 // https://macsyzones.com
-// 
+//
 // Copyright © 2024, Oğuzhan Eroğlu <meowingcate@gmail.com> (https://meowingcat.io)
-// 
+//
 // This file is part of MacsyZones.
 // Licensed under GNU General Public License v3.0
 // See LICENSE file.
@@ -24,11 +24,11 @@ struct SectionView: View {
                     .font(.system(size: 50))
                     .foregroundColor(.white)
                     .padding(50)
-                    .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(0.25)))
-                    .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(0.5), lineWidth: 4))
+                    .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15)))
+                    .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), lineWidth: 4))
             }.frame(width: geometry.size.width, height: geometry.size.height)
-                .background(BlurredSectionBackground())
-                .border(Color(NSColor.selectedTextBackgroundColor).opacity(0.75), width: 5)
+                .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.7 : 0.15))
+                .border(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), width: 5)
                 .cornerRadius(7)
         }
     }
@@ -184,10 +184,12 @@ struct BlurredWindowBackground: NSViewRepresentable {
 struct BlurredSectionBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material
     var blendingMode: NSVisualEffectView.BlendingMode
+    var opacity: CGFloat = 0.35
     
-    init() {
+    init(opacity: CGFloat = 0.35) {
         material = .hudWindow
         blendingMode = .behindWindow
+        self.opacity = opacity
     }
 
     func makeNSView(context: Context) -> NSVisualEffectView {
@@ -195,26 +197,24 @@ struct BlurredSectionBackground: NSViewRepresentable {
         visualEffectView.material = material
         visualEffectView.blendingMode = blendingMode
         visualEffectView.state = .active
-        
         visualEffectView.material = .hudWindow
         visualEffectView.state = .active
         visualEffectView.wantsLayer = true
-        
         visualEffectView.layer?.cornerRadius = 7
-        visualEffectView.layer?.opacity = 0.7
+        visualEffectView.layer?.opacity = Float(opacity)
         visualEffectView.layer?.borderWidth = 5
-        visualEffectView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
+        visualEffectView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.7).cgColor
         visualEffectView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
-        
         return visualEffectView
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+        nsView.layer?.opacity = Float(opacity)
+        nsView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.7).cgColor
     }
 }
-
 
 class EditorSectionWindow: NSWindow {
     override var canBecomeKey: Bool { true }
@@ -231,6 +231,7 @@ class SectionWindow: Hashable, ObservableObject {
             editorSectionView.number = number
         }
     }
+    @Published var isHovered: Bool = false
     var editorWindow: NSWindow!
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
@@ -449,12 +450,19 @@ class LayoutWindow {
     
     var sectionResizers: [SnapResizer] = []
     
+    var mouseMonitor: Any?
+    var snapResizerProximityThreshold: CGFloat { appSettings.snapResizeThreshold }
+    
+    var activeSnapResizers: [String: SnapResizer] = [:]
+
     var nextNumber: Int {
         if unsavedNewSectionConfigs.count > 0 {
             return (unsavedNewSectionConfigs.values.compactMap { $0.number ?? 0 }.max() ?? 0) + 1
         }
         return (sectionConfigs.values.compactMap { $0.number ?? 0 }.max() ?? 0) + 1
     }
+    
+    var isShown = false
 
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
@@ -502,6 +510,146 @@ class LayoutWindow {
         
         window.orderOut(nil)
         editorBarWindow.orderOut(nil)
+        
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+            self?.handleMouseMoved(event: event)
+        }
+    }
+    
+    deinit {
+        if let monitor = mouseMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
+    
+    func handleMouseMoved(event: NSEvent) {
+        guard !isFitting else { return }
+        guard !isEditing else { return }
+        guard appSettings.snapResize else { return }
+        guard userLayouts.currentLayout.layoutWindow === self else { return }
+        
+        let mouseLocation = NSEvent.mouseLocation
+        let resizerRectsWithInfo = calculateSnapResizerRectsWithInfo()
+        let proximityRects = resizerRectsWithInfo.filter { $0.rect.insetBy(dx: -snapResizerProximityThreshold, dy: -snapResizerProximityThreshold).contains(mouseLocation) }
+        var newActiveKeys: Set<String> = []
+        
+        for info in proximityRects {
+            let key = rectKey(info.rect)
+            
+            newActiveKeys.insert(key)
+            
+            if activeSnapResizers[key] == nil {
+                let snapResizer = SnapResizer(width: info.rect.width,
+                                              height: info.rect.height,
+                                              relatedSections: info.relatedSections,
+                                              mode: info.mode,
+                                              isMouseOverResizer: true)
+                
+                snapResizer.setFrame(info.rect, display: true, animate: false)
+                snapResizer.alphaValue = 0
+                snapResizer.orderFront(nil)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.35
+                    snapResizer.animator().alphaValue = 1
+                }
+                
+                sectionResizers.append(snapResizer)
+                activeSnapResizers[key] = snapResizer
+            }
+        }
+        
+        for (key, snapResizer) in activeSnapResizers {
+            if !newActiveKeys.contains(key) {
+                snapResizer.orderOut(nil)
+            }
+        }
+        
+        activeSnapResizers = activeSnapResizers.filter { newActiveKeys.contains($0.key) }
+        sectionResizers = sectionResizers.filter { resizer in
+            activeSnapResizers.values.contains(where: { $0 === resizer })
+        }
+    }
+
+    func rectKey(_ rect: NSRect) -> String {
+        return String(format: "%.1f,%.1f,%.1f,%.1f", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+    }
+
+    func calculateSnapResizerRectsWithInfo() -> [(rect: NSRect, relatedSections: [RelatedSection], mode: SnapResizerMode)] {
+        var result: [(rect: NSRect, relatedSections: [RelatedSection], mode: SnapResizerMode)] = []
+        let verticalButtonWidth: CGFloat = 8
+        let verticalButtonHeight: CGFloat = 50
+        let horizontalButtonWidth: CGFloat = 50
+        let horizontalButtonHeight: CGFloat = 8
+        
+        for sectionWindow in sectionWindows {
+            let sectionFrame = sectionWindow.window.frame
+            for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
+                let otherSectionFrame = otherSectionWindow.window.frame
+                let sectionRight = sectionFrame.maxX
+                let sectionTop = sectionFrame.minY
+                let sectionBottom = sectionFrame.maxY
+                let otherLeft = otherSectionFrame.minX
+                let otherTop = otherSectionFrame.minY
+                let otherBottom = otherSectionFrame.maxY
+                
+                if abs(sectionRight - otherLeft) <= appSettings.snapResizeThreshold &&
+                    (abs(sectionTop - otherTop) <= appSettings.snapResizeThreshold || abs(sectionBottom - otherBottom) <= appSettings.snapResizeThreshold)
+                {
+                    let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
+                    let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
+                    let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
+                    let buttonY = ((topY + bottomY) / 2) - (verticalButtonHeight / 2)
+                    let xGap = abs(sectionRight - otherLeft)
+                    let xGapToButton: CGFloat = xGap / 2
+                    var relatedSections: [RelatedSection] = []
+                    for possibleRelatedWindow in sectionWindows {
+                        let possibleFrame = possibleRelatedWindow.window.frame
+                        if abs(sectionRight - possibleFrame.minX) <= appSettings.snapResizeThreshold ||
+                            abs(otherLeft - possibleFrame.maxX) <= appSettings.snapResizeThreshold {
+                            relatedSections.append(.init(sectionWindow: possibleRelatedWindow,
+                                                         direction: (possibleFrame.minX + (possibleFrame.width / 2)) < buttonX ? .left : .right,
+                                                         gapToButton: xGapToButton))
+                        }
+                    }
+                    let rect = NSRect(x: buttonX, y: buttonY, width: verticalButtonWidth, height: verticalButtonHeight)
+                    result.append((rect, relatedSections, .vertical))
+                }
+            }
+            for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
+                let otherSectionFrame = otherSectionWindow.window.frame
+                let sectionLeft = sectionFrame.minX
+                let sectionRight = sectionFrame.maxX
+                let sectionBottom = sectionFrame.minY
+                let otherLeft = otherSectionFrame.minX
+                let otherRight = otherSectionFrame.maxX
+                let otherTop = otherSectionFrame.maxY
+                
+                if abs(sectionBottom - otherTop) <= appSettings.snapResizeThreshold &&
+                   (abs(sectionLeft - otherLeft) <= appSettings.snapResizeThreshold || abs(sectionRight - otherRight) <= appSettings.snapResizeThreshold)
+                {
+                    let buttonY = ((sectionBottom + otherTop) / 2) - (horizontalButtonHeight / 2)
+                    let leftX = min(sectionFrame.maxX, otherSectionFrame.maxX)
+                    let rightX = max(sectionFrame.minX, otherSectionFrame.minX)
+                    let buttonX = ((leftX + rightX) / 2) - (horizontalButtonWidth / 2)
+                    let yGap = abs(sectionBottom - otherTop)
+                    let yGapToButton: CGFloat = yGap / 2
+                    var relatedSections: [RelatedSection] = []
+                    for possibleRelatedWindow in sectionWindows {
+                        let possibleFrame = possibleRelatedWindow.window.frame
+                        if abs(sectionBottom - possibleFrame.maxY) <= appSettings.snapResizeThreshold ||
+                           abs(otherTop - possibleFrame.minY) <= appSettings.snapResizeThreshold
+                        {
+                            relatedSections.append(.init(sectionWindow: possibleRelatedWindow,
+                                                         direction: (possibleFrame.minY + (possibleFrame.height / 2)) < buttonY ? .bottom : .top,
+                                                         gapToButton: yGapToButton))
+                        }
+                    }
+                    let rect = NSRect(x: buttonX, y: buttonY, width: horizontalButtonWidth, height: horizontalButtonHeight)
+                    result.append((rect, relatedSections, .horizontal))
+                }
+            }
+        }
+        return result
     }
     
     func onSectionDelete(unowned sectionWindow: SectionWindow) {
@@ -598,43 +746,67 @@ class LayoutWindow {
         macsyStopEditing()
     }
     
-    func show(showSnapResizers: Bool = false) {
+    func show(showLayouts: Bool = true, showSnapResizers: Bool = false) {
+        guard !isShown else { return }
+        
+        isShown = true
+        
+        window.alphaValue = 0
         window.orderFront(nil)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.35
+            window.animator().alphaValue = 1
+        }
+        
+        editorBarWindow.alphaValue = 0
         editorBarWindow.orderOut(nil)
         
-        if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
-            window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.35
+            editorBarWindow.animator().alphaValue = 1
         }
         
-        for sectionWindow in sectionWindows {
-            sectionWindow.editorWindow.orderOut(nil)
-            sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
-            sectionWindow.window.orderFront(nil)
+        if showLayouts {
+            if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+                window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
+            }
+            
+            for sectionWindow in sectionWindows {
+                sectionWindow.editorWindow.orderOut(nil)
+                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
+                sectionWindow.window.alphaValue = 0
+                sectionWindow.window.orderFront(nil)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.35
+                    sectionWindow.window.animator().alphaValue = 1
+                }
+            }
+            
+            for sectionResizer in sectionResizers {
+                sectionResizer.alphaValue = 0
+                sectionResizer.orderFront(nil)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.35
+                    sectionResizer.animator().alphaValue = 1
+                }
+            }
         }
-        
-        let verticalButtonWidth: CGFloat = 8
-        let verticalButtonHeight: CGFloat = 50
-        
-        let horizontalButtonWidth: CGFloat = 50
-        let horizontalButtonHeight: CGFloat = 8
-        
-        for sectionResizer in sectionResizers {
-            sectionResizer.orderOut(nil)
-        }
-        
-        sectionResizers = []
         
         if appSettings.snapResize && showSnapResizers {
+            let verticalButtonWidth: CGFloat = 8
+            let verticalButtonHeight: CGFloat = 50
+            let horizontalButtonWidth: CGFloat = 50
+            let horizontalButtonHeight: CGFloat = 8
+            
+            sectionResizers = sectionResizers.filter { $0.isMouseOverResizer }
+            
             for sectionWindow in sectionWindows {
                 let sectionFrame = sectionWindow.window.frame
-                
                 for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
                     let otherSectionFrame = otherSectionWindow.window.frame
-                    
                     let sectionRight = sectionFrame.maxX
                     let sectionTop = sectionFrame.minY
                     let sectionBottom = sectionFrame.maxY
-                    
                     let otherLeft = otherSectionFrame.minX
                     let otherTop = otherSectionFrame.minY
                     let otherBottom = otherSectionFrame.maxY
@@ -642,42 +814,45 @@ class LayoutWindow {
                     if abs(sectionRight - otherLeft) <= appSettings.snapResizeThreshold &&
                         (abs(sectionTop - otherTop) <= appSettings.snapResizeThreshold || abs(sectionBottom - otherBottom) <= appSettings.snapResizeThreshold)
                     {
-                        
                         let buttonX = ((sectionRight + otherLeft) / 2) - (verticalButtonWidth / 2)
                         let topY = min(sectionFrame.maxY, otherSectionFrame.maxY)
                         let bottomY = max(sectionFrame.minY, otherSectionFrame.minY)
                         let buttonY = ((topY + bottomY) / 2) - (verticalButtonHeight / 2)
                         let xGap = abs(sectionRight - otherLeft)
                         let xGapToButton: CGFloat = xGap / 2
-                        
                         var relatedSections: [RelatedSection] = []
-                        
                         for possibleRelatedWindow in sectionWindows {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            
                             if abs(sectionRight - possibleFrame.minX) <= appSettings.snapResizeThreshold ||
                                 abs(otherLeft - possibleFrame.maxX) <= appSettings.snapResizeThreshold {
-                                
                                 relatedSections.append(.init(sectionWindow: possibleRelatedWindow,
                                                              direction: (possibleFrame.minX + (possibleFrame.width / 2)) < buttonX ? .left : .right,
                                                              gapToButton: xGapToButton))
                             }
                         }
                         
-                        let sectionResizer = SnapResizer(width: verticalButtonWidth, height: verticalButtonHeight, relatedSections: relatedSections, mode: .vertical)
+                        let sectionResizer = SnapResizer(width: verticalButtonWidth,
+                                                         height: verticalButtonHeight,
+                                                         relatedSections: relatedSections,
+                                                         mode: .vertical)
                         sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: verticalButtonWidth, height: verticalButtonHeight), display: true, animate: false)
+                        sectionResizer.alphaValue = 0
                         sectionResizer.orderFront(nil)
+                        
+                        NSAnimationContext.runAnimationGroup { context in
+                            context.duration = 0.35
+                            sectionResizer.animator().alphaValue = 1
+                        }
+                        
                         sectionResizers.append(sectionResizer)
                     }
                 }
                 
                 for otherSectionWindow in sectionWindows where otherSectionWindow !== sectionWindow {
                     let otherSectionFrame = otherSectionWindow.window.frame
-                    
                     let sectionLeft = sectionFrame.minX
                     let sectionRight = sectionFrame.maxX
                     let sectionBottom = sectionFrame.minY
-                    
                     let otherLeft = otherSectionFrame.minX
                     let otherRight = otherSectionFrame.maxX
                     let otherTop = otherSectionFrame.maxY
@@ -691,12 +866,10 @@ class LayoutWindow {
                         let buttonX = ((leftX + rightX) / 2) - (horizontalButtonWidth / 2)
                         let yGap = abs(sectionBottom - otherTop)
                         let yGapToButton: CGFloat = yGap / 2
-                        
                         var relatedSections: [RelatedSection] = []
                         
                         for possibleRelatedWindow in sectionWindows {
                             let possibleFrame = possibleRelatedWindow.window.frame
-                            
                             if abs(sectionBottom - possibleFrame.maxY) <= appSettings.snapResizeThreshold ||
                                abs(otherTop - possibleFrame.minY) <= appSettings.snapResizeThreshold
                             {
@@ -708,27 +881,51 @@ class LayoutWindow {
                         
                         let sectionResizer = SnapResizer(width: horizontalButtonWidth, height: horizontalButtonHeight, relatedSections: relatedSections, mode: .horizontal)
                         sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: horizontalButtonWidth, height: horizontalButtonHeight), display: true, animate: false)
+                        sectionResizer.alphaValue = 0
                         sectionResizer.orderFront(nil)
+                        
+                        NSAnimationContext.runAnimationGroup { context in
+                            context.duration = 0.35
+                            sectionResizer.animator().alphaValue = 1
+                        }
+                        
                         sectionResizers.append(sectionResizer)
                     }
                 }
             }
         }
     }
-    
+
     func hide() {
-        for sectionResizer in sectionResizers {
-            sectionResizer.orderOut(nil)
-        }
+        isShown = false
         
-        sectionResizers = []
+        for sectionResizer in sectionResizers {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.35
+                sectionResizer.animator().alphaValue = 0
+            }, completionHandler: {
+                sectionResizer.orderOut(nil)
+            })
+        }
+        sectionResizers = sectionResizers.filter { $0.isMouseOverResizer }
         
         for sectionWindow in sectionWindows {
-            sectionWindow.window.orderOut(nil)
-            sectionWindow.editorWindow.orderOut(nil)
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.35
+                sectionWindow.window.animator().alphaValue = 0
+            }, completionHandler: {
+                sectionWindow.window.orderOut(nil)
+                sectionWindow.editorWindow.orderOut(nil)
+            })
         }
         
-        window.orderOut(nil)
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.35
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            self.window.orderOut(nil)
+        })
+        
         editorBarWindow.orderOut(nil)
     }
     
@@ -849,13 +1046,17 @@ class SnapResizer: NSWindow {
     var resizeDelay = 0.1
     var resizeTask: DispatchWorkItem? = nil
     
-    init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode) {
+    var isMouseOverResizer = false
+    
+    init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode, isMouseOverResizer: Bool = false) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                    styleMask: [.borderless],
                    backing: .buffered,
                    defer: false)
         
         self.mode = mode
+        self.isMouseOverResizer = isMouseOverResizer
+        
         isOpaque = false
         backgroundColor = .clear
         title = "Macsy Live Snap Resizer"
@@ -865,7 +1066,8 @@ class SnapResizer: NSWindow {
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = false
 
-        contentView = NSHostingView(rootView: ResizeLayer())
+        contentView = NSHostingView(rootView: SnapResizerView(relatedSections: relatedSections,
+                                                              isMouseOverResizer: isMouseOverResizer))
         
         self.relatedSections = relatedSections
     }
@@ -880,15 +1082,36 @@ class SnapResizer: NSWindow {
         
         resizerX = frame.origin.x
         resizerY = frame.origin.y
+        
+        if isSnapResizing && isMouseOverResizer {
+            userLayouts.currentLayout.layoutWindow.show()
+        }
+        
+        for sectionWindow in (userLayouts.currentLayout.layoutWindow.sectionWindows.filter { sectionWindow in
+            !relatedSections.contains(where: { $0.sectionWindow === sectionWindow })
+        }) {
+            sectionWindow.window.orderOut(nil)
+        }
     }
     
     override func mouseUp(with event: NSEvent) {
         if !draggedOnce {
             isSnapResizing = false
+            
+            if isSnapResizing && isMouseOverResizer {
+                userLayouts.currentLayout.layoutWindow.hide()
+            }
+            
             return
         }
         
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
+        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+            if isSnapResizing && isMouseOverResizer {
+                userLayouts.currentLayout.layoutWindow.hide()
+            }
+            
+            return
+        }
         
         let sectionConfigs = userLayouts.currentLayout.sectionConfigs
         
@@ -907,6 +1130,10 @@ class SnapResizer: NSWindow {
         userLayouts.save()
         
         isSnapResizing = false
+        
+        if isSnapResizing && isMouseOverResizer {
+            userLayouts.currentLayout.layoutWindow.hide()
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -995,13 +1222,54 @@ class SnapResizer: NSWindow {
     }
 }
 
-struct ResizeLayer: View {
+struct SnapResizerView: View {
+    var relatedSections: [RelatedSection] = []
+    var isMouseOverResizer = false
+    
+    @State private var isHovering = false
+    @State private var hoverWorkItem: DispatchWorkItem?
+    let hoverDelay: TimeInterval = 0.3
+    
     var body: some View {
         GeometryReader { geometry in
             Rectangle().fill(Color.white.opacity(0.2))
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(10))
                 .cornerRadius(.infinity)
+                .contentShape(.rect)
+                .onHover { hovering in
+                    guard isMouseOverResizer else { return }
+                    
+                    if hovering {
+                        isHovering = true
+                        
+                        let workItem = DispatchWorkItem {
+                            if isHovering {
+                                NSCursor.resizeUpDown.push()
+                                if !isSnapResizing {
+                                    userLayouts.currentLayout.layoutWindow.show()
+                                    
+                                    for sectionWindow in (userLayouts.currentLayout.layoutWindow.sectionWindows.filter { sectionWindow in
+                                        !relatedSections.contains(where: { $0.sectionWindow === sectionWindow })
+                                    }) {
+                                        sectionWindow.window.orderOut(nil)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        hoverWorkItem?.cancel()
+                        hoverWorkItem = workItem
+                        DispatchQueue.main.asyncAfter(deadline: .now() + hoverDelay, execute: workItem)
+                    } else {
+                        isHovering = false
+                        hoverWorkItem?.cancel()
+                        NSCursor.pop()
+                        if !isSnapResizing {
+                            userLayouts.currentLayout.layoutWindow.hide()
+                        }
+                    }
+                }
         }
     }
 }
