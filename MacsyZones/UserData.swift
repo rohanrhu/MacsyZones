@@ -92,6 +92,7 @@ class UserLayout {
             }
         }
     }
+    
     let layoutWindow: LayoutWindow
     
     init(name: String, sectionConfigs: [SectionConfig]) {
@@ -155,8 +156,8 @@ class UserLayout {
         }
     }
     
-    func show(showSnapresizers: Bool = false) {
-        layoutWindow.show(showSnapResizers: showSnapresizers)
+    func show(showLayouts: Bool = true, showSnapresizers: Bool = false) {
+        layoutWindow.show(showLayouts: showLayouts, showSnapResizers: showSnapresizers)
     }
 }
 

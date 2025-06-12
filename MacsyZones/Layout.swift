@@ -748,24 +748,23 @@ class LayoutWindow {
     }
     
     func show(showLayouts: Bool = true, showSnapResizers: Bool = false) {
-        guard !isShown else { return }
-        
+        let wasShwon = isShown
         isShown = true
         
-        window.alphaValue = 0
-        window.orderFront(nil)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.35
-            window.animator().alphaValue = 1
+        if !wasShwon {
+            window.alphaValue = 0
+            window.orderFront(nil)
+            
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.35
+                window.animator().alphaValue = 1
+            }
+        } else {
+            window.alphaValue = 1
+            window.orderFront(nil)
         }
         
-        editorBarWindow.alphaValue = 0
         editorBarWindow.orderOut(nil)
-        
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.35
-            editorBarWindow.animator().alphaValue = 1
-        }
         
         if showLayouts {
             if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
@@ -1096,13 +1095,13 @@ class SnapResizer: NSWindow {
     }
     
     override func mouseUp(with event: NSEvent) {
+        isSnapResizing = false
+        
+        if isSnapResizing && isMouseOverResizer {
+            userLayouts.currentLayout.layoutWindow.hide()
+        }
+        
         if !draggedOnce {
-            isSnapResizing = false
-            
-            if isSnapResizing && isMouseOverResizer {
-                userLayouts.currentLayout.layoutWindow.hide()
-            }
-            
             return
         }
         

@@ -42,8 +42,8 @@
             filePath = "MacsyZones/UserData.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "248"
-            endingLineNumber = "248"
+            startingLineNumber = "249"
+            endingLineNumber = "249"
             landmarkName = "createLayout(name:)"
             landmarkType = "7">
          </BreakpointContent>
@@ -334,6 +334,23 @@
             endingLineNumber = "480"
             landmarkName = "getElementSizeAndPosition(element:)"
             landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "B19A0FDB-00FC-4DE1-87FC-4D8E5607DD2C"
+            shouldBeEnabled = "No"
+            condition = "isQuickSnapping"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MacsyZones/Layout.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "900"
+            endingLineNumber = "900"
+            landmarkName = "hide()"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

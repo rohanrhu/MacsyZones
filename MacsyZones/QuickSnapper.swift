@@ -415,6 +415,8 @@ class QuickSnapper {
     }
     
     func open(preload: Bool = true) {
+        close()
+        
         isOpen = true
         isQuickSnapping = true
         
@@ -428,17 +430,38 @@ class QuickSnapper {
             userLayouts.currentLayoutName = layoutName
         }
         
-        userLayouts.currentLayout.layoutWindow.show()
-        
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKey()
+        
+        panel.alphaValue = 0
         panel.orderFront(nil)
+        
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.5
+            panel.animator().alphaValue = 1
+        }, completionHandler: {
+            self.panel.center()
+            
+            NSApp.activate(ignoringOtherApps: true)
+            self.panel.makeKey()
+        })
+        
         panel.center()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
+            userLayouts.currentLayout.layoutWindow.show()
+        }
     }
     
     func close() {
         isOpen = false
-        panel.close()
+        
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.5
+            panel.animator().alphaValue = 0
+        }, completionHandler: {
+            self.panel.orderOut(nil)
+        })
         
         userLayouts.currentLayout.layoutWindow.hide()
         

@@ -117,11 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 }
                 
                 spaceLayoutPreferences.startObserving()
-                monitorKeys()
+                monitorShortcuts()
                 monitorRightClick()
-                if #available(macOS 12, *) {
-                    monitorQuickSnapShortcut()
-                }
                 
                 spaceLayoutPreferences.switchToCurrent()
                 
@@ -209,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
 
     func showPopover(sender: NSStatusBarButton) {
-        if #available (macOS 12.0, *) {
+        if #available(macOS 12.0, *) {
             quickSnapper.close()
         }
         popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
@@ -285,13 +282,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
     
-    func monitorKeys() {
+    func monitorShortcuts() {
         var dispatchWorkItem: DispatchWorkItem?
         var snapKeyUsed = false
-
-        NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+        
+        NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
+            
+            if #available(macOS 12.0, *) {
+                let quickSnapShortcut = appSettings.quickSnapShortcut.split(separator: "+")
+                let requiredModifiers = Array(quickSnapShortcut.dropLast())
+                let requiredKey = quickSnapShortcut.last
+                
+                if event.type == .keyDown {
+                    if event.keyCode == 53 { // Escape key
+                        quickSnapper.close()
+                        return
+                    }
+                    if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
+                        quickSnapper.toggle()
+                        return
+                    }
+                }
+            }
             
             if isEditing || isQuickSnapping {
                 return
@@ -320,7 +334,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     userLayouts.currentLayout.layoutWindow.show()
                 } else if isFitting {
                     isFitting = false
-                    userLayouts.currentLayout.layoutWindow.hide()
+                    if !isQuickSnapping {
+                        userLayouts.currentLayout.layoutWindow.hide()
+                    }
                 }
                 
                 if !event.modifierFlags.contains(snapKey) {
@@ -362,33 +378,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     
                     if isFitting {
                         isFitting = false
-                        userLayouts.currentLayout.layoutWindow.hide()
+                        if !isQuickSnapping {
+                            userLayouts.currentLayout.layoutWindow.hide()
+                        }
                     }
                 }
-            }
-        }
-
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
-            dispatchWorkItem?.cancel()
-            dispatchWorkItem = nil
-        }
-    }
-    
-    @available(macOS 12.0, *)
-    private func monitorQuickSnapShortcut() {
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 {
-                quickSnapper.close()
-                return
-            }
-            
-            let quickSnapShortcut = appSettings.quickSnapShortcut.split(separator: "+")
-            let requiredModifiers = Array(quickSnapShortcut.dropLast())
-            let requiredKey = quickSnapShortcut.last
-            
-            if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
-                quickSnapper.toggle()
-                return
             }
         }
     }
