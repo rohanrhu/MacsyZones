@@ -12,7 +12,7 @@
 
 import SwiftUI
 
-let INTERVALS = [10, 100, 100, 200, 500]
+let INTERVALS = [10, 100, 10, 50, 10, 100]
 
 struct DonationReminderView: View {
     let donationURL: URL
