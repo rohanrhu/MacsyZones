@@ -22,6 +22,14 @@ https://github.com/user-attachments/assets/101d3296-889f-4cfb-93cf-87bad548a108
 
 https://github.com/user-attachments/assets/5b26c5cf-90f3-4ace-b324-b2f6404c3ea8
 
+### Install with Homebrew
+
+You can install MacsyZones via [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask macsyzones
+```
+
 ## Buy to support me
 
 You can buy MacsyZones Pro (the same MacsyZones just "Pro") to support me.
