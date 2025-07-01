@@ -28,6 +28,8 @@ struct AppSettingsData: Codable {
     var quickSnapShortcut: String
     var snapWithRightClick: Bool
     var showSnapResizersOnHover: Bool
+    var cycleWindowsForwardShortcut: String
+    var cycleWindowsBackwardShortcut: String
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -45,6 +47,8 @@ class AppSettings: UserData, ObservableObject {
     @Published var quickSnapShortcut: String = "Control+Shift+S"
     @Published var snapWithRightClick: Bool = true
     @Published var showSnapResizersOnHover: Bool = false
+    @Published var cycleWindowsForwardShortcut: String = "Command+]"
+    @Published var cycleWindowsBackwardShortcut: String = "Command+["
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -72,6 +76,8 @@ class AppSettings: UserData, ObservableObject {
             self.quickSnapShortcut = settings.quickSnapShortcut
             self.snapWithRightClick = settings.snapWithRightClick
             self.showSnapResizersOnHover = settings.showSnapResizersOnHover
+            self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut
+            self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -93,7 +99,9 @@ class AppSettings: UserData, ObservableObject {
                 snapResizeThreshold: snapResizeThreshold,
                 quickSnapShortcut: quickSnapShortcut,
                 snapWithRightClick: snapWithRightClick,
-                showSnapResizersOnHover: showSnapResizersOnHover
+                showSnapResizersOnHover: showSnapResizersOnHover,
+                cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
+                cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -261,6 +269,7 @@ struct Main: View {
     @State var showSnapKeyHelpDialog: Bool = false
     @State var showQuickSnapperHelpDialog: Bool = false
     @State var showSnapResizeHelpDialog: Bool = false
+    @State var showWindowCyclingHelpDialog: Bool = false
     
     func resetDialogs() {
         showDialog = false
@@ -269,6 +278,7 @@ struct Main: View {
         showSnapKeyHelpDialog = false
         showQuickSnapperHelpDialog = false
         showSnapResizeHelpDialog = false
+        showWindowCyclingHelpDialog = false
     }
     
     @State private var startAtLogin = false
@@ -455,6 +465,31 @@ struct Main: View {
                         }
                         ShortcutInputView(shortcut: $settings.quickSnapShortcut)
                             .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Window Cycling").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showWindowCyclingHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        Text("Cycle Forward").font(.caption2)
+                        ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
+                            .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
+                        Text("Cycle Backward").font(.caption2)
+                        ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
+                            .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
                     }
                 }
                 
@@ -649,6 +684,23 @@ struct Main: View {
                       Modifier key has a delay that you can adjust; when you press and hold the modifier key, MacsyZones will start to show you the zones with snap resizers between them.
                   
                       You can hold the modifier key and perform snap resizing with your mouse or trackpad.
+                      
+                      Enjoy! 🥳
+                  """),
+                  dismissButton: .default(Text("OK"))
+               )
+           } else if showWindowCyclingHelpDialog {
+               return Alert(
+                  title: Text("Window Cycling"),
+                  message: Text("""
+                      Window cycling allows you to quickly switch between multiple windows within the same zone.
+                      
+                      When you have multiple windows placed in the same zone, you can use the configured shortcuts to cycle through them.
+                      
+                      • Cycle Forward: Brings the next window in the zone to the front
+                      • Cycle Backward: Brings the previous window in the zone to the front
+                      
+                      The cycling will only affect windows that are currently placed in zones, and will cycle through windows in the same zone as the currently focused window.
                       
                       Enjoy! 🥳
                   """),

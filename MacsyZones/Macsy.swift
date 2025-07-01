@@ -630,3 +630,100 @@ func onMouseMove(event: NSEvent) {
     
 }
 
+// MARK: - Window Cycling Functions
+
+func cycleWindowsInZone(forward: Bool) {
+    guard let focusedElement = getFocusedWindowAXUIElement(),
+          let focusedWindowId = getWindowID(from: focusedElement) else {
+        debugLog("No focused window found for cycling")
+        return
+    }
+    
+    // Check if the focused window is placed in a zone
+    guard PlacedWindows.isPlaced(windowId: focusedWindowId) else {
+        debugLog("Focused window is not placed in any zone")
+        return
+    }
+    
+    let windowsInZone = getWindowsInSameZone(as: focusedWindowId)
+    
+    // Need at least 2 windows to cycle
+    guard windowsInZone.count > 1 else {
+        debugLog("Not enough windows in zone to cycle (found \(windowsInZone.count))")
+        return
+    }
+    
+    // Find current window index
+    guard let currentIndex = windowsInZone.firstIndex(where: { $0.windowId == focusedWindowId }) else {
+        debugLog("Could not find current window in zone list")
+        return
+    }
+    
+    // Calculate next index
+    let nextIndex: Int
+    if forward {
+        nextIndex = (currentIndex + 1) % windowsInZone.count
+    } else {
+        nextIndex = (currentIndex - 1 + windowsInZone.count) % windowsInZone.count
+    }
+    
+    let targetWindow = windowsInZone[nextIndex]
+    
+    // Activate the target window
+    activateWindow(element: targetWindow.element, windowId: targetWindow.windowId)
+    
+    debugLog("Cycled \(forward ? "forward" : "backward") to window \(targetWindow.windowId)")
+}
+
+func getWindowsInSameZone(as windowId: UInt32) -> [(windowId: UInt32, element: AXUIElement)] {
+    guard let sectionNumber = PlacedWindows.windows[windowId],
+          let layoutName = PlacedWindows.layouts[windowId],
+          let screenNumber = PlacedWindows.screens[windowId],
+          let workspaceNumber = PlacedWindows.workspaces[windowId] else {
+        return []
+    }
+    
+    var windowsInZone: [(windowId: UInt32, element: AXUIElement)] = []
+    
+    for (otherWindowId, otherSectionNumber) in PlacedWindows.windows {
+        // Check if window is in the same zone (section, layout, screen, workspace)
+        if otherSectionNumber == sectionNumber,
+           PlacedWindows.layouts[otherWindowId] == layoutName,
+           PlacedWindows.screens[otherWindowId] == screenNumber,
+           PlacedWindows.workspaces[otherWindowId] == workspaceNumber,
+           let element = PlacedWindows.elements[otherWindowId] {
+            
+            windowsInZone.append((windowId: otherWindowId, element: element))
+        }
+    }
+    
+    // Sort by window ID for consistent ordering
+    windowsInZone.sort { $0.windowId < $1.windowId }
+    
+    return windowsInZone
+}
+
+func activateWindow(element: AXUIElement, windowId: UInt32) {
+    // Get the application from the window element
+    var pid: pid_t = 0
+    let result = AXUIElementGetPid(element, &pid)
+    
+    guard result == .success else {
+        debugLog("Failed to get PID for window \(windowId)")
+        return
+    }
+    
+    guard let app = NSRunningApplication(processIdentifier: pid) else {
+        debugLog("Failed to get running application for PID \(pid)")
+        return
+    }
+    
+    // Activate the application and bring the window to front
+    app.activate()
+    
+    // Use AX API to raise the specific window
+    AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+    
+    debugLog("Activated window \(windowId) in application \(app.localizedName ?? "Unknown")")
+}
+
