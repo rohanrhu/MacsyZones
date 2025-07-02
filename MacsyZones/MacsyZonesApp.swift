@@ -304,6 +304,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                         quickSnapper.toggle()
                         return
                     }
+                    
+                    // Handle cycling shortcuts
+                    let cycleForwardShortcut = appSettings.cycleWindowsForwardShortcut.split(separator: "+")
+                    let cycleForwardModifiers = Array(cycleForwardShortcut.dropLast())
+                    let cycleForwardKey = cycleForwardShortcut.last
+                    
+                    let cycleBackwardShortcut = appSettings.cycleWindowsBackwardShortcut.split(separator: "+")
+                    let cycleBackwardModifiers = Array(cycleBackwardShortcut.dropLast())
+                    let cycleBackwardKey = cycleBackwardShortcut.last
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: cycleForwardModifiers, requiredKey: cycleForwardKey) {
+                        cycleWindowsInZone(forward: true)
+                        return
+                    }
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: cycleBackwardModifiers, requiredKey: cycleBackwardKey) {
+                        cycleWindowsInZone(forward: false)
+                        return
+                    }
                 }
             }
             
