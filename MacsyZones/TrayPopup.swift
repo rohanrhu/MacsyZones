@@ -46,7 +46,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var snapResizeThreshold: CGFloat = 33.0
     @Published var quickSnapShortcut: String = "Control+Shift+S"
     @Published var snapWithRightClick: Bool = true
-    @Published var showSnapResizersOnHover: Bool = false
+    @Published var showSnapResizersOnHover: Bool = true
     @Published var cycleWindowsForwardShortcut: String = "Command+]"
     @Published var cycleWindowsBackwardShortcut: String = "Command+["
 
