@@ -127,17 +127,16 @@ struct ShortcutInputView: View {
     @State private var currentModifiers: NSEvent.ModifierFlags = []
 
     var body: some View {
-        VStack {
-            Button(action: {
-                toggleListening()
-            }) {
+        Button(action: {
+            toggleListening()
+        }) {
+            VStack {
                 Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : shortcut)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .cornerRadius(7)
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding()
             .frame(height: 20)
+            .frame(maxWidth: .infinity)
+            .cornerRadius(7)
             .background(
                 RoundedRectangle(cornerRadius: 7)
                     .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
@@ -147,6 +146,7 @@ struct ShortcutInputView: View {
                     .stroke(isListening ? Color(NSColor.selectedTextBackgroundColor) : Color.gray, lineWidth: 1)
             )
         }
+        .buttonStyle(PlainButtonStyle())
         .onDisappear {
             stopListening()
         }
