@@ -447,29 +447,10 @@ struct Main: View {
                             .font(.caption2)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
                     }
-                    Divider().padding(.vertical, 2)
-                    Group {
-                        HStack(spacing: 5) {
-                            Text("Quick Snapper").font(.subheadline)
-                            Button(action: {
-                                resetDialogs()
-                                showDialog = true
-                                showQuickSnapperHelpDialog = true
-                            }) {
-                                Image(systemName: "info.circle")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                                    .imageScale(.small)
-                            }
-                            .buttonStyle(BorderlessButtonStyle())
-                        }
-                        ShortcutInputView(shortcut: $settings.quickSnapShortcut)
-                            .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
-                    }
                     
                     Divider().padding(.vertical, 2)
                     
-                    Group {
+                    VStack {
                         HStack(spacing: 5) {
                             Text("Window Cycling").font(.subheadline)
                             Button(action: {
@@ -484,17 +465,45 @@ struct Main: View {
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
-                        Text("Cycle Forward").font(.caption2)
-                        ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
-                            .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
-                        Text("Cycle Backward").font(.caption2)
-                        ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
-                            .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
+                        
+                        VStack {
+                            HStack {
+                                Text("Cycle Forward").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
+                                    .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
+                            }
+                            HStack {
+                                Text("Cycle Backward").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
+                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
+                            }
+                        }
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
-                    Group {
+                    VStack(alignment: .leading) {
+                        VStack {
+                            HStack(spacing: 5) {
+                                Text("Quick Snapper").font(.subheadline)
+                                Button(action: {
+                                    resetDialogs()
+                                    showDialog = true
+                                    showQuickSnapperHelpDialog = true
+                                }) {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                        .imageScale(.small)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                            }
+                            ShortcutInputView(shortcut: $settings.quickSnapShortcut)
+                                .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
+                        }
+                        
+                        Divider().padding(.vertical, 2)
+                        
                         Toggle("Snap resize", isOn: $settings.snapResize)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.snapResize) { _ in appSettings.save() }

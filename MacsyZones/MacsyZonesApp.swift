@@ -43,9 +43,19 @@ var popover: NSPopover!
 var mouseUpMonitor: Any?
 var mouseMoveMonitor: Any?
 
+var isPreview: Bool {
+    return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != nil { return }
+        if isPreview {
+            debugLog("Running in preview mode, skipping setup.")
+            
+            macsyReady.isReady = true
+            
+            return
+        }
         
         NSApp.setActivationPolicy(.prohibited)
         
