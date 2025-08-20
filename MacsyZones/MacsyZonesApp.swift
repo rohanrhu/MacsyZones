@@ -176,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     
     func createTrayIcon() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
+        
         if let button = statusItem?.button {
             if let image = NSImage(named: "MenuBarIcon") {
                 image.size = NSSize(width: 18, height: 18)
@@ -188,7 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 button.action = #selector(togglePopover)
                 button.target = self
             }
-
+            
             button.action = #selector(togglePopover)
             button.target = self
         }
@@ -204,7 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     @objc func quitApp() {
         NSApp.terminate(nil)
     }
-
+    
     @objc func togglePopover(sender: AnyObject?) {
         if let button = statusItem?.button {
             if popover.isShown {
@@ -214,18 +214,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             }
         }
     }
-
+    
     func showPopover(sender: NSStatusBarButton) {
         if #available(macOS 12.0, *) {
             quickSnapper.close()
         }
         popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
     }
-
+    
     func closePopover(sender: AnyObject?) {
         popover.performClose(sender)
     }
-
+    
     func requestAccessibilityPermissions() {
         let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
@@ -236,13 +236,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             debugLog("Accessibility permissions granted.")
         }
     }
-
+    
     func showAccessibilityPermissionPopover() {
         let alert = NSAlert()
         alert.messageText = "MacsyZones needs accessibility permissions."
         alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility. "
-                              + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
-                              + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
+        + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
+        + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
         alert.window.level = .floating
         alert.alertStyle = .critical
         alert.addButton(withTitle: "Restart")
@@ -280,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         }
         
         let observer = observerPtr.pointee!
-         
+        
         result = AXObserverAddNotification(observer, toObserveElement, kAXWindowMovedNotification as CFString, nil)
         guard result == .success else {
             return
@@ -288,7 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         
         result = AXObserverAddNotification(observer, toObserveElement, kAXUIElementDestroyedNotification as CFString, nil)
         guard result == .success else { return }
-
+        
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
     
@@ -297,6 +297,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         var snapKeyUsed = false
         
         NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            var modifierKey: NSEvent.ModifierFlags = .control
+            
+            if appSettings.modifierKey == "Command" {
+                modifierKey = .command
+            } else if appSettings.modifierKey == "Option" {
+                modifierKey = .option
+            }
+            
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
             
@@ -373,15 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 }
             }
             
-            if !snapKeyUsed && appSettings.modifierKey != "None" {
-                var modifierKey: NSEvent.ModifierFlags = .control
-                
-                if appSettings.modifierKey == "Command" {
-                    modifierKey = .command
-                } else if appSettings.modifierKey == "Option" {
-                    modifierKey = .option
-                }
-                
+            if !snapKeyUsed && appSettings.modifierKey != "None" && event.type == .flagsChanged {
                 if appSettings.selectPerDesktopLayout {
                     if let layoutName = spaceLayoutPreferences.getCurrent() {
                         userLayouts.currentLayoutName = layoutName
@@ -413,6 +413,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     }
                 }
             }
+        }
+        
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
+            dispatchWorkItem?.cancel()
+            dispatchWorkItem = nil
         }
     }
     
