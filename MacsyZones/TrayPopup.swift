@@ -567,31 +567,31 @@ struct Main: View {
                             .onChange(of: startAtLogin) { _ in toggleRunAtStartup() }
                             .onAppear { startAtLogin = SMAppService.mainApp.status == .enabled }
                     }
-                    
-                    #if !APPSTORE
-                    if !proLock.isPro {
-                        Divider().padding(.vertical, 2)
-                        Button(action: { page = "unlock" }) {
-                            HStack {
-                                Image(systemName: "heart.fill").foregroundColor(.red)
-                                Text("Unlock Pro Version").fontWeight(.bold)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(10)
-                        .background(Color.pink.opacity(0.2))
-                        .cornerRadius(7)
-                        .alert(isPresented: $showNotProDialog) {
-                            Alert(
-                                title: Text("Omg! 😊"),
-                                message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                                dismissButton: .default(Text("OK"))
-                            )
-                        }
-                    }
-                    #endif
                 }
             }
+            
+            #if !APPSTORE
+            if !proLock.isPro {
+                Divider().padding(.vertical, 2)
+                Button(action: { page = "unlock" }) {
+                    HStack {
+                        Image(systemName: "heart.fill").foregroundColor(.red)
+                        Text("Unlock Pro Version").fontWeight(.bold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(10)
+                .background(Color.pink.opacity(0.2))
+                .cornerRadius(7)
+                .alert(isPresented: $showNotProDialog) {
+                    Alert(
+                        title: Text("Omg! 😊"),
+                        message: Text("You must buy MacsyZones Pro to unlock this feature."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
+            }
+            #endif
             
             HStack {
                 Button(action: { updater.checkForUpdates() }) {
