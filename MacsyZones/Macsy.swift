@@ -727,3 +727,12 @@ func activateWindow(element: AXUIElement, windowId: UInt32) {
     debugLog("Activated window \(windowId) in application \(app.localizedName ?? "Unknown")")
 }
 
+func presentingShortcut(_ shortcut: String) -> String {
+    let formattedShortcut = shortcut
+        .replacingOccurrences(of: "Command", with: "⌘")
+        .replacingOccurrences(of: "Control", with: "⌃")
+        .replacingOccurrences(of: "Option", with: "⌥")
+        .replacingOccurrences(of: "Shift", with: "⇧")
+    
+    return formattedShortcut
+}

@@ -131,7 +131,7 @@ struct ShortcutInputView: View {
             toggleListening()
         }) {
             VStack {
-                Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : shortcut)
+                Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : presentingShortcut(shortcut))
             }
             .padding()
             .frame(height: 20)
@@ -468,12 +468,12 @@ struct Main: View {
                         
                         VStack {
                             HStack {
-                                Text("Cycle Forward").font(.caption2)
+                                Text("Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
                                     .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
                             }
                             HStack {
-                                Text("Cycle Backward").font(.caption2)
+                                Text("Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
                                     .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
                             }
