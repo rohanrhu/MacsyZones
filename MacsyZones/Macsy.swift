@@ -704,6 +704,12 @@ enum ZoneDirection {
 }
 
 func moveWindowToAdjacentZone(direction: ZoneDirection) {
+    // Set zone navigation flag to suppress donation reminders
+    isZoneNavigating = true
+    // Use defer to ensure flag is reset when function exits
+    defer {
+        isZoneNavigating = false
+    }
     guard let focusedElement = getFocusedWindowAXUIElement(),
           let focusedWindowId = getWindowID(from: focusedElement) else {
         debugLog("No focused window found for zone navigation")
