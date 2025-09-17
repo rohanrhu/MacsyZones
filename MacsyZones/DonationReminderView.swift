@@ -190,7 +190,6 @@ class DonationReminder {
                 }
                 
                 self.panel.center()
-            }
             
             countI = 0
         }

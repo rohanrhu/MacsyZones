@@ -33,45 +33,37 @@ func isQuickSnapShortcut(_ event: NSEvent, requiredModifiers: [Substring], requi
     }
     
     guard let requiredKey = requiredKey else { return false }
-    return isMatch && (event.charactersIgnoringModifiers?.uppercased() == requiredKey.uppercased())
+    
+    // Handle arrow keys and other special keys by keyCode
+    switch requiredKey {
+    case "Left":
+        return isMatch && event.keyCode == 123
+    case "Right":
+        return isMatch && event.keyCode == 124
+    case "Down":
+        return isMatch && event.keyCode == 125
+    case "Up":
+        return isMatch && event.keyCode == 126
+    default:
+        // Handle regular character keys
+        return isMatch && (event.charactersIgnoringModifiers?.uppercased() == requiredKey.uppercased())
+    }
 }
 
 @available(macOS 12.0, *)
 func quickSnap(sectionNumber: Int, element: AXUIElement, windowId: UInt32) {
-    let section = userLayouts.currentLayout.layoutWindow.sectionWindows.first(where: { $0.sectionConfig.number! == sectionNumber })
-    
-    if let section, let sectionWindow = section.window {
-        guard let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else { return }
-        
-        if !PlacedWindows.isPlaced(windowId: windowId) {
-            OriginalWindowProperties.update(windowID: windowId)
-        }
-        
-        moveWindowToMatch(element: element, targetWindow: sectionWindow)
-        PlacedWindows.place(windowId: windowId,
-                            screenNumber: screenNumber,
-                            workspaceNumber: workspaceNumber,
-                            layoutName: userLayouts.currentLayoutName,
-                            sectionNumber: sectionNumber,
-                            element: element)
-        
-        var pid: pid_t = 0
-        AXUIElementGetPid(element, &pid)
-        
-        if let app = NSRunningApplication(processIdentifier: pid) {
-            app.activate()
-            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
-        }
-        
+    // Move the window to the selected zone
+    snapWindowToZone(sectionNumber: sectionNumber, element: element, windowId: windowId)
+
+    // Focus the window
+    activateElementsWindow(element: element)
+
+    // Refocus the quick snapper panel
+    quickSnapper.panel.makeKey();
+    quickSnapper.panel.orderFront(nil)
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) {
         NSApp.activate(ignoringOtherApps: true)
-        quickSnapper.panel.makeKey()
-        quickSnapper.panel.orderFront(nil)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) {
-            NSApp.activate(ignoringOtherApps: true)
-            quickSnapper.panel.makeKey()
-            quickSnapper.panel.orderFront(nil)
-        }
+        quickSnapper.panel.makeKey(); quickSnapper.panel.orderFront(nil)
     }
 }
 
@@ -343,16 +335,9 @@ struct QuickSnapperView: View {
     private func onSelect(index: Int) {
         if windows.count == 0 { return }
         guard let element = windows[index].element else { return }
-        
-        var pid: pid_t = 0
-        AXUIElementGetPid(element, &pid)
-        
-        if let app = NSRunningApplication(processIdentifier: pid) {
-            app.activate()
-            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
-        }
-        
-        NSApp.activate(ignoringOtherApps: true)
+   
+        // Focus window
+        activateElementsWindow(element: element)
         quickSnapper.panel.makeKey()
         quickSnapper.panel.orderFront(nil)
         

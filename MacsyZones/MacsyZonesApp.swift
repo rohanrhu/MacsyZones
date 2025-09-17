@@ -341,6 +341,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                         cycleWindowsInZone(forward: false)
                         return
                     }
+                    
+                    // Handle zone navigation shortcuts
+                    let moveLeftShortcut = appSettings.moveZoneLeftShortcut.split(separator: "+")
+                    let moveLeftModifiers = Array(moveLeftShortcut.dropLast())
+                    let moveLeftKey = moveLeftShortcut.last
+                    
+                    let moveRightShortcut = appSettings.moveZoneRightShortcut.split(separator: "+")
+                    let moveRightModifiers = Array(moveRightShortcut.dropLast())
+                    let moveRightKey = moveRightShortcut.last
+                    
+                    let moveUpShortcut = appSettings.moveZoneUpShortcut.split(separator: "+")
+                    let moveUpModifiers = Array(moveUpShortcut.dropLast())
+                    let moveUpKey = moveUpShortcut.last
+                    
+                    let moveDownShortcut = appSettings.moveZoneDownShortcut.split(separator: "+")
+                    let moveDownModifiers = Array(moveDownShortcut.dropLast())
+                    let moveDownKey = moveDownShortcut.last
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: moveLeftModifiers, requiredKey: moveLeftKey) {
+                        debugLog("Zone navigation shortcut triggered: LEFT (\(appSettings.moveZoneLeftShortcut))")
+                        moveWindowToAdjacentZone(direction: .left)
+                        return
+                    }
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: moveRightModifiers, requiredKey: moveRightKey) {
+                        debugLog("Zone navigation shortcut triggered: RIGHT (\(appSettings.moveZoneRightShortcut))")
+                        moveWindowToAdjacentZone(direction: .right)
+                        return
+                    }
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: moveUpModifiers, requiredKey: moveUpKey) {
+                        debugLog("Zone navigation shortcut triggered: UP (\(appSettings.moveZoneUpShortcut))")
+                        moveWindowToAdjacentZone(direction: .up)
+                        return
+                    }
+                    
+                    if isQuickSnapShortcut(event, requiredModifiers: moveDownModifiers, requiredKey: moveDownKey) {
+                        debugLog("Zone navigation shortcut triggered: DOWN (\(appSettings.moveZoneDownShortcut))")
+                        moveWindowToAdjacentZone(direction: .down)
+                        return
+                    }
                 }
             }
             

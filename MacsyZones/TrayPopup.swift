@@ -30,6 +30,10 @@ struct AppSettingsData: Codable {
     var showSnapResizersOnHover: Bool
     var cycleWindowsForwardShortcut: String
     var cycleWindowsBackwardShortcut: String
+    var moveZoneLeftShortcut: String
+    var moveZoneRightShortcut: String
+    var moveZoneUpShortcut: String
+    var moveZoneDownShortcut: String
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -49,6 +53,10 @@ class AppSettings: UserData, ObservableObject {
     @Published var showSnapResizersOnHover: Bool = true
     @Published var cycleWindowsForwardShortcut: String = "Command+]"
     @Published var cycleWindowsBackwardShortcut: String = "Command+["
+    @Published var moveZoneLeftShortcut: String = "Command+Shift+Control+Left"
+    @Published var moveZoneRightShortcut: String = "Command+Shift+Control+Right"
+    @Published var moveZoneUpShortcut: String = "Command+Shift+Control+Up"
+    @Published var moveZoneDownShortcut: String = "Command+Shift+Control+Down"
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -78,6 +86,10 @@ class AppSettings: UserData, ObservableObject {
             self.showSnapResizersOnHover = settings.showSnapResizersOnHover
             self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut
+            self.moveZoneLeftShortcut = settings.moveZoneLeftShortcut
+            self.moveZoneRightShortcut = settings.moveZoneRightShortcut
+            self.moveZoneUpShortcut = settings.moveZoneUpShortcut
+            self.moveZoneDownShortcut = settings.moveZoneDownShortcut
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -101,7 +113,11 @@ class AppSettings: UserData, ObservableObject {
                 snapWithRightClick: snapWithRightClick,
                 showSnapResizersOnHover: showSnapResizersOnHover,
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
-                cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut
+                cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
+                moveZoneLeftShortcut: moveZoneLeftShortcut,
+                moveZoneRightShortcut: moveZoneRightShortcut,
+                moveZoneUpShortcut: moveZoneUpShortcut,
+                moveZoneDownShortcut: moveZoneDownShortcut
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -270,6 +286,7 @@ struct Main: View {
     @State var showQuickSnapperHelpDialog: Bool = false
     @State var showSnapResizeHelpDialog: Bool = false
     @State var showWindowCyclingHelpDialog: Bool = false
+    @State var showZoneNavigationHelpDialog: Bool = false
     
     func resetDialogs() {
         showDialog = false
@@ -279,6 +296,7 @@ struct Main: View {
         showQuickSnapperHelpDialog = false
         showSnapResizeHelpDialog = false
         showWindowCyclingHelpDialog = false
+        showZoneNavigationHelpDialog = false
     }
     
     @State private var startAtLogin = false
@@ -476,6 +494,48 @@ struct Main: View {
                                 Text("Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
                                     .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
+                            }
+                        }
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    VStack {
+                        HStack(spacing: 5) {
+                            Text("Zone Navigation").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showZoneNavigationHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        
+                        VStack {
+                            HStack {
+                                Text("Left").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.moveZoneLeftShortcut)
+                                    .onChange(of: settings.moveZoneLeftShortcut) { _ in appSettings.save() }
+                            }
+                            HStack {
+                                Text("Right").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.moveZoneRightShortcut)
+                                    .onChange(of: settings.moveZoneRightShortcut) { _ in appSettings.save() }
+                            }
+                            HStack {
+                                Text("Up").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.moveZoneUpShortcut)
+                                    .onChange(of: settings.moveZoneUpShortcut) { _ in appSettings.save() }
+                            }
+                            HStack {
+                                Text("Down").font(.caption2)
+                                ShortcutInputView(shortcut: $settings.moveZoneDownShortcut)
+                                    .onChange(of: settings.moveZoneDownShortcut) { _ in appSettings.save() }
                             }
                         }
                     }
@@ -710,6 +770,30 @@ struct Main: View {
                       • Cycle Backward: Brings the previous window in the zone to the front
                       
                       The cycling will only affect windows that are currently placed in zones, and will cycle through windows in the same zone as the currently focused window.
+                      
+                      Enjoy! 🥳
+                  """),
+                  dismissButton: .default(Text("OK"))
+               )
+           } else if showZoneNavigationHelpDialog {
+               return Alert(
+                  title: Text("Zone Navigation"),
+                  message: Text("""
+                      Zone navigation allows you to move the currently focused window between snap zones using keyboard shortcuts.
+                      
+                      Configure shortcuts for each direction:
+                      • Left: Move window to the closest zone to the left
+                      • Right: Move window to the closest zone to the right
+                      • Up: Move window to the closest zone above (or expand if zones overlap)
+                      • Down: Move window to the closest zone below (or shrink if zones overlap)
+                      
+                      For overlapping zones with the same center:
+                      • Up expands to the next larger zone
+                      • Down shrinks to the next smaller zone
+                      
+                      Default shortcuts use Cmd+Shift+Ctrl+Arrow keys to avoid conflicts with system shortcuts.
+                      
+                      This works similar to Rectangle, SnappyZones, and FancyZones for familiar muscle memory.
                       
                       Enjoy! 🥳
                   """),
