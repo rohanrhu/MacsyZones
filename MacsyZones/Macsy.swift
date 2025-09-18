@@ -24,6 +24,7 @@ var isFitting = false
 var isEditing = false
 var isQuickSnapping = false
 var isSnapResizing = false
+var isZoneNavigating = false
 
 var isMovingAWindow = false
 
@@ -377,7 +378,7 @@ func isElementResizable(element: AXUIElement) -> Bool {
     return resizable.boolValue
 }
 
-func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0, retryParent: Bool = false) {
+func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 10, retryParent: Bool = false) {
     if retryParent && !isElementResizable(element: element) {
         debugLog("Window is not resizable! Trying parent window...")
         
@@ -403,6 +404,53 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
         return
     }
     
+    // Approach to reduce flickering:
+    // 1. Immediate attempt (atomic set position + size)
+    // 2. If after a short delay the window drifted (position OR size changed noticeably), perform one corrective pass with light staggered retries
+    // We consider a drift if either axis differs more than 2px or size differs more than 2px (tolerates rapid sequential moves without over-correcting)
+    var initialWindowId: UInt32? = getWindowID(from: element)
+    var originalObserved: (CGSize?, CGPoint?) = (nil, nil)
+    if let id = initialWindowId {
+        originalObserved = getWindowSizeAndPosition(from: id)
+    }
+
+    // Immediate attempt
+    var positionValue = newPosition
+    if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
+        let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
+        if result != .success { debugLog("First pass: failed setting position (code: \(result.rawValue))") }
+    }
+    var sizeValue = newSize
+    if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
+        let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
+        if result != .success { debugLog("First pass: failed setting size (code: \(result.rawValue))") }
+    }
+
+    guard retries > 1, let id = initialWindowId else { return }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.035) { [weak element] in
+        guard let element else { return }
+        let (curSizeOpt, curPosOpt) = getWindowSizeAndPosition(from: id)
+        guard let curSize = curSizeOpt, let curPos = curPosOpt else { return }
+        let sizeDrift = abs(curSize.width - newSize.width) > 2 || abs(curSize.height - newSize.height) > 2
+        let posDrift = abs(curPos.x - newPosition.x) > 2 || abs(curPos.y - newPosition.y) > 2
+        if !(sizeDrift || posDrift) { return }
+        // Corrective light retries (max 3) with tiny stagger to gently converge
+        for i in 0..<min(3, retries) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (0.02 * Double(i))) { [weak element] in
+                guard let element else { return }
+                var p = newPosition
+                if let pax = AXValueCreate(.cgPoint, &p) {
+                    AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, pax)
+                }
+                var s = newSize
+                if let sax = AXValueCreate(.cgSize, &s) {
+                    AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sax)
+                }
+            }
+        }
+    }
+    
     /*
      * Fix macOS bug!
      * --------------
@@ -418,42 +466,6 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
                 debugLog("Failed to set window size, error code: \(result.rawValue)")
                 debugLog(getWindowDetails(element: element))
             }
-        }
-    }
-    
-    for i in 0..<(retries == 0 ? 1 : retries) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + (0.05 * Double(i))) { [element] in
-            var sizeValue: CGSize
-            
-            var positionValue = newPosition
-            if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
-                let result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
-                
-                if result != .success {
-                    debugLog("Failed to set window position, error code: \(result.rawValue)")
-                    debugLog(getWindowDetails(element: element))
-                }
-            }
-            
-            sizeValue = newSize
-            if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
-                let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
-                
-                if result != .success {
-                    debugLog("Failed to set window size, error code: \(result.rawValue)")
-                    debugLog(getWindowDetails(element: element))
-                }
-            }
-        }
-        
-        if let windowId = getWindowID(from: element),
-           case let (currentSize, currentPosition) = getWindowSizeAndPosition(from: windowId)
-        {
-            if currentSize == newSize && currentPosition == newPosition {
-                break
-            }
-        } else {
-            break
         }
     }
 }
@@ -686,10 +698,13 @@ func snapWindowToZone(sectionNumber: Int, element: AXUIElement, windowId: UInt32
         guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
         
         if !PlacedWindows.isPlaced(windowId: windowId) { OriginalWindowProperties.update(windowID: windowId) }
-        moveWindowToMatch(element: element, 
-                         targetWindow: sectionWindow, 
-                         targetScreen: focusedScreen, 
-                         sectionConfig: section.sectionConfig)
+        
+        // Use immediate positioning for zone navigation to prevent flickering
+    moveWindowToMatch(element: element, 
+               targetWindow: sectionWindow, 
+               targetScreen: focusedScreen, 
+               sectionConfig: section.sectionConfig)
+        
         PlacedWindows.place(windowId: windowId,
                             screenNumber: screenNumber,
                             workspaceNumber: workspaceNumber,
@@ -704,17 +719,25 @@ enum ZoneDirection {
 }
 
 func moveWindowToAdjacentZone(direction: ZoneDirection) {
+    debugLog("moveWindowToAdjacentZone called with direction: \(direction)")
+    
     // Set zone navigation flag to suppress donation reminders
     isZoneNavigating = true
+    debugLog("moveWindowToAdjacentZone - Set isZoneNavigating=true")
+    
     // Use defer to ensure flag is reset when function exits
     defer {
         isZoneNavigating = false
+        debugLog("moveWindowToAdjacentZone - Reset isZoneNavigating=false (defer)")
     }
+    
     guard let focusedElement = getFocusedWindowAXUIElement(),
           let focusedWindowId = getWindowID(from: focusedElement) else {
-        debugLog("No focused window found for zone navigation")
+        debugLog("moveWindowToAdjacentZone - No focused window found for zone navigation")
         return
     }
+    
+    debugLog("moveWindowToAdjacentZone - Found focused window ID: \(focusedWindowId)")
     
     // Get current zone if window is already placed
     let currentSectionNumber = PlacedWindows.isPlaced(windowId: focusedWindowId) ? 
@@ -726,10 +749,11 @@ func moveWindowToAdjacentZone(direction: ZoneDirection) {
         direction: direction,
         windowElement: focusedElement
     ) else {
-        debugLog("No adjacent zone found in \(direction) direction")
+        debugLog("moveWindowToAdjacentZone - No adjacent zone found in \(direction) direction")
         return
     }
     
+    debugLog("moveWindowToAdjacentZone - Moving window \(focusedWindowId) from zone \(currentSectionNumber?.description ?? "none") to zone \(targetSectionNumber)")
     snapWindowToZone(sectionNumber: targetSectionNumber, element: focusedElement, windowId: focusedWindowId)
 }
 
