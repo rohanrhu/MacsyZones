@@ -11,7 +11,15 @@
 //
 
 import Foundation
+import SwiftUI
 
 func debugLog(_ message: String, file: String = #file, line: Int = #line) {
     print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
+}
+
+public extension View {
+  func modifier<ModifiedContent: View>(@ViewBuilder content: (_ content: Self) -> ModifiedContent
+  ) -> ModifiedContent {
+    content(self)
+  }
 }
