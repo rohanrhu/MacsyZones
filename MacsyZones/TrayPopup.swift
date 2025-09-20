@@ -41,7 +41,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var selectPerDesktopLayout: Bool = true
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 55000.0
+    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
     @Published var snapResize: Bool = true
     @Published var snapResizeThreshold: CGFloat = 33.0
     @Published var quickSnapShortcut: String = "Control+Shift+S"
@@ -279,6 +279,18 @@ struct Main: View {
         showQuickSnapperHelpDialog = false
         showSnapResizeHelpDialog = false
         showWindowCyclingHelpDialog = false
+    }
+    
+    func sensitivityLabel(for threshold: CGFloat) -> String {
+        let minSensitivity: CGFloat = 10000
+        let maxSensitivty: CGFloat = 100000
+        let levels = ["Very High", "High", "Medium", "Low"]
+        
+        let relative = threshold - minSensitivity
+        let level = Int((relative / CGFloat(maxSensitivty - minSensitivity)) * CGFloat(levels.count))
+        let index = max(0, min(level, levels.count - 1))
+        
+        return levels[index]
     }
     
     @State private var startAtLogin = false
@@ -552,11 +564,15 @@ struct Main: View {
                             .onChange(of: settings.shakeToSnap) { _ in appSettings.save() }
                         
                         if settings.shakeToSnap {
-                            Text("Shake Hardness").font(.caption2)
+                            HStack {
+                                Text("Sensitivity").font(.caption2)
+                                Spacer()
+                                Text(sensitivityLabel(for: settings.shakeAccelerationThreshold)).font(.caption2).foregroundColor(.secondary)
+                            }
                             Slider(value: Binding(
-                                get: { Double(settings.shakeAccelerationThreshold) },
-                                set: { settings.shakeAccelerationThreshold = CGFloat($0) }
-                            ), in: 10000...110000, step: 10000)
+                                get: { Double(100000 - settings.shakeAccelerationThreshold) },
+                                set: { settings.shakeAccelerationThreshold = CGFloat(100000 - $0) }
+                            ), in: 10000...100000, step: 5000)
                             .onChange(of: settings.shakeAccelerationThreshold) { _ in appSettings.save() }
                         }
                     }

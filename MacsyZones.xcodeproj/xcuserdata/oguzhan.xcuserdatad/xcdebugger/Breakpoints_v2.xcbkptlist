@@ -58,8 +58,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "390"
-            endingLineNumber = "390"
+            startingLineNumber = "411"
+            endingLineNumber = "411"
             landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:retryParent:)"
             landmarkType = "9">
          </BreakpointContent>
@@ -74,8 +74,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "514"
-            endingLineNumber = "514"
+            startingLineNumber = "535"
+            endingLineNumber = "535"
             landmarkName = "NSScreen"
             landmarkType = "21">
          </BreakpointContent>
@@ -90,8 +90,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "548"
-            endingLineNumber = "548"
+            startingLineNumber = "569"
+            endingLineNumber = "569"
             landmarkName = "getFocusedWindowAXUIElement()"
             landmarkType = "9">
          </BreakpointContent>
@@ -122,8 +122,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "386"
-            endingLineNumber = "386"
+            startingLineNumber = "407"
+            endingLineNumber = "407"
             landmarkName = "resizeAndMoveWindow(element:newPosition:newSize:retries:retryParent:)"
             landmarkType = "9">
          </BreakpointContent>
@@ -138,8 +138,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "494"
-            endingLineNumber = "494"
+            startingLineNumber = "515"
+            endingLineNumber = "515"
             landmarkName = "getAXPosition(for:)"
             landmarkType = "9">
          </BreakpointContent>
@@ -298,8 +298,8 @@
             filePath = "MacsyZones/TrayPopup.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "711"
-            endingLineNumber = "711"
+            startingLineNumber = "706"
+            endingLineNumber = "706"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
@@ -330,8 +330,8 @@
             filePath = "MacsyZones/Macsy.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "480"
-            endingLineNumber = "480"
+            startingLineNumber = "501"
+            endingLineNumber = "501"
             landmarkName = "getElementSizeAndPosition(element:)"
             landmarkType = "9">
          </BreakpointContent>

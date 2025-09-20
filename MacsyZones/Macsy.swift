@@ -151,6 +151,11 @@ var previousVelocity: CGPoint?
 var previousTime: TimeInterval?
 var lastShakeTime: TimeInterval = 0
 
+let shakeClearInterval: TimeInterval = 0.25
+var lastShakeClearTime: TimeInterval = 0
+
+var shakeMagnitudeCount: CGFloat = 0
+
 var justDidMouseUp = false
 
 func getHoveredSectionWindow() -> SectionWindow? {
@@ -207,6 +212,15 @@ func getHoveredSectionWindow() -> SectionWindow? {
 }
 
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
+    if appSettings.shakeToSnap {
+        let currentTime = Date().timeIntervalSince1970
+        
+        if lastShakeClearTime + shakeClearInterval >= currentTime {
+            lastShakeTime = currentTime
+            shakeMagnitudeCount = 0
+        }
+    }
+    
     if isEditing { return }
     if isSnapResizing { return }
     if isQuickSnapping { return }
@@ -280,7 +294,6 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     }
     
     if appSettings.shakeToSnap {
-
         var isSnapKeyPressed = NSEvent.modifierFlags.contains(.shift)
 
         if appSettings.snapKey != "None" {
@@ -316,19 +329,27 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                 let accelerationMagnitude = sqrt(pow(acceleration.x, 2) + pow(acceleration.y, 2))
 
                 if (oppositeDirectionOnX || oppositeDirectionOnY) && accelerationMagnitude > appSettings.shakeAccelerationThreshold && currentTime - lastShakeTime > shakeCoolDown {
-                    lastShakeTime = currentTime
+                    shakeMagnitudeCount += 1
                     
-                    if appSettings.selectPerDesktopLayout {
-                        if let layoutName = spaceLayoutPreferences.getCurrent() {
-                            userLayouts.currentLayoutName = layoutName
+                    if shakeMagnitudeCount >= ((100000 - appSettings.shakeAccelerationThreshold) / 10000) {
+                        lastShakeTime = currentTime
+                        
+                        if appSettings.selectPerDesktopLayout {
+                            if let layoutName = spaceLayoutPreferences.getCurrent() {
+                                userLayouts.currentLayoutName = layoutName
+                            }
                         }
-                    }
-
-                    isFitting = !isFitting
-                    if isFitting {
-                        userLayouts.currentLayout.layoutWindow.show()
-                    } else {
-                        userLayouts.currentLayout.layoutWindow.hide()
+                        
+                        isFitting = !isFitting
+                        if isFitting {
+                            userLayouts.currentLayout.layoutWindow.show()
+                        } else {
+                            userLayouts.currentLayout.layoutWindow.hide()
+                        }
+                        
+                        shakeMagnitudeCount = 0
+                        lastShakeTime = currentTime
+                        lastShakeClearTime = currentTime
                     }
                 }
             }
@@ -564,6 +585,11 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
 func onMouseUp(event: NSEvent) {
     isMovingAWindow = false
     
+    previousPosition = nil
+    previousVelocity = nil
+    previousTime = nil
+    lastShakeTime = Date().timeIntervalSince1970 + 0.75
+    
     if isQuickSnapping { return }
     
     if !isFitting { return }
@@ -616,11 +642,6 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         userLayouts.currentLayout.layoutWindow.hide()
     }
-    
-    previousPosition = nil
-    previousVelocity = nil
-    previousTime = nil
-    lastShakeTime = Date().timeIntervalSince1970 + 0.75
 }
 
 func onMouseMove(event: NSEvent) {
