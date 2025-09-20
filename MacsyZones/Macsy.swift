@@ -188,7 +188,13 @@ func getHoveredSectionWindow() -> SectionWindow? {
         }
         
         if hoveredSectionWindow == nil {
-            for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
+            let sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
+                let frame1 = $0.window.frame
+                let frame2 = $1.window.frame
+                return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+            }
+            
+            for sectionWindow in sortedSectionWindows {
                 let screenSize = focusedScreen.frame
                 let bounds = sectionWindow.getBounds()
                 let width = bounds.widthPercentage * screenSize.width
@@ -642,13 +648,6 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         userLayouts.currentLayout.layoutWindow.hide()
     }
-}
-
-func onMouseMove(event: NSEvent) {
-    if isEditing { return }
-    if isSnapResizing { return }
-    
-    
 }
 
 // MARK: - Window Cycling Functions

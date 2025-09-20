@@ -41,7 +41,6 @@ var statusItem: NSStatusItem!
 var popover: NSPopover!
 
 var mouseUpMonitor: Any?
-var mouseMoveMonitor: Any?
 
 var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -120,10 +119,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             Task { @MainActor in
                 mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
                     onMouseUp(event: event)
-                }
-                
-                mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { event in
-                    onMouseMove(event: event)
                 }
                 
                 spaceLayoutPreferences.startObserving()
@@ -449,10 +444,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     func applicationWillTerminate(_ notification: Notification) {
         if let mouseUpMonitor = mouseUpMonitor {
             NSEvent.removeMonitor(mouseUpMonitor)
-        }
-        
-        if let mouseMoveMonitor = mouseMoveMonitor {
-            NSEvent.removeMonitor(mouseMoveMonitor)
         }
     }
 }

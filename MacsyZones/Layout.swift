@@ -830,15 +830,23 @@ class LayoutWindow {
                 window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             }
             
-            for sectionWindow in sectionWindows {
+            let sortedSectionWindows = sectionWindows.sorted { 
+                let frame1 = $0.window.frame
+                let frame2 = $1.window.frame
+                return (frame1.width * frame1.height) > (frame2.width * frame2.height)
+            }
+            
+            for sectionWindow in sortedSectionWindows {
                 sectionWindow.editorWindow.orderOut(nil)
                 sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
                 sectionWindow.window.alphaValue = 0
-                sectionWindow.window.orderFront(nil)
+                
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.35
                     sectionWindow.window.animator().alphaValue = 1
                 }
+                
+                sectionWindow.window.orderFrontRegardless()
             }
             
             for sectionResizer in sectionResizers {
