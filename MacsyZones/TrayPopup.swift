@@ -12,6 +12,7 @@
 
 import SwiftUI
 import ServiceManagement
+import Combine
 
 struct AppSettingsData: Codable {
     var modifierKey: String
@@ -297,19 +298,37 @@ struct Main: View {
     
     @ObservedObject var updater = appUpdater
     
+    func updateStartAtLoginState() {
+        if #available(macOS 13.0, *) {
+            let actualState = SMAppService.mainApp.status == .enabled
+            
+            if startAtLogin != actualState {
+                startAtLogin = actualState
+                debugLog("Updated start at login state to: \(actualState)")
+            }
+        }
+    }
+    
     func toggleRunAtStartup() {
         if #available(macOS 13.0, *) {
             do {
                 if startAtLogin {
-                    try SMAppService.mainApp.unregister()
-                    startAtLogin = false
-                } else {
                     try SMAppService.mainApp.register()
-                    startAtLogin = true
+                    debugLog("Successfully registered app to start at login")
+                } else {
+                    try SMAppService.mainApp.unregister()
+                    debugLog("Successfully unregistered app from start at login")
                 }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.updateStartAtLoginState()
+                }
+                
             } catch {
                 debugLog("Failed to toggle run at startup: \(error)")
-                startAtLogin = false
+                DispatchQueue.main.async {
+                    self.updateStartAtLoginState()
+                }
             }
         }
     }
@@ -580,8 +599,15 @@ struct Main: View {
                     if #available(macOS 13.0, *) {
                         Toggle("Start at login", isOn: $startAtLogin)
                             .toggleStyle(.checkbox)
-                            .onChange(of: startAtLogin) { _ in toggleRunAtStartup() }
-                            .onAppear { startAtLogin = SMAppService.mainApp.status == .enabled }
+                            .onChange(of: startAtLogin) { _ in 
+                                toggleRunAtStartup()
+                            }
+                            .onAppear { 
+                                updateStartAtLoginState()
+                            }
+                            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                                updateStartAtLoginState()
+                            }
                     }
                 }
             }
@@ -858,21 +884,12 @@ struct UnlockProView: View {
             Text("Enter your License Key").font(.subheadline)
             
             VStack {
-                if #available(macOS 14.0, *) {
-                    TextField("Enter License Key", text: $licenseKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.bottom, 10)
-                        .onChange(of: licenseKey) { oldValue, newValue in
-                            errorMessage = nil
-                        }
-                } else {
-                    TextField("Enter License Key", text: $licenseKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.bottom, 10)
-                        .onChange(of: licenseKey) { _ in
-                            errorMessage = nil
-                        }
-                }
+                TextField("Enter License Key", text: $licenseKey)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.bottom, 10)
+                    .onChange(of: licenseKey) { _ in
+                        errorMessage = nil
+                    }
                 
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
