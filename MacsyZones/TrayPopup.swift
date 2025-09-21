@@ -481,7 +481,7 @@ struct Main: View {
                     
                     Divider().padding(.vertical, 2)
                     
-                    VStack {
+                    VStack(spacing: 10) {
                         HStack(spacing: 5) {
                             Text("Window Cycling").font(.subheadline)
                             Button(action: {
@@ -497,7 +497,7 @@ struct Main: View {
                             .buttonStyle(BorderlessButtonStyle())
                         }
                         
-                        VStack {
+                        VStack(spacing: 5) {
                             HStack {
                                 Text("Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
