@@ -154,11 +154,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             )
             
             let alert = NSAlert()
-            alert.window.level = .floating
-            alert.alertStyle = .informational
+            alert.window.level = .screenSaver
+            alert.window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            alert.alertStyle = .critical
             alert.messageText = "MacsyZones is already running"
             alert.informativeText = "Another instance of MacsyZones is already running. This instance will exit."
             alert.addButton(withTitle: "OK")
+            
+            alert.window.center()
             
             alert.window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
