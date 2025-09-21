@@ -44,7 +44,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "249"
             endingLineNumber = "249"
-            landmarkName = "createLayout(name:)"
+            landmarkName = "setCurrentLayout(name:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
