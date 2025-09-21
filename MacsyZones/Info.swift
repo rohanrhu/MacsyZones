@@ -33,7 +33,7 @@ struct AccessibilityPermissionView: View {
                     
                     Spacer().frame(height: 26)
                     
-                    Text("QuakeNotch needs accessibility permissions to work. Please follow these steps:")
+                    Text("MacsyZones needs accessibility permissions to work. Please follow these steps:")
                         .font(.system(size: 13))
                         .lineSpacing(5)
                         .multilineTextAlignment(.center)
@@ -75,7 +75,7 @@ struct AccessibilityPermissionView: View {
                             Text("3.")
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
-                            Text("Enable QuakeNotch")
+                            Text("Enable MacsyZones")
                         }
                         
                         Button(action: {
@@ -129,7 +129,7 @@ struct AccessibilityPermissionView: View {
                     
                     Spacer().frame(height: 26)
                     
-                    Text("After enabling accessibility permissions, restart QuakeNotch to continue.")
+                    Text("After enabling accessibility permissions, restart MacsyZones to continue.")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
