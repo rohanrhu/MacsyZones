@@ -39,6 +39,7 @@ struct MacsyZonesApp: App {
 
 var statusItem: NSStatusItem!
 var popover: NSPopover!
+var accessibilityDialog: AccessibilityDialog?
 
 var mouseUpMonitor: Any?
 
@@ -233,26 +234,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
     
     func showAccessibilityPermissionPopover() {
-        let alert = NSAlert()
-        alert.messageText = "MacsyZones needs accessibility permissions."
-        alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility. "
-        + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
-        + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
-        alert.window.level = .floating
-        alert.alertStyle = .critical
-        alert.addButton(withTitle: "Restart")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.window.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            restartApp()
-        } else {
-            exit(0)
+        if accessibilityDialog == nil {
+            accessibilityDialog = AccessibilityDialog()
         }
+        accessibilityDialog?.show()
     }
     
     func startObserving(pid: pid_t, element: AXUIElement? = nil) {
