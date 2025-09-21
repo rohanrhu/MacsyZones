@@ -184,8 +184,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             } else {
                 button.image = NSImage(systemSymbolName: "uiwindow.split.2x1", accessibilityDescription: "MacsyZones")
                 button.image?.isTemplate = true
-                button.action = #selector(togglePopover)
-                button.target = self
             }
             
             button.action = #selector(togglePopover)
