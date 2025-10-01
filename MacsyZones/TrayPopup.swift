@@ -428,6 +428,7 @@ struct Main: View {
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
+                        
                         Picker("Modifier Key", selection: $settings.modifierKey) {
                             Text("None").tag("None")
                             Text("Command").tag("Command")
@@ -437,6 +438,7 @@ struct Main: View {
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onChange(of: settings.modifierKey) { _ in appSettings.save() }
+                        
                         Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0))s")
                             .font(.caption2)
                         Slider(value: Binding(
@@ -475,7 +477,6 @@ struct Main: View {
                         .onChange(of: settings.snapKey) { _ in appSettings.save() }
                         Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
                             .toggleStyle(.checkbox)
-                            .font(.caption2)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
                     }
                     
@@ -511,6 +512,7 @@ struct Main: View {
                         }
                     }
                 }
+                .fixedSize()
                 
                 VStack(alignment: .leading, spacing: 8) {
                     VStack(alignment: .leading) {
@@ -578,6 +580,8 @@ struct Main: View {
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
                         
+                        Divider().padding(.vertical, 2)
+                        
                         Toggle("Shake to snap", isOn: $settings.shakeToSnap)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.shakeToSnap) { _ in appSettings.save() }
@@ -597,6 +601,8 @@ struct Main: View {
                     }
                     
                     if #available(macOS 13.0, *) {
+                        Divider().padding(.vertical, 2)
+                        
                         Toggle("Start at login", isOn: $startAtLogin)
                             .toggleStyle(.checkbox)
                             .onChange(of: startAtLogin) { _ in 
@@ -610,6 +616,7 @@ struct Main: View {
                             }
                     }
                 }
+                .fixedSize()
             }
             
             #if !APPSTORE
@@ -665,6 +672,7 @@ struct Main: View {
             .padding(.top, 5)
         }
         .frame(minWidth: 400)
+        .fixedSize()
         .alert(isPresented: $showDialog) {
             if showLayoutHelpDialog {
                 return Alert(
