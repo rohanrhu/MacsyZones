@@ -14,112 +14,6 @@ import SwiftUI
 import ServiceManagement
 import Combine
 
-struct AppSettingsData: Codable {
-    var modifierKey: String
-    var snapKey: String
-    var modifierKeyDelay: Int
-    var fallbackToPreviousSize: Bool
-    var onlyFallbackToPreviousSizeWithUserEvent: Bool
-    var selectPerDesktopLayout: Bool
-    var prioritizeCenterToSnap: Bool
-    var shakeToSnap: Bool
-    var shakeAccelerationThreshold: CGFloat
-    var snapResize: Bool
-    var snapResizeThreshold: CGFloat
-    var quickSnapShortcut: String
-    var snapWithRightClick: Bool
-    var showSnapResizersOnHover: Bool
-    var cycleWindowsForwardShortcut: String
-    var cycleWindowsBackwardShortcut: String
-}
-
-class AppSettings: UserData, ObservableObject {
-    @Published var modifierKey: String = "Control"
-    @Published var snapKey: String = "Shift"
-    @Published var modifierKeyDelay: Int = 500
-    @Published var fallbackToPreviousSize: Bool = true
-    @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
-    @Published var selectPerDesktopLayout: Bool = true
-    @Published var prioritizeCenterToSnap: Bool = true
-    @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
-    @Published var snapResize: Bool = true
-    @Published var snapResizeThreshold: CGFloat = 33.0
-    @Published var quickSnapShortcut: String = "Control+Shift+S"
-    @Published var snapWithRightClick: Bool = true
-    @Published var showSnapResizersOnHover: Bool = true
-    @Published var cycleWindowsForwardShortcut: String = "Command+]"
-    @Published var cycleWindowsBackwardShortcut: String = "Command+["
-
-    init() {
-        super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
-    }
-
-    override func load() {
-        super.load()
-
-        let jsonData = data.data(using: .utf8)!
-        
-        do {
-            let settings = try JSONDecoder().decode(AppSettingsData.self, from: jsonData)
-            
-            self.modifierKey = settings.modifierKey
-            self.snapKey = settings.snapKey
-            self.modifierKeyDelay = settings.modifierKeyDelay
-            self.fallbackToPreviousSize = settings.fallbackToPreviousSize
-            self.onlyFallbackToPreviousSizeWithUserEvent = settings.onlyFallbackToPreviousSizeWithUserEvent
-            self.selectPerDesktopLayout = settings.selectPerDesktopLayout
-            self.prioritizeCenterToSnap = settings.prioritizeCenterToSnap
-            self.shakeToSnap = settings.shakeToSnap
-            self.shakeAccelerationThreshold = settings.shakeAccelerationThreshold
-            self.snapResize = settings.snapResize
-            self.snapResizeThreshold = settings.snapResizeThreshold
-            self.quickSnapShortcut = settings.quickSnapShortcut
-            self.snapWithRightClick = settings.snapWithRightClick
-            self.showSnapResizersOnHover = settings.showSnapResizersOnHover
-            self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut
-            self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut
-        } catch {
-            debugLog("Error parsing settings JSON: \(error)")
-        }
-    }
-
-    override func save() {
-        do {
-            let settings = AppSettingsData(
-                modifierKey: modifierKey,
-                snapKey: snapKey,
-                modifierKeyDelay: modifierKeyDelay,
-                fallbackToPreviousSize: fallbackToPreviousSize,
-                onlyFallbackToPreviousSizeWithUserEvent: onlyFallbackToPreviousSizeWithUserEvent,
-                selectPerDesktopLayout: selectPerDesktopLayout,
-                prioritizeCenterToSnap: prioritizeCenterToSnap,
-                shakeToSnap: shakeToSnap,
-                shakeAccelerationThreshold: shakeAccelerationThreshold,
-                snapResize: snapResize,
-                snapResizeThreshold: snapResizeThreshold,
-                quickSnapShortcut: quickSnapShortcut,
-                snapWithRightClick: snapWithRightClick,
-                showSnapResizersOnHover: showSnapResizersOnHover,
-                cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
-                cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut
-            )
-            
-            let jsonData = try JSONEncoder().encode(settings)
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                data = jsonString
-                super.save()
-            }
-        } catch {
-            debugLog("Error encoding settings JSON: \(error)")
-        }
-    }
-}
-
-let appSettings = AppSettings()
-
-import SwiftUI
-
 struct ShortcutInputView: View {
     @Binding var shortcut: String
     @State private var isListening = false
@@ -261,16 +155,18 @@ struct Main: View {
     
     @ObservedObject var layouts = userLayouts
     
-    @State var showNotProDialog: Bool = false
-    @State var showAboutDialog: Bool = false
+    @State var showNotProDialog = false
+    @State var showAboutDialog = false
     
-    @State var showDialog: Bool = false
-    @State var showLayoutHelpDialog: Bool = false
-    @State var showModifierKeyHelpDialog: Bool = false
-    @State var showSnapKeyHelpDialog: Bool = false
-    @State var showQuickSnapperHelpDialog: Bool = false
-    @State var showSnapResizeHelpDialog: Bool = false
-    @State var showWindowCyclingHelpDialog: Bool = false
+    @State var showDialog = false
+    @State var showLayoutHelpDialog = false
+    @State var showModifierKeyHelpDialog = false
+    @State var showSnapKeyHelpDialog = false
+    @State var showQuickSnapperHelpDialog = false
+    @State var showSnapResizeHelpDialog = false
+    @State var showWindowCyclingHelpDialog = false
+    @State var showSnapHighlightStrategyHelpDialog = false
+    @State var showPerDesktopLayoutsHelpDialog = false
     
     func resetDialogs() {
         showDialog = false
@@ -280,6 +176,8 @@ struct Main: View {
         showQuickSnapperHelpDialog = false
         showSnapResizeHelpDialog = false
         showWindowCyclingHelpDialog = false
+        showSnapHighlightStrategyHelpDialog = false
+        showPerDesktopLayoutsHelpDialog = false
     }
     
     func sensitivityLabel(for threshold: CGFloat) -> String {
@@ -465,6 +363,7 @@ struct Main: View {
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
+                        
                         Picker("Snap Key", selection: $settings.snapKey) {
                             Text("None").tag("None")
                             Text("Shift").tag("Shift")
@@ -475,6 +374,7 @@ struct Main: View {
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        
                         Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
@@ -482,7 +382,7 @@ struct Main: View {
                     
                     Divider().padding(.vertical, 2)
                     
-                    VStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 5) {
                             Text("Window Cycling").font(.subheadline)
                             Button(action: {
@@ -498,14 +398,15 @@ struct Main: View {
                             .buttonStyle(BorderlessButtonStyle())
                         }
                         
-                        VStack(spacing: 5) {
-                            HStack {
-                                Text("Forward").font(.caption2)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Group {
+                                Text("Cycle Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
                                     .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
                             }
-                            HStack {
-                                Text("Backward").font(.caption2)
+                            
+                            Group {
+                                Text("Cycle Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
                                     .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
                             }
@@ -558,9 +459,34 @@ struct Main: View {
                             Divider().padding(.vertical, 2)
                         }
                         
-                        Toggle("Prioritze zone center", isOn: $settings.prioritizeCenterToSnap)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                        Group {
+                            Toggle("Prioritize zone center", isOn: $settings.prioritizeCenterToSnap)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                            
+                            HStack(spacing: 5) {
+                                Text("Zone Highlighting Strategy").font(.subheadline)
+                                Button(action: {
+                                    resetDialogs()
+                                    showDialog = true
+                                    showSnapHighlightStrategyHelpDialog = true
+                                }) {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                        .imageScale(.small)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                            }
+                            
+                            Picker("Zone Highlighting Strategy", selection: $settings.snapHighlightStrategy) {
+                                Text("Center Proximity").tag(SnapHighlightStrategy.centerProximity)
+                                Text("Flat").tag(SnapHighlightStrategy.flat)
+                            }
+                            .labelsHidden()
+                            .pickerStyle(MenuPickerStyle())
+                            .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        }
                         
                         Divider().padding(.vertical, 2)
                         
@@ -576,9 +502,23 @@ struct Main: View {
                         
                         Divider().padding(.vertical, 2)
                         
-                        Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                        HStack {
+                            Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                            
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showPerDesktopLayoutsHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
                         
                         Divider().padding(.vertical, 2)
                         
@@ -765,6 +705,33 @@ struct Main: View {
                   """),
                   dismissButton: .default(Text("OK"))
                )
+            } else if showSnapHighlightStrategyHelpDialog {
+                return Alert(
+                    title: Text("Zone Highlighting Strategy"),
+                    message: Text("""
+                        While you are moving a window and holding Snap Key, you'll be seeing your zones; this option lets you choose how zones will be highlighted.
+
+                        We have two options; Center Proximity and Flat:
+
+                        • Center Proximity: The zone that has the closest center circle to mouse pointer will be highlighted.
+                        • Flat: The zone visibly most front and under mouse pointer will be highlighted.
+
+                        Note: The other option "Prioritize zone center" has higher priority.
+
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                )
+            } else if showPerDesktopLayoutsHelpDialog {
+                return Alert(
+                    title: Text("Per-desktop layouts"),
+                    message: Text("""
+                        If you enable this option, MacsyZones will remember your preffered/selected layout for each macOS workspace (virtual desktop) / screen pair.
+                    
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                )
             } else {
                 let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
                 

@@ -14,23 +14,6 @@ import Cocoa
 import SwiftUI
 import AppKit
 
-struct FallbackableLiquidGlassView<Content: View>: View {
-    var variant: GlassVariant = .v11
-    var cornerRadius: CGFloat = 26
-    
-    var content: () -> Content
-    
-    var body: some View {
-        if hasLiquidGlass {
-            LiquidGlassView(variant: variant, cornerRadius: cornerRadius) {
-                content()
-            }
-        } else {
-            content()
-        }
-    }
-}
-
 struct SectionView: View {
     @ObservedObject var sectionWindow: SectionWindow
     
@@ -42,52 +25,60 @@ struct SectionView: View {
         sectionWindow.isHovered ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.9)
     }
     
+    var centerCircleBckground: AnyView {
+        if hasLiquidGlass {
+            return AnyView(
+                LiquidGlassView(variant: .v11, cornerRadius: .infinity) {}
+                    .background(Circle().stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+            )
+        } else {
+            if #available(macOS 14.0, *) {
+                return hasLiquidGlass ? AnyView(Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.25 : 0.05))
+                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+                    : AnyView(Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.2 : 0.1))
+                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.5 : 0.25), lineWidth: 4)
+                        .shadow(color: (sectionWindow.isHovered ? Color.accentColor : Color.black).opacity(sectionWindow.isHovered ? 0.5 : 0.5), radius: 2, x: 0, y: 0))
+            } else {
+                return AnyView(
+                    Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05))
+                )
+            }
+        }
+    }
+    
     var body: some View {
         GeometryReader { geometry in
-            if hasLiquidGlass {
-                VStack {
-                    LiquidGlassView(variant: .v11, cornerRadius: .infinity) {
-                        Text(String(sectionWindow.number))
-                            .frame(width: 100, height: 100)
-                            .font(.system(size: 50))
-                            .foregroundColor((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(0.5))
-                            .blendMode(.difference)
-                            .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
-                            .background(Circle().fill((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05)))
-                            .overlay(Circle().stroke((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
-                    }
-                    .fixedSize()
-                }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .modifier {
-                    if #available(macOS 14.0, *) {
-                        $0
-                            .background(
-                                RoundedRectangle(cornerRadius: 26)
-                                    .fill(backgroundColor)
-                                    .stroke(borderColor, lineWidth: 5)
-                            )
-                            .cornerRadius(26)
-                    } else {
-                        $0
-                            .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.5 : 0.35))
-                            .border(borderColor, width: 5)
-                            .cornerRadius(26)
-                    }
-                }
-            } else {
-                VStack {
+            VStack {
+                Group {
                     Text(String(sectionWindow.number))
+                        .frame(width: 100, height: 100)
                         .font(.system(size: 50))
-                        .foregroundColor(.white)
-                        .padding(50)
-                        .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15)))
-                        .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), lineWidth: 4))
+                        .foregroundColor((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(0.5))
+                        .blendMode(.difference)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.7 : 0.15))
-                .border(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), width: 5)
-                .cornerRadius(7)
+                .fixedSize()
+                .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
+                .background(centerCircleBckground)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .modifier {
+                if #available(macOS 14.0, *) {
+                    $0
+                        .background(
+                            RoundedRectangle(cornerRadius: 26)
+                                .fill(backgroundColor)
+                                .stroke(borderColor, lineWidth: 5)
+                        )
+                        .cornerRadius(26)
+                } else {
+                    $0
+                        .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.5 : 0.35))
+                        .border(borderColor, width: 5)
+                        .cornerRadius(26)
+                }
             }
         }
     }
@@ -1343,3 +1334,4 @@ struct SnapResizerView: View {
 
 #Preview {
 }
+
