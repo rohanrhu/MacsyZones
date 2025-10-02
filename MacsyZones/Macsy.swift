@@ -235,6 +235,10 @@ func getHoveredSectionWindow() -> SectionWindow? {
         sectionWindow.isHovered = (sectionWindow === hoveredSectionWindow)
     }
     
+    if let hoveredSectionWindow = hoveredSectionWindow {
+        hoveredSectionWindow.window.orderFront(nil)
+    }
+    
     return hoveredSectionWindow
 }
 
