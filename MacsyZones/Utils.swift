@@ -12,6 +12,17 @@
 
 import Foundation
 import SwiftUI
+import AppKit
+
+private var lastFocusedScreen: NSScreen?
+
+func getFocusedScreen() -> NSScreen? {
+    if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+        lastFocusedScreen = screen
+        return screen
+    }
+    return lastFocusedScreen
+}
 
 func debugLog(_ message: String, file: String = #file, line: Int = #line) {
     print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")

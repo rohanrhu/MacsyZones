@@ -162,7 +162,7 @@ var justDidMouseUp = false
 func getHoveredSectionWindow() -> SectionWindow? {
     var hoveredSectionWindow: SectionWindow?
     
-    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+    guard let focusedScreen = getFocusedScreen() else {
         for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
             sectionWindow.isHovered = false
         }

@@ -410,7 +410,7 @@ struct SectionConfig: Codable {
         if let targetScreen {
             screen = targetScreen
         } else {
-            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+            guard let focusedScreen = getFocusedScreen() else {
                 return NSRect(x: 0, y: 0, width: 800, height: 600)
             }
             
@@ -432,7 +432,7 @@ struct SectionConfig: Codable {
         if let targetScreen {
             screen = targetScreen
         } else {
-            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+            guard let focusedScreen = getFocusedScreen() else {
                 return NSRect(x: 0, y: 0, width: 800, height: 600)
             }
             

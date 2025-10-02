@@ -517,7 +517,7 @@ class LayoutWindow {
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
         
-        let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        let focusedScreen = getFocusedScreen()
         let screenSize = focusedScreen?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
 
         window = NSWindow(contentRect: screenSize,
@@ -736,7 +736,7 @@ class LayoutWindow {
     }
     
     func onSave() {
-        let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        let focusedScreen = getFocusedScreen()
         
         for number in unsavedNewSectionConfigs.keys {
             guard let newSectionConfig = unsavedNewSectionConfigs[number] else { continue }
@@ -817,7 +817,7 @@ class LayoutWindow {
         editorBarWindow.orderOut(nil)
         
         if showLayouts {
-            if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+            if let focusedScreen = getFocusedScreen() {
                 window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             }
             
@@ -992,7 +992,7 @@ class LayoutWindow {
         
         window.orderFront(nil)
         
-        if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+        if let focusedScreen = getFocusedScreen() {
             window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             
             for sectionWindow in sectionWindows {
@@ -1163,7 +1163,7 @@ class SnapResizer: NSWindow {
             return
         }
         
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+        guard let focusedScreen = getFocusedScreen() else {
             if isSnapResizing && isMouseOverResizer {
                 userLayouts.currentLayout.layoutWindow.hide()
             }
@@ -1197,7 +1197,7 @@ class SnapResizer: NSWindow {
     override func mouseDragged(with event: NSEvent) {
         draggedOnce = true
         
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
+        guard let focusedScreen = getFocusedScreen() else { return }
         let focusedScreenNumber = NSScreen.screens.firstIndex(of: focusedScreen)
         
         resizerX += event.deltaX

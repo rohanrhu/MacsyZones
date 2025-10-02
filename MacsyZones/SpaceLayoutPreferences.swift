@@ -64,7 +64,7 @@ class SpaceLayoutPreferences: UserData {
     }
 
     static func getCurrentScreenAndSpace() -> (Int, Int)? {
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }),
+        guard let focusedScreen = getFocusedScreen(),
               let screenIndex = NSScreen.screens.firstIndex(of: focusedScreen) else {
             return nil
         }
