@@ -85,7 +85,6 @@ struct SectionView: View {
 }
 
 class EditorSectionView: NSView {
-    private let blurView: NSVisualEffectView
     private let edgeSize: CGFloat = 2
     
     var onDelete: (() -> Void)?
@@ -96,6 +95,8 @@ class EditorSectionView: NSView {
         }
     }
     
+    private let background = NSView()
+    
     private let label = NSTextField(labelWithString: "")
     private let sizeLabel = NSTextField(labelWithString: "")
 
@@ -103,61 +104,68 @@ class EditorSectionView: NSView {
     private let deleteButton = NSButton()
 
     override init(frame frameRect: NSRect) {
-        blurView = NSVisualEffectView(frame: frameRect)
-        blurView.material = .hudWindow
-        blurView.state = .active
-        blurView.wantsLayer = true
-        
-        blurView.layer?.cornerRadius = 7
-        blurView.layer?.opacity = 0.7
-        blurView.layer?.borderWidth = 5
-        blurView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        blurView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
-        
         super.init(frame: frameRect)
         setupViews()
     }
     
     required init?(coder: NSCoder) {
-        blurView = NSVisualEffectView(frame: .zero)
-        blurView.material = .hudWindow
-        blurView.blendingMode = .behindWindow
-        blurView.state = .active
-        
         super.init(coder: coder)
         setupViews()
     }
     
     private func setupViews() {
-        blurView.frame = bounds
-        blurView.autoresizingMask = [.width, .height]
-        addSubview(blurView)
+        background.frame = bounds
+        background.wantsLayer = true
+        background.layer = CALayer()
+        background.layer?.cornerRadius = 26
+        background.layer?.masksToBounds = true
+        background.layer?.borderWidth = 3
+        background.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.1).cgColor
+        background.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
+        background.autoresizingMask = [.width, .height]
+        addSubview(background, positioned: .below, relativeTo: nil)
         
-        label.font = NSFont.systemFont(ofSize: 50)
-        label.textColor = .white
+        label.font = NSFont.systemFont(ofSize: 50, weight: .light)
+        label.textColor = NSColor.controlAccentColor
         label.alignment = .center
         label.isEditable = false
         label.isSelectable = false
         label.isBezeled = false
         label.backgroundColor = .clear
+        label.drawsBackground = false
+        label.shadow = NSShadow()
+        label.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
+        label.shadow?.shadowOffset = NSSize(width: 0, height: -1)
+        label.shadow?.shadowBlurRadius = 2
         addSubview(label)
         
-        sizeLabel.font = NSFont.systemFont(ofSize: 20)
-        sizeLabel.textColor = .white
+        sizeLabel.font = NSFont.systemFont(ofSize: 20, weight: .light)
+        sizeLabel.textColor = NSColor.controlAccentColor.withAlphaComponent(0.85)
         sizeLabel.alignment = .center
         sizeLabel.isEditable = false
         sizeLabel.isSelectable = false
         sizeLabel.isBezeled = false
         sizeLabel.backgroundColor = .clear
+        sizeLabel.drawsBackground = false
+        sizeLabel.shadow = NSShadow()
+        sizeLabel.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
+        sizeLabel.shadow?.shadowOffset = NSSize(width: 0, height: -1)
+        sizeLabel.shadow?.shadowBlurRadius = 2
         addSubview(sizeLabel)
 
         circleView.wantsLayer = true
         circleView.layer = CALayer()
         circleView.layer?.cornerRadius = 75
         circleView.layer?.masksToBounds = true
-        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
-        circleView.layer?.borderWidth = 4
+        circleView.layer?.backgroundColor = (
+            NSColor.controlAccentColor.withAlphaComponent(0.2).blended(withFraction: 0.5, of: .white) ??
+            NSColor.controlAccentColor.withAlphaComponent(0.05)
+        ).cgColor
+        circleView.layer?.borderColor = (
+            NSColor.controlAccentColor.withAlphaComponent(0.25).blended(withFraction: 0.5, of: .white) ??
+            NSColor.controlAccentColor.withAlphaComponent(0.1)
+        ).cgColor
+        circleView.layer?.borderWidth = 2
         addSubview(circleView)
         
         deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")?.withSymbolConfiguration(.init(pointSize: 18, weight: .regular))
@@ -166,7 +174,7 @@ class EditorSectionView: NSView {
         deleteButton.contentTintColor = .white
         deleteButton.isBordered = false
         deleteButton.wantsLayer = true
-        deleteButton.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.cgColor
+        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.saturate(by: 1.5).cgColor
         deleteButton.layer?.cornerRadius = 8
         deleteButton.layer?.masksToBounds = true
         deleteButton.target = self
@@ -190,14 +198,14 @@ class EditorSectionView: NSView {
             sizeLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 110),
             
-            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
+            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 20),
+            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20)
         ])
         
-        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
+        circleView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
+        circleView.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(1).cgColor
         
-        deleteButton.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.25).cgColor
+        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.25).cgColor
         
         let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
         CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
