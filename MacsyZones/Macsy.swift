@@ -172,7 +172,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
     let mouseLocation = NSEvent.mouseLocation
     
     if isFitting {
-        if appSettings.prioritizeCenterToSnap {
+        if appSettings.snapHighlightStrategy != .centerProximity && appSettings.prioritizeCenterToSnap {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
                 let screenSize = focusedScreen.frame
                 let bounds = sectionWindow.getBounds()
@@ -189,10 +189,30 @@ func getHoveredSectionWindow() -> SectionWindow? {
         }
         
         if hoveredSectionWindow == nil {
-            let sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                let frame1 = $0.window.frame
-                let frame2 = $1.window.frame
-                return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+            let sortedSectionWindows: [SectionWindow]
+            
+            if appSettings.snapHighlightStrategy == .centerProximity {
+                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
+                    let screenSize = focusedScreen.frame
+                    
+                    let bounds1 = $0.getBounds()
+                    let center1X = bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
+                    let center1Y = bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
+                    let distance1 = sqrt(pow(mouseLocation.x - center1X, 2) + pow(mouseLocation.y - center1Y, 2))
+                    
+                    let bounds2 = $1.getBounds()
+                    let center2X = bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
+                    let center2Y = bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
+                    let distance2 = sqrt(pow(mouseLocation.x - center2X, 2) + pow(mouseLocation.y - center2Y, 2))
+                    
+                    return distance1 < distance2
+                }
+            } else {
+                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
+                    let frame1 = $0.window.frame
+                    let frame2 = $1.window.frame
+                    return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+                }
             }
             
             for sectionWindow in sortedSectionWindows {
