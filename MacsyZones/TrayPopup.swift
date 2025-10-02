@@ -246,7 +246,6 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
                 }
                 .buttonStyle(BorderlessButtonStyle())
@@ -265,7 +264,6 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
@@ -321,7 +319,6 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
@@ -358,7 +355,6 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
@@ -392,13 +388,12 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
                         
-                        VStack(alignment: .leading, spacing: 5) {
+                        VStack(alignment: .leading, spacing: 10) {
                             Group {
                                 Text("Cycle Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
@@ -427,7 +422,6 @@ struct Main: View {
                                 }) {
                                     Image(systemName: "info.circle")
                                         .font(.system(size: 13))
-                                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                         .imageScale(.small)
                                 }
                                 .buttonStyle(BorderlessButtonStyle())
@@ -473,7 +467,6 @@ struct Main: View {
                                 }) {
                                     Image(systemName: "info.circle")
                                         .font(.system(size: 13))
-                                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                         .imageScale(.small)
                                 }
                                 .buttonStyle(BorderlessButtonStyle())
@@ -514,7 +507,6 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
