@@ -17,6 +17,7 @@ import Accessibility
 import CoreGraphics
 
 var userLayouts: UserLayouts = .init()
+var updateState: UpdateState = .init()
 var toLeaveElement: AXUIElement?
 var toLeaveSectionWindow: SectionWindow?
 

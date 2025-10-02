@@ -185,6 +185,19 @@ class GitHubUpdater {
                 return
             }
             
+            let extractedInfoPlist = extractedAppURL.appendingPathComponent("Contents/Info.plist")
+            guard let extractedPlistData = try? Data(contentsOf: extractedInfoPlist),
+                  let extractedPlist = try? PropertyListSerialization.propertyList(from: extractedPlistData, options: [], format: nil) as? [String: Any],
+                  let targetVersion = extractedPlist["CFBundleShortVersionString"] as? String else {
+                debugLog("Error: Could not read target version from extracted app.")
+                try? fileManager.removeItem(at: tempDirectory)
+                return
+            }
+            
+            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+            
+            updateState.setUpdateAttempt(currentVersion: currentVersion, targetVersion: targetVersion)
+            
             let scriptURL = tempDirectory.appendingPathComponent("update.sh")
             let script = """
             #!/bin/bash

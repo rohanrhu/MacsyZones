@@ -40,6 +40,7 @@ struct MacsyZonesApp: App {
 var statusItem: NSStatusItem!
 var popover: NSPopover!
 var accessibilityDialog: AccessibilityDialog?
+var updateFailedDialog: UpdateFailedDialog?
 
 var mouseUpMonitor: Any?
 
@@ -133,7 +134,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         }
         .start()
         
-        appUpdater.checkForUpdates()
+        checkUpdateState()
     }
     
     func checkIfRunning() {
@@ -171,6 +172,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             NSApp.terminate(nil)
             return
         }
+    }
+    
+    func checkUpdateState() {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        
+        if updateState.hasFailedUpdate(currentVersion: currentVersion) {
+            showUpdateFailedDialog()
+        } else {
+            if let targetVersion = updateState.targetVersion {
+                if currentVersion == targetVersion || isVersionGreater(currentVersion, than: targetVersion) {
+                    updateState.clearUpdateAttempt()
+                }
+            }
+            
+            appUpdater.checkForUpdates()
+        }
+    }
+    
+    func showUpdateFailedDialog() {
+        if updateFailedDialog == nil {
+            updateFailedDialog = UpdateFailedDialog()
+        }
+        
+        updateFailedDialog?.show()
     }
     
     func createTrayIcon() {
