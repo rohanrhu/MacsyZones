@@ -24,6 +24,21 @@ func getFocusedScreen() -> NSScreen? {
     return lastFocusedScreen
 }
 
+func centerWindowOnFocusedScreen(_ window: NSWindow) {
+    guard let screen = getFocusedScreen() else {
+        window.center()
+        return
+    }
+    
+    let screenFrame = screen.visibleFrame
+    let windowFrame = window.frame
+    
+    let x = screenFrame.origin.x + (screenFrame.width - windowFrame.width) / 2
+    let y = screenFrame.origin.y + (screenFrame.height - windowFrame.height) / 2
+    
+    window.setFrameOrigin(NSPoint(x: x, y: y))
+}
+
 func debugLog(_ message: String, file: String = #file, line: Int = #line) {
     print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
 }

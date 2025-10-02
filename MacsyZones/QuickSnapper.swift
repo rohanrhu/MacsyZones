@@ -440,13 +440,13 @@ class QuickSnapper {
             context.duration = 0.5
             panel.animator().alphaValue = 1
         }, completionHandler: {
-            self.panel.center()
+            centerWindowOnFocusedScreen(self.panel)
             
             NSApp.activate(ignoringOtherApps: true)
             self.panel.makeKey()
         })
         
-        panel.center()
+        centerWindowOnFocusedScreen(panel)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
             userLayouts.currentLayout.layoutWindow.show()
