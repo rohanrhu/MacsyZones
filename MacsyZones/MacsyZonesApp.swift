@@ -41,6 +41,7 @@ var statusItem: NSStatusItem!
 var popover: NSPopover!
 var accessibilityDialog: AccessibilityDialog?
 var updateFailedDialog: UpdateFailedDialog?
+var onboardingWindow: NSWindow?
 
 var mouseUpMonitor: Any?
 
@@ -130,6 +131,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 spaceLayoutPreferences.switchToCurrent()
                 
                 macsyReady.isReady = true
+                
+                if #available(macOS 12.0, *) {
+                    if !onboardingState.hasCompletedOnboarding {
+                        showOnboarding()
+                    }
+                }
             }
         }
         .start()

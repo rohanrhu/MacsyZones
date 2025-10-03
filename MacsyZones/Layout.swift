@@ -613,7 +613,7 @@ struct EditorBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "plus")
-                        Text("New Section")
+                        Text("New Zone")
                     }
                 }.frame(maxHeight: .infinity)
                  .buttonStyle(AccessoryBarButtonStyle())
@@ -623,7 +623,7 @@ struct EditorBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "plus")
-                        Text("New Section")
+                        Text("New Zone")
                     }
                 }.frame(maxHeight: .infinity)
             }
