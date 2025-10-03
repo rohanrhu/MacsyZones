@@ -14,22 +14,81 @@ import Cocoa
 import SwiftUI
 import AppKit
 
+struct FallbackableLiquidGlassView<Content: View>: View {
+    var variant: GlassVariant = .v11
+    var cornerRadius: CGFloat = 26
+    
+    var content: () -> Content
+    
+    var body: some View {
+        if hasLiquidGlass {
+            LiquidGlassView(variant: variant, cornerRadius: cornerRadius) {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+}
+
 struct SectionView: View {
     @ObservedObject var sectionWindow: SectionWindow
     
+    var backgroundColor: Color {
+        sectionWindow.isHovered ? Color.accentColor.opacity(0.1) : Color.white.opacity(0.1)
+    }
+    
+    var borderColor: Color {
+        sectionWindow.isHovered ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.9)
+    }
+    
     var body: some View {
         GeometryReader { geometry in
-            VStack {
-                Text(String(sectionWindow.number))
-                    .font(.system(size: 50))
-                    .foregroundColor(.white)
-                    .padding(50)
-                    .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15)))
-                    .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), lineWidth: 4))
-            }.frame(width: geometry.size.width, height: geometry.size.height)
+            if hasLiquidGlass {
+                VStack {
+                    LiquidGlassView(variant: .v11, cornerRadius: .infinity) {
+                        Text(String(sectionWindow.number))
+                            .frame(width: 100, height: 100)
+                            .font(.system(size: 50))
+                            .foregroundColor((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(0.5))
+                            .blendMode(.difference)
+                            .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
+                            .background(Circle().fill((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05)))
+                            .overlay(Circle().stroke((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+                    }
+                    .fixedSize()
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .modifier {
+                    if #available(macOS 14.0, *) {
+                        $0
+                            .background(
+                                RoundedRectangle(cornerRadius: 26)
+                                    .fill(backgroundColor)
+                                    .stroke(borderColor, lineWidth: 5)
+                            )
+                            .cornerRadius(26)
+                    } else {
+                        $0
+                            .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.5 : 0.35))
+                            .border(borderColor, width: 5)
+                            .cornerRadius(26)
+                    }
+                }
+            } else {
+                VStack {
+                    Text(String(sectionWindow.number))
+                        .font(.system(size: 50))
+                        .foregroundColor(.white)
+                        .padding(50)
+                        .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15)))
+                        .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), lineWidth: 4))
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
                 .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.7 : 0.15))
                 .border(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), width: 5)
                 .cornerRadius(7)
+            }
         }
     }
 }
@@ -771,15 +830,23 @@ class LayoutWindow {
                 window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             }
             
-            for sectionWindow in sectionWindows {
+            let sortedSectionWindows = sectionWindows.sorted { 
+                let frame1 = $0.window.frame
+                let frame2 = $1.window.frame
+                return (frame1.width * frame1.height) > (frame2.width * frame2.height)
+            }
+            
+            for sectionWindow in sortedSectionWindows {
                 sectionWindow.editorWindow.orderOut(nil)
                 sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
                 sectionWindow.window.alphaValue = 0
-                sectionWindow.window.orderFront(nil)
+                
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.35
                     sectionWindow.window.animator().alphaValue = 1
                 }
+                
+                sectionWindow.window.orderFrontRegardless()
             }
             
             for sectionResizer in sectionResizers {

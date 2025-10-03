@@ -174,7 +174,7 @@ class GitHubUpdater {
             
             let extractProcess = Process()
             extractProcess.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            extractProcess.arguments = ["-xk", zipURL.path, tempDirectory.path]
+            extractProcess.arguments = ["-xk", "--extattr", zipURL.path, tempDirectory.path]
             try extractProcess.run()
             extractProcess.waitUntilExit()
             
@@ -189,8 +189,22 @@ class GitHubUpdater {
             let script = """
             #!/bin/bash
             sleep 2
+            
+            # Remove quarantine from extracted app (prevents GateKeeper issues)
+            xattr -r -d com.apple.quarantine "\(extractedAppURL.path)" 2>/dev/null || true
+            
+            # Remove old app
             rm -rf "\(destinationApp.path)"
-            mv "\(extractedAppURL.path)" "\(destinationApp.path)"
+            
+            # Use ditto to preserve extended attributes during move
+            ditto "\(extractedAppURL.path)" "\(destinationApp.path)"
+            
+            # Final quarantine cleanup on installed app
+            xattr -r -d com.apple.quarantine "\(destinationApp.path)" 2>/dev/null || true
+            
+            # Give filesystem time to settle
+            sleep 1
+            
             open "\(destinationApp.path)"
             rm -rf "\(tempDirectory.path)"
             exit 0
@@ -207,7 +221,7 @@ class GitHubUpdater {
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.window.level = .floating
-                alert.alertStyle = .critical
+                alert.alertStyle = .informational
                 alert.messageText = "MacsyZones"
                 alert.informativeText = "An update will now start. The app will restart automatically."
                 alert.addButton(withTitle: "OK")
@@ -219,7 +233,9 @@ class GitHubUpdater {
                 
                 restartApp()
                 
-                NSApp.terminate(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    NSApp.terminate(nil)
+                }
             }
         } catch {
             debugLog("Update error: \(error.localizedDescription)")

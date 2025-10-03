@@ -165,10 +165,39 @@ class UserLayouts: UserData, ObservableObject {
     @Published var layouts: [String: UserLayout] = [:]
     
     var defaultLayout: UserLayout {
-        .init(name: "Default", sectionConfigs: [.defaultSection])
+        .init(name: "Some Zones", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.2, yPercentage: 0.2, name: "Main Zone"),
+            .init(number: 2, widthPercentage: 0.35, heightPercentage: 0.35, xPercentage: 0.55, yPercentage: 0.55, name: "Secondary Zone"),
+            .init(number: 4, widthPercentage: 0.6, heightPercentage: 0.12, xPercentage: 0.2, yPercentage: 0.01, name: "Status Bar"),
+            .init(number: 5, widthPercentage: 0.15, heightPercentage: 0.15, xPercentage: 0.84, yPercentage: 0.01, name: "Notification Corner"),
+            .init(number: 6, widthPercentage: 0.8, heightPercentage: 0.2, xPercentage: 0.1, yPercentage: 0.79, name: "Media Controls"),
+        ])
     }
     
-    @Published var currentLayoutName: String = "Default"
+    var fourCornersLayout: UserLayout {
+        .init(name: "Four Corners Plus", sectionConfigs: [
+            // Top-left corner
+            .init(number: 1, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.025, yPercentage: 0.025, name: "Top Left"),
+            // Top-right corner
+            .init(number: 2, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.525, yPercentage: 0.025, name: "Top Right"),
+            // Bottom-left corner
+            .init(number: 3, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.025, yPercentage: 0.525, name: "Bottom Left"),
+            // Bottom-right corner
+            .init(number: 4, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.525, yPercentage: 0.525, name: "Bottom Right"),
+            // Center section
+            .init(number: 5, widthPercentage: 0.3, heightPercentage: 0.3, xPercentage: 0.35, yPercentage: 0.35, name: "Center")
+        ])
+    }
+    
+    var threeColumnLayout: UserLayout {
+        .init(name: "Three Columns", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.025, yPercentage: 0.05, name: "Left Column"),
+            .init(number: 2, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.35, yPercentage: 0.05, name: "Middle Column"),
+            .init(number: 3, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.675, yPercentage: 0.05, name: "Right Column")
+        ])
+    }
+    
+    @Published var currentLayoutName: String = "Some Zones"
     
     var currentLayout: UserLayout {
         layouts[currentLayoutName] ?? defaultLayout
@@ -191,7 +220,9 @@ class UserLayouts: UserData, ObservableObject {
             }
             
             if layouts.isEmpty {
-                layouts["Default"] = defaultLayout
+                layouts["Some Zones"] = defaultLayout
+                layouts["Four Corners Plus"] = fourCornersLayout
+                layouts["Three Columns"] = threeColumnLayout
             } else {
                 currentLayoutName = layouts.keys.first!
             }
@@ -221,7 +252,7 @@ class UserLayouts: UserData, ObservableObject {
         if layouts.keys.contains(name) {
             currentLayoutName = name
         } else {
-            currentLayoutName = "Default"
+            currentLayoutName = "Some Zones"
         }
     }
     
@@ -301,9 +332,10 @@ struct SectionConfig: Codable {
     var heightPercentage: CGFloat
     var xPercentage: CGFloat
     var yPercentage: CGFloat
+    var name: String?
     
     static var defaultSection: SectionConfig {
-        .init(widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.25, yPercentage: 0.25)
+        .init(widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.25, yPercentage: 0.25, name: "Default Zone")
     }
     
     func getRect(on targetScreen: NSScreen? = nil) -> NSRect {

@@ -55,7 +55,7 @@ struct DonationReminderView: View {
                 }.padding()
                  .frame(maxWidth: .infinity)
                  .background(Color.pink.opacity(0.2))
-                 .cornerRadius(16)
+                 .cornerRadius(26)
                 
                 Spacer()
                 
@@ -73,7 +73,7 @@ struct DonationReminderView: View {
                             .font(.system(size: 13))
                             .padding(10)
                             .background {
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 26)
                                     .fill(.white.opacity(0.5))
                             }
                     }
@@ -104,7 +104,7 @@ struct DonationReminderView: View {
         .padding(.vertical, 20)
         .background(BlurredWindowBackground(material: .hudWindow,
                                             blendingMode: .behindWindow)
-            .cornerRadius(16).padding(.horizontal, 10))
+            .cornerRadius(26).padding(.horizontal, 10))
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .multilineTextAlignment(.center)

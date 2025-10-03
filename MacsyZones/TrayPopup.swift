@@ -12,6 +12,7 @@
 
 import SwiftUI
 import ServiceManagement
+import Combine
 
 struct AppSettingsData: Codable {
     var modifierKey: String
@@ -45,7 +46,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var selectPerDesktopLayout: Bool = true
     @Published var prioritizeCenterToSnap: Bool = true
     @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 55000.0
+    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
     @Published var snapResize: Bool = true
     @Published var snapResizeThreshold: CGFloat = 33.0
     @Published var quickSnapShortcut: String = "Control+Shift+S"
@@ -299,23 +300,53 @@ struct Main: View {
         showZoneNavigationHelpDialog = false
     }
     
+    func sensitivityLabel(for threshold: CGFloat) -> String {
+        let minSensitivity: CGFloat = 10000
+        let maxSensitivty: CGFloat = 100000
+        let levels = ["Very High", "High", "Medium", "Low"]
+        
+        let relative = threshold - minSensitivity
+        let level = Int((relative / CGFloat(maxSensitivty - minSensitivity)) * CGFloat(levels.count))
+        let index = max(0, min(level, levels.count - 1))
+        
+        return levels[index]
+    }
+    
     @State private var startAtLogin = false
     
     @ObservedObject var updater = appUpdater
+    
+    func updateStartAtLoginState() {
+        if #available(macOS 13.0, *) {
+            let actualState = SMAppService.mainApp.status == .enabled
+            
+            if startAtLogin != actualState {
+                startAtLogin = actualState
+                debugLog("Updated start at login state to: \(actualState)")
+            }
+        }
+    }
     
     func toggleRunAtStartup() {
         if #available(macOS 13.0, *) {
             do {
                 if startAtLogin {
-                    try SMAppService.mainApp.unregister()
-                    startAtLogin = false
-                } else {
                     try SMAppService.mainApp.register()
-                    startAtLogin = true
+                    debugLog("Successfully registered app to start at login")
+                } else {
+                    try SMAppService.mainApp.unregister()
+                    debugLog("Successfully unregistered app from start at login")
                 }
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.updateStartAtLoginState()
+                }
+                
             } catch {
                 debugLog("Failed to toggle run at startup: \(error)")
-                startAtLogin = false
+                DispatchQueue.main.async {
+                    self.updateStartAtLoginState()
+                }
             }
         }
     }
@@ -468,7 +499,7 @@ struct Main: View {
                     
                     Divider().padding(.vertical, 2)
                     
-                    VStack {
+                    VStack(spacing: 10) {
                         HStack(spacing: 5) {
                             Text("Window Cycling").font(.subheadline)
                             Button(action: {
@@ -484,7 +515,7 @@ struct Main: View {
                             .buttonStyle(BorderlessButtonStyle())
                         }
                         
-                        VStack {
+                        VStack(spacing: 5) {
                             HStack {
                                 Text("Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
@@ -612,11 +643,15 @@ struct Main: View {
                             .onChange(of: settings.shakeToSnap) { _ in appSettings.save() }
                         
                         if settings.shakeToSnap {
-                            Text("Shake Hardness").font(.caption2)
+                            HStack {
+                                Text("Sensitivity").font(.caption2)
+                                Spacer()
+                                Text(sensitivityLabel(for: settings.shakeAccelerationThreshold)).font(.caption2).foregroundColor(.secondary)
+                            }
                             Slider(value: Binding(
-                                get: { Double(settings.shakeAccelerationThreshold) },
-                                set: { settings.shakeAccelerationThreshold = CGFloat($0) }
-                            ), in: 10000...110000, step: 10000)
+                                get: { Double(100000 - settings.shakeAccelerationThreshold) },
+                                set: { settings.shakeAccelerationThreshold = CGFloat(100000 - $0) }
+                            ), in: 10000...100000, step: 5000)
                             .onChange(of: settings.shakeAccelerationThreshold) { _ in appSettings.save() }
                         }
                     }
@@ -624,8 +659,15 @@ struct Main: View {
                     if #available(macOS 13.0, *) {
                         Toggle("Start at login", isOn: $startAtLogin)
                             .toggleStyle(.checkbox)
-                            .onChange(of: startAtLogin) { _ in toggleRunAtStartup() }
-                            .onAppear { startAtLogin = SMAppService.mainApp.status == .enabled }
+                            .onChange(of: startAtLogin) { _ in 
+                                toggleRunAtStartup()
+                            }
+                            .onAppear { 
+                                updateStartAtLoginState()
+                            }
+                            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                                updateStartAtLoginState()
+                            }
                     }
                 }
             }
@@ -926,21 +968,12 @@ struct UnlockProView: View {
             Text("Enter your License Key").font(.subheadline)
             
             VStack {
-                if #available(macOS 14.0, *) {
-                    TextField("Enter License Key", text: $licenseKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.bottom, 10)
-                        .onChange(of: licenseKey) { oldValue, newValue in
-                            errorMessage = nil
-                        }
-                } else {
-                    TextField("Enter License Key", text: $licenseKey)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.bottom, 10)
-                        .onChange(of: licenseKey) { _ in
-                            errorMessage = nil
-                        }
-                }
+                TextField("Enter License Key", text: $licenseKey)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.bottom, 10)
+                    .onChange(of: licenseKey) { _ in
+                        errorMessage = nil
+                    }
                 
                 if let errorMessage = errorMessage {
                     Text(errorMessage)

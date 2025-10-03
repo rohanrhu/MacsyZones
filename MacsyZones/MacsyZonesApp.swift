@@ -39,9 +39,9 @@ struct MacsyZonesApp: App {
 
 var statusItem: NSStatusItem!
 var popover: NSPopover!
+var accessibilityDialog: AccessibilityDialog?
 
 var mouseUpMonitor: Any?
-var mouseMoveMonitor: Any?
 
 var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -122,10 +122,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     onMouseUp(event: event)
                 }
                 
-                mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { event in
-                    onMouseMove(event: event)
-                }
-                
                 spaceLayoutPreferences.startObserving()
                 monitorShortcuts()
                 monitorRightClick()
@@ -158,11 +154,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             )
             
             let alert = NSAlert()
-            alert.window.level = .floating
-            alert.alertStyle = .informational
+            alert.window.level = .screenSaver
+            alert.window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            alert.alertStyle = .critical
             alert.messageText = "MacsyZones is already running"
             alert.informativeText = "Another instance of MacsyZones is already running. This instance will exit."
             alert.addButton(withTitle: "OK")
+            
+            alert.window.center()
             
             alert.window.makeKeyAndOrderFront(nil)
             NSApplication.shared.activate(ignoringOtherApps: true)
@@ -185,8 +184,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             } else {
                 button.image = NSImage(systemSymbolName: "uiwindow.split.2x1", accessibilityDescription: "MacsyZones")
                 button.image?.isTemplate = true
-                button.action = #selector(togglePopover)
-                button.target = self
             }
             
             button.action = #selector(togglePopover)
@@ -238,26 +235,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
     
     func showAccessibilityPermissionPopover() {
-        let alert = NSAlert()
-        alert.messageText = "MacsyZones needs accessibility permissions."
-        alert.informativeText = "Restart the app after enabling it in System Settings > Privacy & Security > Accessibility. "
-        + "If you keep getting this message, close MacsyZones, open Terminal app and enter this command and try again: "
-        + "\"sudo tccutil reset All MeowingCat.MacsyZones\""
-        alert.window.level = .floating
-        alert.alertStyle = .critical
-        alert.addButton(withTitle: "Restart")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.window.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            restartApp()
-        } else {
-            exit(0)
+        if accessibilityDialog == nil {
+            accessibilityDialog = AccessibilityDialog()
         }
+        accessibilityDialog?.show()
     }
     
     func startObserving(pid: pid_t, element: AXUIElement? = nil) {
@@ -490,10 +471,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     func applicationWillTerminate(_ notification: Notification) {
         if let mouseUpMonitor = mouseUpMonitor {
             NSEvent.removeMonitor(mouseUpMonitor)
-        }
-        
-        if let mouseMoveMonitor = mouseMoveMonitor {
-            NSEvent.removeMonitor(mouseMoveMonitor)
         }
     }
 }
