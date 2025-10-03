@@ -291,7 +291,7 @@ struct Main: View {
                         }
                         
                         HStack(alignment: .center, spacing: 2) {
-                            let buttonHeight: CGFloat = 22
+                            let buttonHeight: CGFloat = 25
                             
                             Button(action: { toggleEditing() }) {
                                 Image(systemName: "pencil")
@@ -384,6 +384,7 @@ struct Main: View {
                         Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
+                            .padding(.top, 4)
                     }
                     
                     Divider().padding(.vertical, 2)
@@ -449,6 +450,7 @@ struct Main: View {
                         if settings.snapResize {
                             Text("Threshold: \(Int(settings.snapResizeThreshold))px")
                                 .font(.caption2)
+                                .padding(.top, 4)
                             
                             Slider(value: Binding(
                                 get: { Double(settings.snapResizeThreshold) },
@@ -470,6 +472,8 @@ struct Main: View {
                             
                             HStack(spacing: 5) {
                                 Text("Zone Highlighting Strategy").font(.subheadline)
+                                    .padding(.top, 4)
+                                
                                 Button(action: {
                                     resetDialogs()
                                     showDialog = true
@@ -531,6 +535,7 @@ struct Main: View {
                         if settings.shakeToSnap {
                             HStack {
                                 Text("Sensitivity").font(.caption2)
+                                    .padding(.top, 4)
                                 Spacer()
                                 Text(sensitivityLabel(for: settings.shakeAccelerationThreshold)).font(.caption2).foregroundColor(.secondary)
                             }
