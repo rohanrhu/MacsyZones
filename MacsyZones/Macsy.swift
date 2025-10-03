@@ -433,7 +433,11 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
     if retryParent && !isElementResizable(element: element) {
         debugLog("Window is not resizable! Trying parent window...")
         
-        while true {
+        var iterationCount = 0
+
+        while iterationCount < 5 {
+            iterationCount += 1
+            
             var result: AXError
             var parentElementRef: CFTypeRef?
             
