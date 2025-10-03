@@ -274,6 +274,196 @@ struct BlurredSectionBackground: NSViewRepresentable {
     }
 }
 
+struct ScreenChangeWarningView: View {
+    var onDismiss: (() -> Void)?
+    
+    var body: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Image(systemName: "display.2")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 60, height: 60)
+                .foregroundColor(.accentColor)
+            
+            VStack(alignment: .center, spacing: 2) {
+                Text("Layout Design")
+                    .lineSpacing(6)
+                    .font(.title2)
+                
+                Spacer().frame(height: 16)
+                
+                Text("A layout can be designed on one screen.")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Spacer().frame(height: 8)
+                
+                Text("You can select your preferred layouts for each screen and workspace.")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Spacer().frame(height: 20)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.accentColor)
+                        Text("Tip: Design different layouts for each screen and workspace for your workflow.")
+                            .font(.system(size: 12))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding()
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(12)
+                
+                Spacer().frame(height: 20)
+                
+                Button(action: {
+                    onDismiss?()
+                }) {
+                    Text("Got It")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 25)
+        .padding(.vertical, 20)
+        .background(BlurredWindowBackground(material: .hudWindow,
+                                            blendingMode: .behindWindow)
+            .cornerRadius(16).padding(.horizontal, 10))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+    }
+}
+
+class ScreenChangeWarningPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    
+    init(contentRect: NSRect) {
+        super.init(contentRect: contentRect,
+                  styleMask: [.fullSizeContentView, .hudWindow, .nonactivatingPanel],
+                  backing: .buffered,
+                  defer: false)
+        
+        self.level = .statusBar + 1
+        self.isMovableByWindowBackground = true
+        self.isOpaque = false
+        self.backgroundColor = .clear
+        self.hasShadow = true
+        self.titleVisibility = .hidden
+        self.titlebarAppearsTransparent = true
+        self.isFloatingPanel = true
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        self.becomesKeyOnlyIfNeeded = true
+    }
+}
+
+class ScreenChangeWarningDialog {
+    private var panel: ScreenChangeWarningPanel
+    var onDismiss: (() -> Void)?
+    
+    init() {
+        panel = ScreenChangeWarningPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 340))
+        
+        let view = ScreenChangeWarningView(
+            onDismiss: {
+                self.dismiss()
+            }
+        )
+        panel.contentView = NSHostingView(rootView: view)
+        
+        panel.level = .statusBar + 1
+        panel.isReleasedWhenClosed = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        panel.backgroundColor = .clear
+        panel.orderOut(nil)
+    }
+    
+    private func positionOnScreen(_ screen: NSScreen) {
+        let screenFrame = screen.visibleFrame
+        let panelFrame = panel.frame
+        
+        let centerX = screenFrame.origin.x + (screenFrame.width - panelFrame.width) / 2
+        let centerY = screenFrame.origin.y + (screenFrame.height - panelFrame.height) / 2
+        
+        panel.setFrameOrigin(NSPoint(x: centerX, y: centerY))
+    }
+    
+    func show(on screen: NSScreen?) {
+        if let screen = screen {
+            positionOnScreen(screen)
+        } else {
+            panel.center()
+        }
+        panel.orderFrontRegardless()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+    
+    func dismiss() {
+        panel.orderOut(nil)
+        onDismiss?()
+    }
+}
+
+class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
+    weak var sectionWindow: SectionWindow?
+    var originalScreen: NSScreen?
+    var hasShownWarning = false
+    var warningDialog: ScreenChangeWarningDialog?
+    
+    init(sectionWindow: SectionWindow?) {
+        self.sectionWindow = sectionWindow
+        self.originalScreen = sectionWindow?.editorWindow.screen
+        super.init()
+        self.warningDialog = ScreenChangeWarningDialog()
+        self.warningDialog?.onDismiss = { [weak self] in
+            self?.hasShownWarning = false
+        }
+    }
+    
+    func showScreenChangeWarning() {
+        warningDialog?.show(on: originalScreen)
+    }
+    
+    func windowDidChangeScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        guard let currentScreen = window.screen else { return }
+        guard let originalScreen = originalScreen else { return }
+        
+        if currentScreen != originalScreen {
+            debugLog("EditorSectionWindow moved to another screen, bringing it back")
+            
+            if !hasShownWarning {
+                hasShownWarning = true
+                showScreenChangeWarning()
+            }
+            
+            let currentFrame = window.frame
+            let relativeX = currentFrame.origin.x - currentScreen.frame.origin.x
+            let relativeY = currentFrame.origin.y - currentScreen.frame.origin.y
+            
+            let newX = originalScreen.frame.origin.x + relativeX
+            let newY = originalScreen.frame.origin.y + relativeY
+            
+            window.setFrameOrigin(NSPoint(x: newX, y: newY))
+        }
+    }
+}
+
 class EditorSectionWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -294,6 +484,7 @@ class SectionWindow: Hashable, ObservableObject {
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
     var sectionConfig: SectionConfig
+    var editorWindowDelegate: EditorSectionWindowDelegate?
     
     var isEditing: Bool { layoutWindow.isEditing }
     
@@ -352,6 +543,9 @@ class SectionWindow: Hashable, ObservableObject {
         editorSectionView.number = number
         editorWindow.contentView = editorSectionView
         
+        editorWindowDelegate = EditorSectionWindowDelegate(sectionWindow: self)
+        editorWindow.delegate = editorWindowDelegate
+        
         layoutWindow.window.addChildWindow(editorWindow, ordered: .above)
         
         window.orderOut(nil)
@@ -365,6 +559,8 @@ class SectionWindow: Hashable, ObservableObject {
         let contentRect = sectionConfig.getRect()
         window.setFrame(contentRect, display: true, animate: false)
         editorWindow.setFrame(contentRect, display: true, animate: false)
+        
+        editorWindowDelegate?.originalScreen = editorWindow.screen
     }
     
     func getBounds() -> SectionBounds {
@@ -379,6 +575,7 @@ class SectionWindow: Hashable, ObservableObject {
     }
     
     func startEditing() {
+        editorWindowDelegate?.originalScreen = editorWindow.screen
         editorWindow.orderFront(nil)
         editorWindow.level = .statusBar - 1
         window.orderOut(nil)
