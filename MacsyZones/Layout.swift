@@ -440,6 +440,7 @@ class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
     }
     
     func windowDidChangeScreen(_ notification: Notification) {
+        guard isEditing else { return }
         guard let window = notification.object as? NSWindow else { return }
         guard let currentScreen = window.screen else { return }
         guard let originalScreen = originalScreen else { return }
