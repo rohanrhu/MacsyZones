@@ -291,18 +291,28 @@ struct Main: View {
                         }
                         
                         HStack(alignment: .center, spacing: 2) {
+                            let buttonHeight: CGFloat = 22
+                            
                             Button(action: { toggleEditing() }) {
                                 Image(systemName: "pencil")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { stopEditing(); page = "rename" }) {
                                 Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { stopEditing(); page = "new" }) {
                                 Image(systemName: "plus")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { layouts.removeCurrentLayout() }) {
                                 Image(systemName: "trash")
-                            }.disabled(layouts.layouts.count < 2)
+                                    .frame(height: buttonHeight)
+                            }
+                            .disabled(layouts.layouts.count < 2)
                         }
                         .frame(maxWidth: .infinity)
                     }
