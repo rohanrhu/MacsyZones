@@ -661,16 +661,17 @@ struct EditorBarView: View {
                 }.frame(maxHeight: .infinity)
             }
             Spacer()
-        }.frame(height: 50)
-         .fixedSize(horizontal: false, vertical: true)
-         .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(10).padding(.horizontal, 7))
-         .alert(isPresented: $showNotProDialog) {
-             Alert(
-                 title: Text("Omg! 😊"),
-                 message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                 dismissButton: .default(Text("OK"))
-             )
-         }
+        }
+        .frame(height: 50)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(26).padding(.horizontal, 7))
+        .alert(isPresented: $showNotProDialog) {
+            Alert(
+                title: Text("Omg! 😊"),
+                message: Text("You must buy MacsyZones Pro to unlock this feature."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
