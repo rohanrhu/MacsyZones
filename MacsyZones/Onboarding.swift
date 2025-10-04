@@ -103,6 +103,12 @@ struct OnboardingView: View {
             description: "Resize windows **precisely** using zone edges.\n\n**1.** Move your mouse pointer to somewhere center of two zones' edges meet or hold your **Modifier Key** (default: **Control**) for a moment\n**2.** Snap resizers appear between zones\n**3.** Drag a window edge close to a snap resizer\n**4.** The edge snaps to the resizer for **perfect alignment**\n\n✨ **Feature:** Enable **'Show snap resizers on hover'** in settings for instant visibility without holding the Modifier Key.",
             video: "MacsyZones Onboarding Snap Resize",
             icon: NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil)
+        ),
+        OnboardingPage(
+            title: "Quick Snapper",
+            description: "Quick Snapper is a **lightweight window management** tool that lets you snap windows to predefined zones using keyboard shortcuts.\n\n**1.** Use the **Quick Snap Shortcut** (default: **Control+Shift+S**) to toggle Quick Snapper mode\n**2.** Use arrow keys ↑ / ↓ to navigate between zones and ← / → navigate between layouts\n**3.** Press the zone number (1-9) to snap selected window to the zone\n4. Press Delete to **unsnap** selected window\n5. Press Enter to get it done\n\n🚀 **Efficiency:** Quick Snapper is designed for users who prefer **keyboard-centric workflows**, enabling rapid window management without leaving the keyboard. You can use it as snapper, layout switcher and quick window switcher.",
+            video: "MacsyZones Onboarding Quick Snapper",
+            icon: NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)
         )
     ]
     
