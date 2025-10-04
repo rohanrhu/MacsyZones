@@ -62,12 +62,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         NSApp.setActivationPolicy(.prohibited)
         
         checkIfRunning()
-        
         createTrayIcon()
         setupPopover()
-        
         userLayouts.load()
         requestAccessibilityPermissions()
+        GlobalHotkey.setup()
+        
+        if #available(macOS 12.0, *) {
+            quickSnapper.setup()
+        }
         
         Thread { [self] in
             let apps = NSWorkspace.shared.runningApplications
