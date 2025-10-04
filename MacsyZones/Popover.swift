@@ -14,12 +14,20 @@ import SwiftUI
 import ServiceManagement
 import Combine
 
+class PopoverState: ObservableObject {
+    static let shared = PopoverState()
+    @Published var shouldStopListening = false
+}
+
 struct ShortcutInputView: View {
     @Binding var shortcut: String
+    var isFocused: Binding<Bool> = .constant(false)
+    
     @State private var isListening = false
     @State private var flagsMonitor: Any?
     @State private var keyMonitor: Any?
     @State private var currentModifiers: NSEvent.ModifierFlags = []
+    @ObservedObject private var popoverState = PopoverState.shared
 
     var body: some View {
         Button(action: {
@@ -27,11 +35,11 @@ struct ShortcutInputView: View {
         }) {
             VStack {
                 Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : presentingShortcut(shortcut))
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .cornerRadius(7)
             }
-            .padding()
             .frame(height: 20)
-            .frame(maxWidth: .infinity)
-            .cornerRadius(7)
             .background(
                 RoundedRectangle(cornerRadius: 7)
                     .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
@@ -44,6 +52,15 @@ struct ShortcutInputView: View {
         .buttonStyle(PlainButtonStyle())
         .onDisappear {
             stopListening()
+            isFocused.wrappedValue = false
+        }
+        .onChange(of: isListening) { newValue in
+            isFocused.wrappedValue = newValue
+        }
+        .onChange(of: popoverState.shouldStopListening) { shouldStop in
+            if shouldStop && isListening {
+                stopListening()
+            }
         }
     }
     
@@ -65,16 +82,12 @@ struct ShortcutInputView: View {
         }
         
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 { // Esc
-                self.stopListening()
-                return nil
-            }
-            
             let keyString: String
             switch event.keyCode {
             case 48: keyString = "Tab"
             case 36: keyString = "Return"
             case 51: keyString = "Delete"
+            case 53: keyString = "Escape"
             case 123: keyString = "Left"
             case 124: keyString = "Right"
             case 125: keyString = "Down"
@@ -408,13 +421,25 @@ struct Main: View {
                             Group {
                                 Text("Cycle Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
-                                    .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.cycleWindowsForwardShortcut) { newShortcut in
+                                        if #available(macOS 12.0, *) {
+                                            cycleForwardHotkey.register(for: newShortcut)
+                                        }
+                                        
+                                        appSettings.save()
+                                    }
                             }
                             
                             Group {
                                 Text("Cycle Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
-                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { newShortcut in
+                                        if #available(macOS 12.0, *) {
+                                            cycleBackwardHotkey.register(for: newShortcut)
+                                        }
+                                        
+                                        appSettings.save()
+                                    }
                             }
                         }
                     }
@@ -438,7 +463,13 @@ struct Main: View {
                                 .buttonStyle(BorderlessButtonStyle())
                             }
                             ShortcutInputView(shortcut: $settings.quickSnapShortcut)
-                                .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
+                                .onChange(of: settings.quickSnapShortcut) { _ in
+                                    if #available(OSX 12.0, *) {
+                                        quickSnapper.toggleHotkey?.register(for: settings.quickSnapShortcut)
+                                    }
+                                    
+                                    appSettings.save()
+                                }
                         }
                         
                         Divider().padding(.vertical, 2)

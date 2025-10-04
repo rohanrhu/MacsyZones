@@ -285,6 +285,8 @@ class QuickSnapper: ObservableObject {
     
     private var windows: [QuickSnapperItem] = []
     
+    var toggleHotkey: GlobalHotkey?
+    
     private var prevLayoutHotkey: GlobalHotkey?
     private var nextLayoutHotkey: GlobalHotkey?
     private var prevWindowHotkey: GlobalHotkey?
@@ -489,6 +491,18 @@ class QuickSnapper: ObservableObject {
     }
     
     func setupHotkeys() {
+        toggleHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.toggle()
+            }
+            
+            return noErr
+        }
+        
+        Task { @MainActor in
+            toggleHotkey?.register(for: appSettings.quickSnapShortcut)
+        }
+        
         prevLayoutHotkey = GlobalHotkey {
             Task { @MainActor in
                 userLayouts.currentLayout.hideAllWindows()

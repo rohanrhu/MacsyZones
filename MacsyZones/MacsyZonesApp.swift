@@ -28,13 +28,16 @@ let appUpdater = AppUpdater()
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
 
-@main
-struct MacsyZonesApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    var body: some Scene {
-        Settings {}
-    }
+@available(macOS 12.0, *)
+let cycleForwardHotkey = GlobalHotkey() {
+    cycleWindowsInZone(forward: true)
+    return noErr
+}
+
+@available(macOS 12.0, *)
+let cycleBackwardHotkey = GlobalHotkey() {
+    cycleWindowsInZone(forward: false)
+    return noErr
 }
 
 var statusItem: NSStatusItem!
@@ -49,7 +52,16 @@ var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
+@main
+struct MacsyZonesApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
+    var body: some Scene {
+        Settings {}
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sendable {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isPreview {
             debugLog("Running in preview mode, skipping setup.")
@@ -139,6 +151,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     if !onboardingState.hasCompletedOnboarding {
                         showOnboarding()
                     }
+                    
+                    cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
+                    cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
                 }
             }
         }
@@ -230,6 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: TrayPopupView(layouts: userLayouts))
     }
     
@@ -255,7 +271,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
     
     func closePopover(sender: AnyObject?) {
+        PopoverState.shared.shouldStopListening = true
         popover.performClose(sender)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            PopoverState.shared.shouldStopListening = false
+        }
+    }
+    
+    func popoverWillClose(_ notification: Notification) {
+        PopoverState.shared.shouldStopListening = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            PopoverState.shared.shouldStopListening = false
+        }
     }
     
     func requestAccessibilityPermissions() {
@@ -323,42 +352,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
             
             dispatchWorkItem?.cancel()
             dispatchWorkItem = nil
-            
-            if #available(macOS 12.0, *) {
-                let quickSnapShortcut = appSettings.quickSnapShortcut.split(separator: "+")
-                let requiredModifiers = Array(quickSnapShortcut.dropLast())
-                let requiredKey = quickSnapShortcut.last
-                
-                if event.type == .keyDown {
-                    if event.keyCode == 53 { // Escape key
-                        quickSnapper.close()
-                        return
-                    }
-                    if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
-                        quickSnapper.toggle()
-                        return
-                    }
-                    
-                    // Handle cycling shortcuts
-                    let cycleForwardShortcut = appSettings.cycleWindowsForwardShortcut.split(separator: "+")
-                    let cycleForwardModifiers = Array(cycleForwardShortcut.dropLast())
-                    let cycleForwardKey = cycleForwardShortcut.last
-                    
-                    let cycleBackwardShortcut = appSettings.cycleWindowsBackwardShortcut.split(separator: "+")
-                    let cycleBackwardModifiers = Array(cycleBackwardShortcut.dropLast())
-                    let cycleBackwardKey = cycleBackwardShortcut.last
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: cycleForwardModifiers, requiredKey: cycleForwardKey) {
-                        cycleWindowsInZone(forward: true)
-                        return
-                    }
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: cycleBackwardModifiers, requiredKey: cycleBackwardKey) {
-                        cycleWindowsInZone(forward: false)
-                        return
-                    }
-                }
-            }
             
             if isEditing || isQuickSnapping {
                 return
