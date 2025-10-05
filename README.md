@@ -7,20 +7,18 @@
 
 Make your workflow more efficient with MacsyZones. Organize your windows with ease.
 
-Visit [https://macsyzones.com](https://macsyzones.com) for more information.
+Visit [https://macsyzones.com](https://macsyzones.com) to download MacsyZones.
 
 | ![MacsyZones](media/MacsyZonesAppIcon.png) | MacsyZones is a FancyZones equivalent for macOS. MacsyZones allows you to create layouts and sections in your layouts as you want and fit your windows into sections with ease. |
 | --- | --- |
 
-![MacsyZonesInAction](https://github.com/user-attachments/assets/2ece0c8b-9d44-4f1b-bad0-bb080ad1d5d5)
-
-![MacsyZones Settings](media/Demo.jpg)
+<img width="1728" height="1760" alt="MacsyZones Settings" src="https://github.com/user-attachments/assets/54385d2e-7d97-4d85-8aab-a9681cea8b70" />
 
 ## MacsyZones in action
 
-https://github.com/user-attachments/assets/101d3296-889f-4cfb-93cf-87bad548a108
+https://github.com/user-attachments/assets/f197dfa9-ef54-4a7d-b6af-630a0f0d2cac
 
-https://github.com/user-attachments/assets/5b26c5cf-90f3-4ace-b324-b2f6404c3ea8
+https://github.com/user-attachments/assets/101d3296-889f-4cfb-93cf-87bad548a108
 
 ### Install with Homebrew
 
