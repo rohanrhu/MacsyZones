@@ -260,8 +260,15 @@ struct Main: View {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
                         .imageScale(.small)
+                        .contentShape(Circle())
                 }
+                .contentShape(Circle())
                 .buttonStyle(BorderlessButtonStyle())
+                .modifier {
+                    if #available(macOS 14.0, *) {
+                        $0.focusEffectDisabled(true)
+                    } else { $0 }
+                }
             }
             .padding(.bottom, 10)
 
@@ -334,6 +341,40 @@ struct Main: View {
                     
                     Group {
                         HStack(spacing: 5) {
+                            Text("Snap Key").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showSnapKeyHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        
+                        Picker("Snap Key", selection: $settings.snapKey) {
+                            Text("None").tag("None")
+                            Text("Shift").tag("Shift")
+                            Text("Command").tag("Command")
+                            Text("Option").tag("Option")
+                            Text("Control").tag("Control")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(MenuPickerStyle())
+                        .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        
+                        Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
+                            .padding(.top, 4)
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    Group {
+                        HStack(spacing: 5) {
                             Text("Modifier Key").font(.subheadline)
                             Button(action: {
                                 resetDialogs()
@@ -364,40 +405,6 @@ struct Main: View {
                             set: { settings.modifierKeyDelay = Int($0) }
                         ), in: 0...2000, step: 100)
                         .onChange(of: settings.modifierKeyDelay) { _ in appSettings.save() }
-                    }
-                    
-                    Divider().padding(.vertical, 2)
-                    
-                    Group {
-                        HStack(spacing: 5) {
-                            Text("Snap Key").font(.subheadline)
-                            Button(action: {
-                                resetDialogs()
-                                showDialog = true
-                                showSnapKeyHelpDialog = true
-                            }) {
-                                Image(systemName: "info.circle")
-                                    .font(.system(size: 13))
-                                    .imageScale(.small)
-                            }
-                            .buttonStyle(BorderlessButtonStyle())
-                        }
-                        
-                        Picker("Snap Key", selection: $settings.snapKey) {
-                            Text("None").tag("None")
-                            Text("Shift").tag("Shift")
-                            Text("Command").tag("Command")
-                            Text("Option").tag("Option")
-                            Text("Control").tag("Control")
-                        }
-                        .labelsHidden()
-                        .pickerStyle(MenuPickerStyle())
-                        .onChange(of: settings.snapKey) { _ in appSettings.save() }
-                        
-                        Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
-                            .padding(.top, 4)
                     }
                     
                     Divider().padding(.vertical, 2)
@@ -788,6 +795,8 @@ struct Main: View {
                         MacsyZones helps you organize your windows efficiently.
                         
                         Version: \(appVersion) (Build: \(appBuild))
+                    
+                        \(!proLock.isPro ? "Please buy MacsyZones to support me. 🥳": "Thank you for your support. 🥳")
                         \(licenseInfo)
                     """),
                     primaryButton: .default(Text("Visit Website")) {
