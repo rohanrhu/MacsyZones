@@ -338,8 +338,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
     
     func monitorShortcuts() {
-        var dispatchWorkItem: DispatchWorkItem?
+        var modifierKeyTask: DispatchWorkItem?
         var snapKeyUsed = false
+        var prevFlags = NSEvent.ModifierFlags()
         
         NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             var modifierKey: NSEvent.ModifierFlags = .control
@@ -350,8 +351,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 modifierKey = .option
             }
             
-            dispatchWorkItem?.cancel()
-            dispatchWorkItem = nil
+            modifierKeyTask?.cancel()
+            modifierKeyTask = nil
+            
+            let modifierKeyUsed = !prevFlags.contains(modifierKey) && event.modifierFlags.contains(modifierKey)
+            prevFlags = event.modifierFlags
             
             if isEditing || isQuickSnapping {
                 return
@@ -399,20 +403,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 
                 let delay = Double(appSettings.modifierKeyDelay) / 1000.0
                 
-                if event.modifierFlags.contains(modifierKey) {
+                if modifierKeyUsed {
                     if !isFitting {
-                        dispatchWorkItem = DispatchWorkItem {
+                        modifierKeyTask = DispatchWorkItem {
                             if isFitting {
                                 userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
                             }
                         }
                         
                         isFitting = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: dispatchWorkItem!)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: modifierKeyTask!)
                     }
                 } else {
-                    dispatchWorkItem?.cancel()
-                    dispatchWorkItem = nil
+                    modifierKeyTask?.cancel()
+                    modifierKeyTask = nil
                     
                     if isFitting {
                         isFitting = false
@@ -422,11 +426,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     }
                 }
             }
-        }
-        
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
-            dispatchWorkItem?.cancel()
-            dispatchWorkItem = nil
         }
     }
     
