@@ -14,38 +14,14 @@ import Foundation
 import SwiftUI
 import AppKit
 
-private var lastFocusedScreen: NSScreen?
-
-func getFocusedScreen() -> NSScreen? {
-    if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
-        lastFocusedScreen = screen
-        return screen
-    }
-    return lastFocusedScreen
-}
-
-func centerWindowOnFocusedScreen(_ window: NSWindow) {
-    guard let screen = getFocusedScreen() else {
-        window.center()
-        return
-    }
-    
-    let screenFrame = screen.visibleFrame
-    let windowFrame = window.frame
-    
-    let x = screenFrame.origin.x + (screenFrame.width - windowFrame.width) / 2
-    let y = screenFrame.origin.y + (screenFrame.height - windowFrame.height) / 2
-    
-    window.setFrameOrigin(NSPoint(x: x, y: y))
-}
-
 func debugLog(_ message: String, file: String = #file, line: Int = #line) {
-    print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
+    #if DEBUG
+        print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
+    #endif
 }
 
 public extension View {
-  func modifier<ModifiedContent: View>(@ViewBuilder content: (_ content: Self) -> ModifiedContent
-  ) -> ModifiedContent {
-    content(self)
-  }
+    func modifier<ModifiedContent: View>(@ViewBuilder content: (_ content: Self) -> ModifiedContent) -> ModifiedContent {
+        content(self)
+    }
 }

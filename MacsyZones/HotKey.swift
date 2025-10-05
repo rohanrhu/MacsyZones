@@ -28,7 +28,6 @@ class GlobalHotkey: Identifiable, Equatable {
         
         guard let hotkey = (hotkeys.values.first { $0.hotkeyId == eventHotkeyId.id }) else {
             debugLog("No matching hotkey found for event")
-            print("event.id: \(eventHotkeyId.id), hotkeys: \(hotkeys)")
             return noErr
         }
         
