@@ -12,9 +12,28 @@
 
 import SwiftUI
 import AVKit
+import AVFoundation
 
 struct OnboardingStateData: Codable {
     var hasCompletedOnboarding: Bool?
+}
+
+struct CustomVideoPlayer: NSViewRepresentable {
+    let player: AVPlayer
+    
+    func makeNSView(context: Context) -> AVPlayerView {
+        let playerView = AVPlayerView()
+        playerView.player = player
+        playerView.controlsStyle = .none
+        playerView.showsFullScreenToggleButton = false
+        playerView.allowsPictureInPicturePlayback = false
+        playerView.videoGravity = .resizeAspect
+        return playerView
+    }
+    
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {
+        nsView.player = player
+    }
 }
 
 class OnboardingState: UserData, ObservableObject {
@@ -27,7 +46,10 @@ class OnboardingState: UserData, ObservableObject {
     override func load() {
         super.load()
         
-        let jsonData = data.data(using: .utf8)!
+        guard let jsonData = data.data(using: .utf8) else {
+            debugLog("Error: Unable to convert onboarding state data to UTF-8")
+            return
+        }
         
         do {
             let state = try JSONDecoder().decode(OnboardingStateData.self, from: jsonData)
@@ -67,6 +89,7 @@ struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var state = onboardingState
     @State private var currentPage = 0
+    @State private var isAnimating = false
     let window: NSWindow?
     
     init(window: NSWindow? = nil) {
@@ -161,8 +184,13 @@ struct OnboardingView: View {
             HStack(spacing: 8) {
                 ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
                     Button(action: {
+                        guard !isAnimating else { return }
+                        isAnimating = true
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentPage = index
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isAnimating = false
                         }
                     }) {
                         HStack(spacing: 6) {
@@ -226,8 +254,13 @@ struct OnboardingView: View {
             HStack(spacing: 12) {
                 if currentPage > 0 {
                     Button(action: {
+                        guard !isAnimating, currentPage > 0 else { return }
+                        isAnimating = true
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentPage -= 1
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isAnimating = false
                         }
                     }) {
                         HStack(spacing: 8) {
@@ -266,8 +299,13 @@ struct OnboardingView: View {
                 
                 if currentPage < pages.count - 1 {
                     Button(action: {
+                        guard !isAnimating, currentPage < pages.count - 1 else { return }
+                        isAnimating = true
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentPage += 1
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isAnimating = false
                         }
                     }) {
                         HStack(spacing: 8) {
@@ -343,6 +381,8 @@ struct OnboardingView: View {
 struct OnboardingPageView: View {
     let page: OnboardingPage
     @State private var player: AVPlayer?
+    @State private var loopObserver: NSObjectProtocol?
+    @State private var isPlayerReady: Bool = false
     
     private func getVideoURL() -> URL? {
         guard !page.video.isEmpty else { return nil }
@@ -350,7 +390,7 @@ struct OnboardingPageView: View {
         if let asset = NSDataAsset(name: page.video) {
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(page.video)
-                .appendingPathExtension("mov")
+                .appendingPathExtension("mp4")
             
             if !FileManager.default.fileExists(atPath: tempURL.path) {
                 try? asset.data.write(to: tempURL)
@@ -365,13 +405,17 @@ struct OnboardingPageView: View {
     private func setupPlayer(url: URL) -> AVPlayer {
         let player = AVPlayer(url: url)
         
-        NotificationCenter.default.addObserver(
+        let observer = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: player.currentItem,
             queue: .main
-        ) { _ in
-            player.seek(to: .zero)
-            player.play()
+        ) { [weak player] _ in
+            player?.seek(to: .zero)
+            player?.play()
+        }
+        
+        DispatchQueue.main.async {
+            loopObserver = observer
         }
         
         return player
@@ -380,23 +424,36 @@ struct OnboardingPageView: View {
     var body: some View {
         VStack(spacing: 24) {
             if let videoURL = getVideoURL() {
-                VideoPlayer(player: player)
-                    .frame(height: 420)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
-                    )
-                    .padding(.horizontal, 20)
-                    .onAppear {
-                        if player == nil {
-                            player = setupPlayer(url: videoURL)
-                            player?.play()
+                if isPlayerReady, let player = player {
+                    CustomVideoPlayer(player: player)
+                        .frame(height: 420)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+                        )
+                        .padding(.horizontal, 20)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.gray.opacity(0.1))
+                        .frame(height: 420)
+                        .overlay(
+                            ProgressView()
+                        )
+                        .padding(.horizontal, 20)
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if player == nil {
+                                    player = setupPlayer(url: videoURL)
+                                    isPlayerReady = true
+
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        player?.play()
+                                    }
+                                }
+                            }
                         }
-                    }
-                    .onDisappear {
-                        player?.pause()
-                    }
+                }
             } else {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(
@@ -448,6 +505,15 @@ struct OnboardingPageView: View {
                 }
             }
         }
+        .onDisappear {
+            player?.pause()
+            player = nil
+            isPlayerReady = false
+            if let observer = loopObserver {
+                NotificationCenter.default.removeObserver(observer)
+                loopObserver = nil
+            }
+        }
     }
 }
 
@@ -471,6 +537,8 @@ struct OnboardingWindowView: View {
     }
 }
 
+private var onboardingWindow: NSWindow?
+
 @available(macOS 12.0, *)
 func showOnboarding() {
     let window = NSWindow()
@@ -485,6 +553,16 @@ func showOnboarding() {
     let onboardingView = OnboardingView(window: window)
     let hostingController = NSHostingController(rootView: onboardingView)
     window.contentViewController = hostingController
+    
+    onboardingWindow = window
+    
+    NotificationCenter.default.addObserver(
+        forName: NSWindow.willCloseNotification,
+        object: window,
+        queue: .main
+    ) { _ in
+        onboardingWindow = nil
+    }
     
     NSApp.activate(ignoringOtherApps: true)
     window.makeKeyAndOrderFront(nil)

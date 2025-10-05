@@ -648,10 +648,10 @@ struct Main: View {
                 .disabled(updater.isChecking || updater.isDownloading)
                 
                 if #available(macOS 12.0, *) {
-//                    Button(action: { showOnboarding() }) {
-//                        Image(systemName: "questionmark.circle")
-//                        Text("Help")
-//                    }
+                    Button(action: { showOnboarding() }) {
+                        Image(systemName: "questionmark.circle")
+                        Text("Help")
+                    }
                 }
                 
                 Button(action: { NSApp.terminate(nil) }) {

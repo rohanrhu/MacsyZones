@@ -40,11 +40,11 @@ let cycleBackwardHotkey = GlobalHotkey() {
     return noErr
 }
 
+var hasAccessibilityPermission = false
 var statusItem: NSStatusItem!
 var popover: NSPopover!
 var accessibilityDialog: AccessibilityDialog?
 var updateFailedDialog: UpdateFailedDialog?
-var onboardingWindow: NSWindow?
 
 var mouseUpMonitor: Any?
 
@@ -77,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         createTrayIcon()
         setupPopover()
         userLayouts.load()
+        checkAccessibilityPermission()
         requestAccessibilityPermissions()
         GlobalHotkey.setup()
         
@@ -148,9 +149,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 macsyReady.isReady = true
                 
                 if #available(macOS 12.0, *) {
-//                    if !onboardingState.hasCompletedOnboarding {
-//                        showOnboarding()
-//                    }
+                   if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
+                       showOnboarding()
+                   }
                     
                     cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
                     cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
@@ -287,11 +288,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         }
     }
     
-    func requestAccessibilityPermissions() {
+    func checkAccessibilityPermission() {
         let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
-        
-        if !isTrusted {
+        hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    }
+    
+    func requestAccessibilityPermissions() {
+        if !hasAccessibilityPermission {
             showAccessibilityPermissionPopover()
         } else {
             debugLog("Accessibility permissions granted.")
