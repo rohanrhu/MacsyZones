@@ -640,11 +640,15 @@ func onMouseUp(event: NSEvent) {
     
     guard let window = toLeaveElement else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         toLeaveElement = nil
         return
@@ -665,16 +669,15 @@ func onMouseUp(event: NSEvent) {
                                     element: toLeaveElement!)
             }
             
-            toLeaveElement = nil
-            toLeaveSectionWindow = nil
-            
-            isFitting = false
-            userLayouts.currentLayout.layoutWindow.hide()
-            
             justDidMouseUp = true
         }
+        
+        isFitting = false
+        userLayouts.currentLayout.layoutWindow.hide()
     } else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
     }
 }

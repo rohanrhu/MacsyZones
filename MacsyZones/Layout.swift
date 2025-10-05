@@ -85,8 +85,6 @@ struct SectionView: View {
 }
 
 class EditorSectionView: NSView {
-    private let edgeSize: CGFloat = 2
-    
     var onDelete: (() -> Void)?
     
     var number: Int = 0 {
@@ -1203,12 +1201,13 @@ class LayoutWindow {
             window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             
             for sectionWindow in sectionWindows {
-                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
                 sectionWindow.startEditing()
+                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
             }
         } else {
             for sectionWindow in sectionWindows {
                 sectionWindow.startEditing()
+                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
             }
         }
         
