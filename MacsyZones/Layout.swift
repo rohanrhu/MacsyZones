@@ -71,6 +71,7 @@ struct SectionView: View {
                             RoundedRectangle(cornerRadius: 26)
                                 .fill(backgroundColor)
                                 .stroke(borderColor, lineWidth: 5)
+                                .shadow(color: .black.opacity(sectionWindow.isHovered ? 0.2 : 0.1), radius: sectionWindow.isHovered ? 8 : 4, x: 0, y: 4)
                         )
                         .cornerRadius(26)
                 } else {
