@@ -148,9 +148,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 macsyReady.isReady = true
                 
                 if #available(macOS 12.0, *) {
-                    if !onboardingState.hasCompletedOnboarding {
-                        showOnboarding()
-                    }
+//                    if !onboardingState.hasCompletedOnboarding {
+//                        showOnboarding()
+//                    }
                     
                     cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
                     cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
