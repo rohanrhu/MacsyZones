@@ -35,7 +35,7 @@ struct AppSettingsData: Codable {
 class AppSettings: UserData, ObservableObject {
     @Published var modifierKey: String = "Control"
     @Published var snapKey: String = "Shift"
-    @Published var modifierKeyDelay: Int = 500
+    @Published var modifierKeyDelay: Int = 1000
     @Published var fallbackToPreviousSize: Bool = true
     @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
     @Published var selectPerDesktopLayout: Bool = true
