@@ -29,6 +29,11 @@ struct AppSettingsData: Codable {
     var showSnapResizersOnHover: Bool?
     var cycleWindowsForwardShortcut: String?
     var cycleWindowsBackwardShortcut: String?
+    // Zone navigation shortcuts
+    var moveZoneLeftShortcut: String?
+    var moveZoneRightShortcut: String?
+    var moveZoneUpShortcut: String?
+    var moveZoneDownShortcut: String?
     var snapHighlightStrategy: SnapHighlightStrategy?
 }
 
@@ -49,6 +54,11 @@ class AppSettings: UserData, ObservableObject {
     @Published var showSnapResizersOnHover: Bool = true
     @Published var cycleWindowsForwardShortcut: String = "Command+]"
     @Published var cycleWindowsBackwardShortcut: String = "Command+["
+    // Zone navigation default shortcuts (can be customized by user)
+    @Published var moveZoneLeftShortcut: String = "Control+Option+Left"
+    @Published var moveZoneRightShortcut: String = "Control+Option+Right"
+    @Published var moveZoneUpShortcut: String = "Control+Option+Up"
+    @Published var moveZoneDownShortcut: String = "Control+Option+Down"
     @Published var snapHighlightStrategy: SnapHighlightStrategy = .centerProximity
 
     init() {
@@ -79,6 +89,10 @@ class AppSettings: UserData, ObservableObject {
             self.showSnapResizersOnHover = settings.showSnapResizersOnHover ?? showSnapResizersOnHover
             self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut ?? cycleWindowsForwardShortcut
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut ?? cycleWindowsBackwardShortcut
+            self.moveZoneLeftShortcut = settings.moveZoneLeftShortcut ?? moveZoneLeftShortcut
+            self.moveZoneRightShortcut = settings.moveZoneRightShortcut ?? moveZoneRightShortcut
+            self.moveZoneUpShortcut = settings.moveZoneUpShortcut ?? moveZoneUpShortcut
+            self.moveZoneDownShortcut = settings.moveZoneDownShortcut ?? moveZoneDownShortcut
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
@@ -104,6 +118,10 @@ class AppSettings: UserData, ObservableObject {
                 showSnapResizersOnHover: showSnapResizersOnHover,
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
+                moveZoneLeftShortcut: moveZoneLeftShortcut,
+                moveZoneRightShortcut: moveZoneRightShortcut,
+                moveZoneUpShortcut: moveZoneUpShortcut,
+                moveZoneDownShortcut: moveZoneDownShortcut,
                 snapHighlightStrategy: snapHighlightStrategy
             )
             
