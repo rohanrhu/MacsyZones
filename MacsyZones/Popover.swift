@@ -180,6 +180,7 @@ struct Main: View {
     @State var showWindowCyclingHelpDialog = false
     @State var showSnapHighlightStrategyHelpDialog = false
     @State var showPerDesktopLayoutsHelpDialog = false
+    @State var showZoneNavigationHelpDialog = false
     
     func resetDialogs() {
         showDialog = false
@@ -191,6 +192,7 @@ struct Main: View {
         showWindowCyclingHelpDialog = false
         showSnapHighlightStrategyHelpDialog = false
         showPerDesktopLayoutsHelpDialog = false
+    showZoneNavigationHelpDialog = false
     }
     
     func sensitivityLabel(for threshold: CGFloat) -> String {
@@ -473,22 +475,34 @@ struct Main: View {
                             HStack {
                                 Text("Left").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneLeftShortcut)
-                                    .onChange(of: settings.moveZoneLeftShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.moveZoneLeftShortcut) { newShortcut in
+                                        moveZoneLeftHotkey.register(for: newShortcut)
+                                        appSettings.save()
+                                    }
                             }
                             HStack {
                                 Text("Right").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneRightShortcut)
-                                    .onChange(of: settings.moveZoneRightShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.moveZoneRightShortcut) { newShortcut in
+                                        moveZoneRightHotkey.register(for: newShortcut)
+                                        appSettings.save()
+                                    }
                             }
                             HStack {
                                 Text("Up").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneUpShortcut)
-                                    .onChange(of: settings.moveZoneUpShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.moveZoneUpShortcut) { newShortcut in
+                                        moveZoneUpHotkey.register(for: newShortcut)
+                                        appSettings.save()
+                                    }
                             }
                             HStack {
                                 Text("Down").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneDownShortcut)
-                                    .onChange(of: settings.moveZoneDownShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.moveZoneDownShortcut) { newShortcut in
+                                        moveZoneDownHotkey.register(for: newShortcut)
+                                        appSettings.save()
+                                    }
                             }
                         }
                     }
@@ -794,6 +808,20 @@ struct Main: View {
                       • Cycle Backward: Brings the previous window in the zone to the front
                       
                       The cycling will only affect windows that are currently placed in zones, and will cycle through windows in the same zone as the currently focused window.
+                      
+                      Enjoy! 🥳
+                  """),
+                  dismissButton: .default(Text("OK"))
+               )
+           } else if showZoneNavigationHelpDialog {
+               return Alert(
+                  title: Text("Zone Navigation"),
+                  message: Text("""
+                      Zone Navigation lets you move the focused window between defined zones using your keyboard.
+                      
+                      • Left / Right / Up / Down shortcuts move the window to the adjacent zone.
+                      
+                      Tip: Combine with Window Cycling to manage multiple windows per zone.
                       
                       Enjoy! 🥳
                   """),

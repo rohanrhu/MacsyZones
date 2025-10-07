@@ -62,8 +62,6 @@ class PlacedWindows {
         layouts[windowId] = layoutName
         screens[windowId] = screenNumber
         workspaces[windowId] = workspaceNumber
-        
-        donationReminder.count()
     }
     
     static func unplace(windowId: UInt32) {
@@ -72,8 +70,6 @@ class PlacedWindows {
         layouts.removeValue(forKey: windowId)
         screens.removeValue(forKey: windowId)
         workspaces.removeValue(forKey: windowId)
-        
-        donationReminder.count()
     }
     
     static func isPlaced(windowId: UInt32) -> Bool {
