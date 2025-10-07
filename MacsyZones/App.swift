@@ -24,7 +24,6 @@ let macsyReady = MacsyReady()
 let macsyProLock = ProLock()
 let donationReminder = DonationReminder()
 let appUpdater = AppUpdater()
-let updateState = UpdateState()
 
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
