@@ -378,7 +378,6 @@ struct OnboardingView: View {
 }
 
 @available(macOS 12.0, *)
-@available(macOS 12.0, *)
 struct OnboardingPageView: View {
     let page: OnboardingPage
     @State private var player: AVPlayer?
@@ -519,7 +518,6 @@ struct OnboardingPageView: View {
 }
 
 @available(macOS 12.0, *)
-@available(macOS 12.0, *)
 struct OnboardingWindowView: View {
     @ObservedObject var state = onboardingState
     @State private var showOnboarding = false
@@ -541,7 +539,6 @@ struct OnboardingWindowView: View {
 
 private var onboardingWindow: NSWindow?
 
-@available(macOS 12.0, *)
 @available(macOS 12.0, *)
 func showOnboarding() {
     let window = NSWindow()
@@ -571,8 +568,9 @@ func showOnboarding() {
     window.makeKeyAndOrderFront(nil)
 }
 
-@available(macOS 12.0, *)
 #Preview {
-    OnboardingView(window: nil)
+    if #available(macOS 12.0, *) {
+        OnboardingView(window: nil)
+    }
 }
 

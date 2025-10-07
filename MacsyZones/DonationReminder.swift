@@ -193,12 +193,10 @@ class DonationReminder {
                     } else {
                         debugLog("DonationReminder.count() - QuickSnapper is not open, not bringing it to front")
                     }
-                    self.panel.makeKeyAndOrderFront(nil)
                 }
-            } else {
-                self.panel.makeKeyAndOrderFront(nil)
             }
             
+            self.panel.makeKeyAndOrderFront(nil)
             self.panel.center()
             
             countI = 0

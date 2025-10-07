@@ -209,10 +209,10 @@ func getHoveredSectionWindow() -> SectionWindow? {
                 }
             } else {
                 sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                let frame1 = $0.window.frame
-                let frame2 = $1.window.frame
-                return (frame1.width * frame1.height) < (frame2.width * frame2.height)
-            }
+                    let frame1 = $0.window.frame
+                    let frame2 = $1.window.frame
+                    return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+                }
             }
             
             for sectionWindow in sortedSectionWindows {
@@ -709,8 +709,8 @@ func onMouseUp(event: NSEvent) {
             justDidMouseUp = true
         }
             
-            isFitting = false
-            userLayouts.currentLayout.layoutWindow.hide()
+        isFitting = false
+        userLayouts.currentLayout.layoutWindow.hide()
     } else {
         isFitting = false
         toLeaveElement = nil

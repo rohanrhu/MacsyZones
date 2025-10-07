@@ -476,7 +476,9 @@ struct Main: View {
                                 Text("Left").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneLeftShortcut)
                                     .onChange(of: settings.moveZoneLeftShortcut) { newShortcut in
-                                        moveZoneLeftHotkey.register(for: newShortcut)
+                                        if #available(macOS 12.0, *) {
+                                            moveZoneLeftHotkey.register(for: newShortcut)
+                                        }
                                         appSettings.save()
                                     }
                             }
@@ -484,7 +486,9 @@ struct Main: View {
                                 Text("Right").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneRightShortcut)
                                     .onChange(of: settings.moveZoneRightShortcut) { newShortcut in
-                                        moveZoneRightHotkey.register(for: newShortcut)
+                                        if #available(macOS 12.0, *) {
+                                            moveZoneRightHotkey.register(for: newShortcut)
+                                        }
                                         appSettings.save()
                                     }
                             }
@@ -492,7 +496,9 @@ struct Main: View {
                                 Text("Up").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneUpShortcut)
                                     .onChange(of: settings.moveZoneUpShortcut) { newShortcut in
-                                        moveZoneUpHotkey.register(for: newShortcut)
+                                        if #available(macOS 12.0, *) {
+                                            moveZoneUpHotkey.register(for: newShortcut)
+                                        }
                                         appSettings.save()
                                     }
                             }
@@ -500,7 +506,9 @@ struct Main: View {
                                 Text("Down").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.moveZoneDownShortcut)
                                     .onChange(of: settings.moveZoneDownShortcut) { newShortcut in
-                                        moveZoneDownHotkey.register(for: newShortcut)
+                                        if #available(macOS 12.0, *) {
+                                            moveZoneDownHotkey.register(for: newShortcut)
+                                        }
                                         appSettings.save()
                                     }
                             }
