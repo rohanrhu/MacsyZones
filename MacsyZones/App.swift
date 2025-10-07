@@ -22,36 +22,44 @@ class MacsyReady: ObservableObject {
 
 let macsyReady = MacsyReady()
 let macsyProLock = ProLock()
+let donationReminder = DonationReminder()
 let appUpdater = AppUpdater()
+let updateState = UpdateState()
 
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
 
+@available(macOS 12.0, *)
 let cycleForwardHotkey = GlobalHotkey() {
     cycleWindowsInZone(forward: true)
     return noErr
 }
 
+@available(macOS 12.0, *)
 let cycleBackwardHotkey = GlobalHotkey() {
     cycleWindowsInZone(forward: false)
     return noErr
 }
 
+@available(macOS 12.0, *)
 let moveZoneLeftHotkey = GlobalHotkey() {
     moveWindowToAdjacentZone(direction: .left)
     return noErr
 }
 
+@available(macOS 12.0, *)
 let moveZoneRightHotkey = GlobalHotkey() {
     moveWindowToAdjacentZone(direction: .right)
     return noErr
 }
 
+@available(macOS 12.0, *)
 let moveZoneUpHotkey = GlobalHotkey() {
     moveWindowToAdjacentZone(direction: .up)
     return noErr
 }
 
+@available(macOS 12.0, *)
 let moveZoneDownHotkey = GlobalHotkey() {
     moveWindowToAdjacentZone(direction: .down)
     return noErr
@@ -165,17 +173,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 
                 macsyReady.isReady = true
                 
-                if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
-                    if #available(macOS 12.0, *) {
+                if #available(macOS 12.0, *) {
+                    if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
                         showOnboarding()
                     }
+                    cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
+                    cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
+                    moveZoneLeftHotkey.register(for: appSettings.moveZoneLeftShortcut)
+                    moveZoneRightHotkey.register(for: appSettings.moveZoneRightShortcut)
+                    moveZoneUpHotkey.register(for: appSettings.moveZoneUpShortcut)
+                    moveZoneDownHotkey.register(for: appSettings.moveZoneDownShortcut)
                 }
-                cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
-                cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
-                moveZoneLeftHotkey.register(for: appSettings.moveZoneLeftShortcut)
-                moveZoneRightHotkey.register(for: appSettings.moveZoneRightShortcut)
-                moveZoneUpHotkey.register(for: appSettings.moveZoneUpShortcut)
-                moveZoneDownHotkey.register(for: appSettings.moveZoneDownShortcut)
             }
         }
         .start()

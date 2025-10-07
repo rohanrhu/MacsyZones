@@ -12,7 +12,6 @@
 
 import SwiftUI
 
-@available(macOS 12.0, *)
 func isQuickSnapShortcut(_ event: NSEvent, requiredModifiers: [Substring], requiredKey: Substring?) -> Bool {
     let modifierFlags = event.modifierFlags.intersection([.command, .control, .option, .shift])
     var isMatch = true
