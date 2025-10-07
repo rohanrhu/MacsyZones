@@ -161,6 +161,72 @@ class UserLayout {
     }
 }
 
+struct UpdateStateData: Codable {
+    var attemptedVersion: String?
+    var targetVersion: String?
+}
+
+class UpdateState: UserData, ObservableObject {
+    @Published var attemptedVersion: String?
+    @Published var targetVersion: String?
+    
+    init() {
+        super.init(name: "UpdateState", data: "{}", fileName: "UpdateState.json")
+    }
+    
+    override func load() {
+        super.load()
+        
+        let jsonData = data.data(using: .utf8)!
+        
+        do {
+            let state = try JSONDecoder().decode(UpdateStateData.self, from: jsonData)
+            self.attemptedVersion = state.attemptedVersion
+            self.targetVersion = state.targetVersion
+        } catch {
+            debugLog("Error parsing update state JSON: \(error)")
+        }
+    }
+    
+    override func save() {
+        do {
+            let state = UpdateStateData(
+                attemptedVersion: attemptedVersion,
+                targetVersion: targetVersion
+            )
+            
+            let jsonData = try JSONEncoder().encode(state)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                data = jsonString
+                super.save()
+            }
+        } catch {
+            debugLog("Error encoding update state JSON: \(error)")
+        }
+    }
+    
+    func setUpdateAttempt(currentVersion: String, targetVersion: String) {
+        self.attemptedVersion = currentVersion
+        self.targetVersion = targetVersion
+        save()
+    }
+    
+    func clearUpdateAttempt() {
+        self.attemptedVersion = nil
+        self.targetVersion = nil
+        save()
+    }
+    
+    func hasFailedUpdate(currentVersion: String) -> Bool {
+        guard let attemptedVersion = attemptedVersion,
+              let targetVersion = targetVersion else {
+            return false
+        }
+        
+        return attemptedVersion == currentVersion && targetVersion != currentVersion
+    }
+}
+
 class UserLayouts: UserData, ObservableObject {
     @Published var layouts: [String: UserLayout] = [:]
     
@@ -344,7 +410,7 @@ struct SectionConfig: Codable {
         if let targetScreen {
             screen = targetScreen
         } else {
-            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+            guard let focusedScreen = getFocusedScreen() else {
                 return NSRect(x: 0, y: 0, width: 800, height: 600)
             }
             
@@ -366,7 +432,7 @@ struct SectionConfig: Codable {
         if let targetScreen {
             screen = targetScreen
         } else {
-            guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+            guard let focusedScreen = getFocusedScreen() else {
                 return NSRect(x: 0, y: 0, width: 800, height: 600)
             }
             

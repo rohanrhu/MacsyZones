@@ -17,6 +17,7 @@ import Accessibility
 import CoreGraphics
 
 var userLayouts: UserLayouts = .init()
+var updateState: UpdateState = .init()
 var toLeaveElement: AXUIElement?
 var toLeaveSectionWindow: SectionWindow?
 
@@ -162,7 +163,7 @@ var justDidMouseUp = false
 func getHoveredSectionWindow() -> SectionWindow? {
     var hoveredSectionWindow: SectionWindow?
     
-    guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+    guard let focusedScreen = getFocusedScreen() else {
         for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
             sectionWindow.isHovered = false
         }
@@ -172,7 +173,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
     let mouseLocation = NSEvent.mouseLocation
     
     if isFitting {
-        if appSettings.prioritizeCenterToSnap {
+        if appSettings.snapHighlightStrategy != .centerProximity && appSettings.prioritizeCenterToSnap {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
                 let screenSize = focusedScreen.frame
                 let bounds = sectionWindow.getBounds()
@@ -189,10 +190,30 @@ func getHoveredSectionWindow() -> SectionWindow? {
         }
         
         if hoveredSectionWindow == nil {
-            let sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                let frame1 = $0.window.frame
-                let frame2 = $1.window.frame
-                return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+            let sortedSectionWindows: [SectionWindow]
+            
+            if appSettings.snapHighlightStrategy == .centerProximity {
+                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
+                    let screenSize = focusedScreen.frame
+                    
+                    let bounds1 = $0.getBounds()
+                    let center1X = bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
+                    let center1Y = bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
+                    let distance1 = sqrt(pow(mouseLocation.x - center1X, 2) + pow(mouseLocation.y - center1Y, 2))
+                    
+                    let bounds2 = $1.getBounds()
+                    let center2X = bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
+                    let center2Y = bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
+                    let distance2 = sqrt(pow(mouseLocation.x - center2X, 2) + pow(mouseLocation.y - center2Y, 2))
+                    
+                    return distance1 < distance2
+                }
+            } else {
+                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
+                    let frame1 = $0.window.frame
+                    let frame2 = $1.window.frame
+                    return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+                }
             }
             
             for sectionWindow in sortedSectionWindows {
@@ -213,6 +234,10 @@ func getHoveredSectionWindow() -> SectionWindow? {
 
     for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
         sectionWindow.isHovered = (sectionWindow === hoveredSectionWindow)
+    }
+    
+    if let hoveredSectionWindow = hoveredSectionWindow {
+        hoveredSectionWindow.window.orderFront(nil)
     }
     
     return hoveredSectionWindow
@@ -409,7 +434,11 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
     if retryParent && !isElementResizable(element: element) {
         debugLog("Window is not resizable! Trying parent window...")
         
-        while true {
+        var iterationCount = 0
+
+        while iterationCount < 5 {
+            iterationCount += 1
+            
             var result: AXError
             var parentElementRef: CFTypeRef?
             
@@ -626,11 +655,15 @@ func onMouseUp(event: NSEvent) {
     
     guard let window = toLeaveElement else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         toLeaveElement = nil
         return
@@ -651,16 +684,15 @@ func onMouseUp(event: NSEvent) {
                                     element: toLeaveElement!)
             }
             
-            toLeaveElement = nil
-            toLeaveSectionWindow = nil
-            
-            isFitting = false
-            userLayouts.currentLayout.layoutWindow.hide()
-            
             justDidMouseUp = true
         }
+        
+        isFitting = false
+        userLayouts.currentLayout.layoutWindow.hide()
     } else {
         isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
     }
 }

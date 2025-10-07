@@ -14,134 +14,20 @@ import SwiftUI
 import ServiceManagement
 import Combine
 
-struct AppSettingsData: Codable {
-    var modifierKey: String
-    var snapKey: String
-    var modifierKeyDelay: Int
-    var fallbackToPreviousSize: Bool
-    var onlyFallbackToPreviousSizeWithUserEvent: Bool
-    var selectPerDesktopLayout: Bool
-    var prioritizeCenterToSnap: Bool
-    var shakeToSnap: Bool
-    var shakeAccelerationThreshold: CGFloat
-    var snapResize: Bool
-    var snapResizeThreshold: CGFloat
-    var quickSnapShortcut: String
-    var snapWithRightClick: Bool
-    var showSnapResizersOnHover: Bool
-    var cycleWindowsForwardShortcut: String
-    var cycleWindowsBackwardShortcut: String
-    var moveZoneLeftShortcut: String
-    var moveZoneRightShortcut: String
-    var moveZoneUpShortcut: String
-    var moveZoneDownShortcut: String
+class PopoverState: ObservableObject {
+    static let shared = PopoverState()
+    @Published var shouldStopListening = false
 }
-
-class AppSettings: UserData, ObservableObject {
-    @Published var modifierKey: String = "Control"
-    @Published var snapKey: String = "Shift"
-    @Published var modifierKeyDelay: Int = 500
-    @Published var fallbackToPreviousSize: Bool = true
-    @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
-    @Published var selectPerDesktopLayout: Bool = true
-    @Published var prioritizeCenterToSnap: Bool = true
-    @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
-    @Published var snapResize: Bool = true
-    @Published var snapResizeThreshold: CGFloat = 33.0
-    @Published var quickSnapShortcut: String = "Control+Shift+S"
-    @Published var snapWithRightClick: Bool = true
-    @Published var showSnapResizersOnHover: Bool = true
-    @Published var cycleWindowsForwardShortcut: String = "Command+]"
-    @Published var cycleWindowsBackwardShortcut: String = "Command+["
-    @Published var moveZoneLeftShortcut: String = "Command+Shift+Control+Left"
-    @Published var moveZoneRightShortcut: String = "Command+Shift+Control+Right"
-    @Published var moveZoneUpShortcut: String = "Command+Shift+Control+Up"
-    @Published var moveZoneDownShortcut: String = "Command+Shift+Control+Down"
-
-    init() {
-        super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
-    }
-
-    override func load() {
-        super.load()
-
-        let jsonData = data.data(using: .utf8)!
-        
-        do {
-            let settings = try JSONDecoder().decode(AppSettingsData.self, from: jsonData)
-            
-            self.modifierKey = settings.modifierKey
-            self.snapKey = settings.snapKey
-            self.modifierKeyDelay = settings.modifierKeyDelay
-            self.fallbackToPreviousSize = settings.fallbackToPreviousSize
-            self.onlyFallbackToPreviousSizeWithUserEvent = settings.onlyFallbackToPreviousSizeWithUserEvent
-            self.selectPerDesktopLayout = settings.selectPerDesktopLayout
-            self.prioritizeCenterToSnap = settings.prioritizeCenterToSnap
-            self.shakeToSnap = settings.shakeToSnap
-            self.shakeAccelerationThreshold = settings.shakeAccelerationThreshold
-            self.snapResize = settings.snapResize
-            self.snapResizeThreshold = settings.snapResizeThreshold
-            self.quickSnapShortcut = settings.quickSnapShortcut
-            self.snapWithRightClick = settings.snapWithRightClick
-            self.showSnapResizersOnHover = settings.showSnapResizersOnHover
-            self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut
-            self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut
-            self.moveZoneLeftShortcut = settings.moveZoneLeftShortcut
-            self.moveZoneRightShortcut = settings.moveZoneRightShortcut
-            self.moveZoneUpShortcut = settings.moveZoneUpShortcut
-            self.moveZoneDownShortcut = settings.moveZoneDownShortcut
-        } catch {
-            debugLog("Error parsing settings JSON: \(error)")
-        }
-    }
-
-    override func save() {
-        do {
-            let settings = AppSettingsData(
-                modifierKey: modifierKey,
-                snapKey: snapKey,
-                modifierKeyDelay: modifierKeyDelay,
-                fallbackToPreviousSize: fallbackToPreviousSize,
-                onlyFallbackToPreviousSizeWithUserEvent: onlyFallbackToPreviousSizeWithUserEvent,
-                selectPerDesktopLayout: selectPerDesktopLayout,
-                prioritizeCenterToSnap: prioritizeCenterToSnap,
-                shakeToSnap: shakeToSnap,
-                shakeAccelerationThreshold: shakeAccelerationThreshold,
-                snapResize: snapResize,
-                snapResizeThreshold: snapResizeThreshold,
-                quickSnapShortcut: quickSnapShortcut,
-                snapWithRightClick: snapWithRightClick,
-                showSnapResizersOnHover: showSnapResizersOnHover,
-                cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
-                cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
-                moveZoneLeftShortcut: moveZoneLeftShortcut,
-                moveZoneRightShortcut: moveZoneRightShortcut,
-                moveZoneUpShortcut: moveZoneUpShortcut,
-                moveZoneDownShortcut: moveZoneDownShortcut
-            )
-            
-            let jsonData = try JSONEncoder().encode(settings)
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                data = jsonString
-                super.save()
-            }
-        } catch {
-            debugLog("Error encoding settings JSON: \(error)")
-        }
-    }
-}
-
-let appSettings = AppSettings()
-
-import SwiftUI
 
 struct ShortcutInputView: View {
     @Binding var shortcut: String
+    var isFocused: Binding<Bool> = .constant(false)
+    
     @State private var isListening = false
     @State private var flagsMonitor: Any?
     @State private var keyMonitor: Any?
     @State private var currentModifiers: NSEvent.ModifierFlags = []
+    @ObservedObject private var popoverState = PopoverState.shared
 
     var body: some View {
         Button(action: {
@@ -149,11 +35,11 @@ struct ShortcutInputView: View {
         }) {
             VStack {
                 Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : presentingShortcut(shortcut))
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .cornerRadius(7)
             }
-            .padding()
             .frame(height: 20)
-            .frame(maxWidth: .infinity)
-            .cornerRadius(7)
             .background(
                 RoundedRectangle(cornerRadius: 7)
                     .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
@@ -166,6 +52,15 @@ struct ShortcutInputView: View {
         .buttonStyle(PlainButtonStyle())
         .onDisappear {
             stopListening()
+            isFocused.wrappedValue = false
+        }
+        .onChange(of: isListening) { newValue in
+            isFocused.wrappedValue = newValue
+        }
+        .onChange(of: popoverState.shouldStopListening) { shouldStop in
+            if shouldStop && isListening {
+                stopListening()
+            }
         }
     }
     
@@ -187,16 +82,12 @@ struct ShortcutInputView: View {
         }
         
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == 53 { // Esc
-                self.stopListening()
-                return nil
-            }
-            
             let keyString: String
             switch event.keyCode {
             case 48: keyString = "Tab"
             case 36: keyString = "Return"
             case 51: keyString = "Delete"
+            case 53: keyString = "Escape"
             case 123: keyString = "Left"
             case 124: keyString = "Right"
             case 125: keyString = "Down"
@@ -277,17 +168,18 @@ struct Main: View {
     
     @ObservedObject var layouts = userLayouts
     
-    @State var showNotProDialog: Bool = false
-    @State var showAboutDialog: Bool = false
+    @State var showNotProDialog = false
+    @State var showAboutDialog = false
     
-    @State var showDialog: Bool = false
-    @State var showLayoutHelpDialog: Bool = false
-    @State var showModifierKeyHelpDialog: Bool = false
-    @State var showSnapKeyHelpDialog: Bool = false
-    @State var showQuickSnapperHelpDialog: Bool = false
-    @State var showSnapResizeHelpDialog: Bool = false
-    @State var showWindowCyclingHelpDialog: Bool = false
-    @State var showZoneNavigationHelpDialog: Bool = false
+    @State var showDialog = false
+    @State var showLayoutHelpDialog = false
+    @State var showModifierKeyHelpDialog = false
+    @State var showSnapKeyHelpDialog = false
+    @State var showQuickSnapperHelpDialog = false
+    @State var showSnapResizeHelpDialog = false
+    @State var showWindowCyclingHelpDialog = false
+    @State var showSnapHighlightStrategyHelpDialog = false
+    @State var showPerDesktopLayoutsHelpDialog = false
     
     func resetDialogs() {
         showDialog = false
@@ -297,7 +189,8 @@ struct Main: View {
         showQuickSnapperHelpDialog = false
         showSnapResizeHelpDialog = false
         showWindowCyclingHelpDialog = false
-        showZoneNavigationHelpDialog = false
+        showSnapHighlightStrategyHelpDialog = false
+        showPerDesktopLayoutsHelpDialog = false
     }
     
     func sensitivityLabel(for threshold: CGFloat) -> String {
@@ -366,10 +259,16 @@ struct Main: View {
                 }) {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14))
-                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                         .imageScale(.small)
+                        .contentShape(Circle())
                 }
+                .contentShape(Circle())
                 .buttonStyle(BorderlessButtonStyle())
+                .modifier {
+                    if #available(macOS 14.0, *) {
+                        $0.focusEffectDisabled(true)
+                    } else { $0 }
+                }
             }
             .padding(.bottom, 10)
 
@@ -385,7 +284,6 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
@@ -413,55 +311,30 @@ struct Main: View {
                         }
                         
                         HStack(alignment: .center, spacing: 2) {
+                            let buttonHeight: CGFloat = 25
+                            
                             Button(action: { toggleEditing() }) {
                                 Image(systemName: "pencil")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { stopEditing(); page = "rename" }) {
                                 Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { stopEditing(); page = "new" }) {
                                 Image(systemName: "plus")
+                                    .frame(height: buttonHeight)
                             }
+                            
                             Button(action: { layouts.removeCurrentLayout() }) {
                                 Image(systemName: "trash")
-                            }.disabled(layouts.layouts.count < 2)
+                                    .frame(height: buttonHeight)
+                            }
+                            .disabled(layouts.layouts.count < 2)
                         }
                         .frame(maxWidth: .infinity)
-                    }
-                    
-                    Divider().padding(.vertical, 2)
-                    
-                    Group {
-                        HStack(spacing: 5) {
-                            Text("Modifier Key").font(.subheadline)
-                            Button(action: {
-                                resetDialogs()
-                                showDialog = true
-                                showModifierKeyHelpDialog = true
-                            }) {
-                                Image(systemName: "info.circle")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
-                                    .imageScale(.small)
-                            }
-                            .buttonStyle(BorderlessButtonStyle())
-                        }
-                        Picker("Modifier Key", selection: $settings.modifierKey) {
-                            Text("None").tag("None")
-                            Text("Command").tag("Command")
-                            Text("Option").tag("Option")
-                            Text("Control").tag("Control")
-                        }
-                        .labelsHidden()
-                        .pickerStyle(MenuPickerStyle())
-                        .onChange(of: settings.modifierKey) { _ in appSettings.save() }
-                        Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0))s")
-                            .font(.caption2)
-                        Slider(value: Binding(
-                            get: { Double(settings.modifierKeyDelay) },
-                            set: { settings.modifierKeyDelay = Int($0) }
-                        ), in: 0...2000, step: 100)
-                        .onChange(of: settings.modifierKeyDelay) { _ in appSettings.save() }
                     }
                     
                     Divider().padding(.vertical, 2)
@@ -476,11 +349,11 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
+                        
                         Picker("Snap Key", selection: $settings.snapKey) {
                             Text("None").tag("None")
                             Text("Shift").tag("Shift")
@@ -491,15 +364,52 @@ struct Main: View {
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        
                         Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
                             .toggleStyle(.checkbox)
-                            .font(.caption2)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
+                            .padding(.top, 4)
                     }
                     
                     Divider().padding(.vertical, 2)
                     
-                    VStack(spacing: 10) {
+                    Group {
+                        HStack(spacing: 5) {
+                            Text("Modifier Key").font(.subheadline)
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showModifierKeyHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        
+                        Picker("Modifier Key", selection: $settings.modifierKey) {
+                            Text("None").tag("None")
+                            Text("Command").tag("Command")
+                            Text("Option").tag("Option")
+                            Text("Control").tag("Control")
+                        }
+                        .labelsHidden()
+                        .pickerStyle(MenuPickerStyle())
+                        .onChange(of: settings.modifierKey) { _ in appSettings.save() }
+                        
+                        Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0))s")
+                            .font(.caption2)
+                        Slider(value: Binding(
+                            get: { Double(settings.modifierKeyDelay) },
+                            set: { settings.modifierKeyDelay = Int($0) }
+                        ), in: 0...2000, step: 100)
+                        .onChange(of: settings.modifierKeyDelay) { _ in appSettings.save() }
+                    }
+                    
+                    Divider().padding(.vertical, 2)
+                    
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 5) {
                             Text("Window Cycling").font(.subheadline)
                             Button(action: {
@@ -509,22 +419,34 @@ struct Main: View {
                             }) {
                                 Image(systemName: "info.circle")
                                     .font(.system(size: 13))
-                                    .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                     .imageScale(.small)
                             }
                             .buttonStyle(BorderlessButtonStyle())
                         }
                         
-                        VStack(spacing: 5) {
-                            HStack {
-                                Text("Forward").font(.caption2)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Group {
+                                Text("Cycle Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
-                                    .onChange(of: settings.cycleWindowsForwardShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.cycleWindowsForwardShortcut) { newShortcut in
+                                        if #available(macOS 12.0, *) {
+                                            cycleForwardHotkey.register(for: newShortcut)
+                                        }
+                                        
+                                        appSettings.save()
+                                    }
                             }
-                            HStack {
-                                Text("Backward").font(.caption2)
+                            
+                            Group {
+                                Text("Cycle Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
-                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { _ in appSettings.save() }
+                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { newShortcut in
+                                        if #available(macOS 12.0, *) {
+                                            cycleBackwardHotkey.register(for: newShortcut)
+                                        }
+                                        
+                                        appSettings.save()
+                                    }
                             }
                         }
                     }
@@ -571,6 +493,7 @@ struct Main: View {
                         }
                     }
                 }
+                .fixedSize()
                 
                 VStack(alignment: .leading, spacing: 8) {
                     VStack(alignment: .leading) {
@@ -584,13 +507,18 @@ struct Main: View {
                                 }) {
                                     Image(systemName: "info.circle")
                                         .font(.system(size: 13))
-                                        .foregroundColor(Color(NSColor.selectedTextBackgroundColor.saturate(by: 1.5).enlighten(by: 0.5)))
                                         .imageScale(.small)
                                 }
                                 .buttonStyle(BorderlessButtonStyle())
                             }
                             ShortcutInputView(shortcut: $settings.quickSnapShortcut)
-                                .onChange(of: settings.quickSnapShortcut) { _ in appSettings.save() }
+                                .onChange(of: settings.quickSnapShortcut) { _ in
+                                    if #available(OSX 12.0, *) {
+                                        quickSnapper.toggleHotkey?.register(for: settings.quickSnapShortcut)
+                                    }
+                                    
+                                    appSettings.save()
+                                }
                         }
                         
                         Divider().padding(.vertical, 2)
@@ -602,6 +530,7 @@ struct Main: View {
                         if settings.snapResize {
                             Text("Threshold: \(Int(settings.snapResizeThreshold))px")
                                 .font(.caption2)
+                                .padding(.top, 4)
                             
                             Slider(value: Binding(
                                 get: { Double(settings.snapResizeThreshold) },
@@ -616,9 +545,35 @@ struct Main: View {
                             Divider().padding(.vertical, 2)
                         }
                         
-                        Toggle("Prioritze zone center", isOn: $settings.prioritizeCenterToSnap)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                        Group {
+                            Toggle("Prioritize zone center", isOn: $settings.prioritizeCenterToSnap)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                            
+                            HStack(spacing: 5) {
+                                Text("Zone Highlighting Strategy").font(.subheadline)
+                                    .padding(.top, 4)
+                                
+                                Button(action: {
+                                    resetDialogs()
+                                    showDialog = true
+                                    showSnapHighlightStrategyHelpDialog = true
+                                }) {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 13))
+                                        .imageScale(.small)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                            }
+                            
+                            Picker("Zone Highlighting Strategy", selection: $settings.snapHighlightStrategy) {
+                                Text("Center Proximity").tag(SnapHighlightStrategy.centerProximity)
+                                Text("Flat").tag(SnapHighlightStrategy.flat)
+                            }
+                            .labelsHidden()
+                            .pickerStyle(MenuPickerStyle())
+                            .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        }
                         
                         Divider().padding(.vertical, 2)
                         
@@ -634,9 +589,24 @@ struct Main: View {
                         
                         Divider().padding(.vertical, 2)
                         
-                        Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
-                            .toggleStyle(.checkbox)
-                            .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                        HStack {
+                            Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
+                                .toggleStyle(.checkbox)
+                                .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                            
+                            Button(action: {
+                                resetDialogs()
+                                showDialog = true
+                                showPerDesktopLayoutsHelpDialog = true
+                            }) {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 13))
+                                    .imageScale(.small)
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                        }
+                        
+                        Divider().padding(.vertical, 2)
                         
                         Toggle("Shake to snap", isOn: $settings.shakeToSnap)
                             .toggleStyle(.checkbox)
@@ -645,6 +615,7 @@ struct Main: View {
                         if settings.shakeToSnap {
                             HStack {
                                 Text("Sensitivity").font(.caption2)
+                                    .padding(.top, 4)
                                 Spacer()
                                 Text(sensitivityLabel(for: settings.shakeAccelerationThreshold)).font(.caption2).foregroundColor(.secondary)
                             }
@@ -657,6 +628,8 @@ struct Main: View {
                     }
                     
                     if #available(macOS 13.0, *) {
+                        Divider().padding(.vertical, 2)
+                        
                         Toggle("Start at login", isOn: $startAtLogin)
                             .toggleStyle(.checkbox)
                             .onChange(of: startAtLogin) { _ in 
@@ -670,6 +643,7 @@ struct Main: View {
                             }
                     }
                 }
+                .fixedSize()
             }
             
             #if !APPSTORE
@@ -715,6 +689,13 @@ struct Main: View {
                 }
                 .disabled(updater.isChecking || updater.isDownloading)
                 
+                if #available(macOS 12.0, *) {
+                    Button(action: { showOnboarding() }) {
+                        Image(systemName: "questionmark.circle")
+                        Text("Help")
+                    }
+                }
+                
                 Button(action: { NSApp.terminate(nil) }) {
                     HStack {
                         Image(systemName: "power")
@@ -725,6 +706,7 @@ struct Main: View {
             .padding(.top, 5)
         }
         .frame(minWidth: 400)
+        .fixedSize()
         .alert(isPresented: $showDialog) {
             if showLayoutHelpDialog {
                 return Alert(
@@ -817,30 +799,33 @@ struct Main: View {
                   """),
                   dismissButton: .default(Text("OK"))
                )
-           } else if showZoneNavigationHelpDialog {
-               return Alert(
-                  title: Text("Zone Navigation"),
-                  message: Text("""
-                      Zone navigation allows you to move the currently focused window between snap zones using keyboard shortcuts.
-                      
-                      Configure shortcuts for each direction:
-                      • Left: Move window to the closest zone to the left
-                      • Right: Move window to the closest zone to the right
-                      • Up: Move window to the closest zone above (or expand if zones overlap)
-                      • Down: Move window to the closest zone below (or shrink if zones overlap)
-                      
-                      For overlapping zones with the same center:
-                      • Up expands to the next larger zone
-                      • Down shrinks to the next smaller zone
-                      
-                      Default shortcuts use Cmd+Shift+Ctrl+Arrow keys to avoid conflicts with system shortcuts.
-                      
-                      This works similar to Rectangle, SnappyZones, and FancyZones for familiar muscle memory.
-                      
-                      Enjoy! 🥳
-                  """),
-                  dismissButton: .default(Text("OK"))
-               )
+            } else if showSnapHighlightStrategyHelpDialog {
+                return Alert(
+                    title: Text("Zone Highlighting Strategy"),
+                    message: Text("""
+                        While you are moving a window and holding Snap Key, you'll be seeing your zones; this option lets you choose how zones will be highlighted.
+
+                        We have two options; Center Proximity and Flat:
+
+                        • Center Proximity: The zone that has the closest center circle to mouse pointer will be highlighted.
+                        • Flat: The zone visibly most front and under mouse pointer will be highlighted.
+
+                        Note: The other option "Prioritize zone center" has higher priority.
+
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                )
+            } else if showPerDesktopLayoutsHelpDialog {
+                return Alert(
+                    title: Text("Per-desktop layouts"),
+                    message: Text("""
+                        If you enable this option, MacsyZones will remember your preffered/selected layout for each macOS workspace (virtual desktop) / screen pair.
+                    
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                )
             } else {
                 let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
                 
@@ -852,6 +837,8 @@ struct Main: View {
                         MacsyZones helps you organize your windows efficiently.
                         
                         Version: \(appVersion) (Build: \(appBuild))
+                    
+                        \(!proLock.isPro ? "Please buy MacsyZones to support me. 🥳": "Thank you for your support. 🥳")
                         \(licenseInfo)
                     """),
                     primaryButton: .default(Text("Visit Website")) {

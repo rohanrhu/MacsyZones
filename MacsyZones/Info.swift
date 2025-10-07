@@ -214,12 +214,12 @@ class AccessibilityDialog {
         panel = AccessibilityPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 700))
         
         let view = AccessibilityPermissionView(
-            onRestart: { [weak self] in
-                self?.dismiss()
+            onRestart: {
+                self.dismiss()
                 restartApp()
             },
-            onCancel: { [weak self] in
-                self?.dismiss()
+            onCancel: {
+                self.dismiss()
                 exit(0)
             }
         )
@@ -255,7 +255,150 @@ class AccessibilityDialog {
     }
 }
 
-#Preview {
+struct UpdateFailedView: View {
+    var onDismiss: (() -> Void)?
+    
+    var body: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 75, height: 75)
+            
+            VStack(alignment: .center, spacing: 2) {
+                Text("Update Failed")
+                    .lineSpacing(6)
+                    .font(.title)
+                    .foregroundColor(.orange)
+                
+                Spacer().frame(height: 26)
+                
+                Text("Auto-update was unsuccessful.")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+                
+                Spacer().frame(height: 20)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("Please download and install the latest version manually.")
+                            .font(.system(size: 12))
+                    }
+                    
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Visit our website to get the latest version.")
+                            .font(.system(size: 12))
+                    }
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(16)
+                
+                Spacer().frame(height: 26)
+                
+                VStack(spacing: 8) {
+                    Button(action: {
+                        if let url = URL(string: "https://macsyzones.com") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "safari")
+                            Text("Download Latest Version")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: {
+                        onDismiss?()
+                    }) {
+                        Text("Continue with Current Version")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Spacer().frame(height: 20)
+                
+                Text("You can continue using the current version of MacsyZones.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.horizontal, 25)
+        .padding(.vertical, 20)
+        .background(BlurredWindowBackground(material: .hudWindow,
+                                            blendingMode: .behindWindow)
+            .cornerRadius(16).padding(.horizontal, 10))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+    }
+}
+
+class UpdateFailedDialog {
+    private var panel: AccessibilityPanel
+    
+    init() {
+        panel = AccessibilityPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 450))
+        
+        let view = UpdateFailedView(
+            onDismiss: {
+                self.dismiss()
+            }
+        )
+        panel.contentView = NSHostingView(rootView: view)
+        
+        panel.level = .floating
+        panel.isReleasedWhenClosed = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.backgroundColor = .clear
+        positionCenter()
+        panel.orderOut(nil)
+    }
+    
+    private func positionCenter() {
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.visibleFrame
+        let panelFrame = panel.frame
+        
+        let centerX = screenFrame.origin.x + (screenFrame.width - panelFrame.width) / 2
+        let centerY = screenFrame.origin.y + (screenFrame.height - panelFrame.height) / 2
+        
+        panel.setFrameOrigin(NSPoint(x: centerX, y: centerY))
+    }
+    
+    func show() {
+        panel.orderFrontRegardless()
+        positionCenter()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    
+    func dismiss() {
+        panel.orderOut(nil)
+    }
+}
+
+#Preview("Accessibility Permission") {
     AccessibilityPermissionView()
         .frame(width: 420, height: 700)
+}
+
+#Preview("Update Failed") {
+    UpdateFailedView()
+        .frame(width: 420, height: 450)
 }

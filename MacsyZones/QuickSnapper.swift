@@ -87,59 +87,10 @@ class QuickSnapperItem: Identifiable {
 }
 
 @available(macOS 12.0, *)
-class KeyboardView: NSView {
-    var onKeyDown: ((NSEvent) -> Void)?
-    
-    override var acceptsFirstResponder: Bool { true }
-    
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        window?.makeFirstResponder(self)
-    }
-    
-    override func becomeFirstResponder() -> Bool {
-        let result = super.becomeFirstResponder()
-        if result {
-            window?.delegate = self
-        }
-        return result
-    }
-    
-    override func keyDown(with event: NSEvent) {
-        onKeyDown?(event)
-    }
-}
-
-@available(macOS 12.0, *)
-extension KeyboardView: NSWindowDelegate {
-    func windowDidBecomeKey(_ notification: Notification) {
-        window?.makeFirstResponder(self)
-    }
-}
-
-@available(macOS 12.0, *)
-struct KeyboardHandlingView: NSViewRepresentable {
-    var onKeyDown: (NSEvent) -> Void
-    
-    func makeNSView(context: Context) -> KeyboardView {
-        let view = KeyboardView()
-        view.onKeyDown = onKeyDown
-        DispatchQueue.main.async {
-            view.window?.makeFirstResponder(view)
-        }
-        return view
-    }
-    
-    func updateNSView(_ nsView: KeyboardView, context: Context) {
-        nsView.onKeyDown = onKeyDown
-    }
-}
-
-@available(macOS 12.0, *)
 struct QuickSnapperView: View {
+    @ObservedObject var model: QuickSnapper
     var windows: [QuickSnapperItem]
     
-    @State private var selectedIndex: Int = 0
     @FocusState private var isFocused: Bool
     
     @ObservedObject var layouts = userLayouts
@@ -216,28 +167,28 @@ struct QuickSnapperView: View {
                                 }
                                 .id(index)
                                 .padding()
-                                .background(index == selectedIndex
+                                .background(index == model.selectedIndex
                                             ? Color(NSColor.selectedTextBackgroundColor).opacity(0.75)
                                             : .clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .clipShape(RoundedRectangle(cornerRadius: 26))
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .onHover() { isHovered in
-                                    if isHovered {
-                                        selectedIndex = index
-                                        debugLog("Selected window: \(index)")
-                                    }
-                                }
                             }
                         }
                         .background(.clear)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .onChange(of: selectedIndex) { index in
+                        .onChange(of: model.selectedIndex) { index in
                             scrollViewProxy.scrollTo(index, anchor: .center)
                         }
-                        .onAppear() { onSelect(index: selectedIndex) }
-                        .onChange(of: selectedIndex, perform: onSelect)
+                        .onAppear() { onSelect(index: model.selectedIndex) }
+                        .onChange(of: model.selectedIndex) { newIndex in
+                            if isQuickSnapping {
+                                onSelect(index: newIndex)
+                            }
+                        }
                     }
-                }.padding().frame(height: 300)
+                }
+                .padding()
+                .frame(height: 300)
             }
             
             Button(action: {
@@ -250,86 +201,15 @@ struct QuickSnapperView: View {
             }
         }
         .padding()
-        .background(BlurredWindowBackground(material: .hudWindow,
-                                            blendingMode: .behindWindow)
-            .cornerRadius(16).padding(.horizontal, 10))
-        .overlay(KeyboardHandlingView { event in
-            if [18, 19, 20, 21, 23, 22, 26, 28, 25].contains(event.keyCode) {
-                let keyCodeToNumber = [18, 19, 20, 21, 23, 22, 26, 28, 25]
-                let sectionNumber = keyCodeToNumber.firstIndex(of: Int(event.keyCode))! + 1
-                debugLog("Quick snapping to \(sectionNumber)")
-                
-                let selectedWindow = windows[selectedIndex]
-                
-                guard let element = selectedWindow.element else { return }
-                guard let windowId = selectedWindow.windowId else { return }
-                
-                quickSnap(sectionNumber: sectionNumber,
-                          element: element,
-                          windowId: windowId)
-                
-            } else {
-                if event.keyCode == 53 { // Esc
-                    quickSnapper.close()
-                } else if event.keyCode == 36 { // Enter
-                    quickSnapper.close()
-                } else if event.keyCode == 51 { // Backspace
-                    let selectedWindow = windows[selectedIndex]
-                    
-                    guard let element = selectedWindow.element else { return }
-                    guard let windowId = selectedWindow.windowId else { return }
-                    
-                    if !PlacedWindows.isPlaced(windowId: windowId) {
-                        return
-                    }
-                    
-                    guard let originalSize = OriginalWindowProperties.getWindowSize(for: windowId) else { return }
-                    guard let originalPosition = OriginalWindowProperties.getWindowPosition(for: windowId) else { return }
-                    
-                    PlacedWindows.unplace(windowId: windowId)
-                    
-                    resizeAndMoveWindow(element: element,
-                                        newPosition: originalPosition,
-                                        newSize: originalSize)
-                } else if event.keyCode == 126 { // Up
-                    selectedIndex = (selectedIndex - 1 + windows.count) % windows.count
-                } else if event.keyCode == 125 { // Down
-                    selectedIndex = (selectedIndex + 1) % windows.count
-                } else if event.keyCode == 123 { // Left
-                    userLayouts.currentLayout.hideAllWindows()
-                    
-                    let sortedKeys = userLayouts.layouts.keys.sorted()
-                    if let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) {
-                        let prevIndex = (currentIndex - 1 + sortedKeys.count) % sortedKeys.count
-                        let layoutName = sortedKeys[prevIndex]
-                        
-                        userLayouts.currentLayoutName = layoutName
-                        userLayouts.currentLayout.show()
-                        
-                        spaceLayoutPreferences.setCurrent(layoutName: layoutName)
-                    }
-                } else if event.keyCode == 124 { // Right
-                    userLayouts.currentLayout.hideAllWindows()
-                    
-                    let sortedKeys = userLayouts.layouts.keys.sorted()
-                    if let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) {
-                        let nextIndex = (currentIndex + 1) % sortedKeys.count
-                        let layoutName = sortedKeys[nextIndex]
-                        
-                        userLayouts.currentLayoutName = layoutName
-                        userLayouts.currentLayout.show()
-                        
-                        spaceLayoutPreferences.setCurrent(layoutName: layoutName)
-                    }
-                } else if event.keyCode == 48 { // Tab
-                    if event.modifierFlags.contains(.shift) { // Shift+Tab
-                        selectedIndex = (selectedIndex - 1 + windows.count) % windows.count
-                    } else { // Tab
-                        selectedIndex = (selectedIndex + 1) % windows.count
-                    }
-                }
-            }
-        }.focused($isFocused))
+        .padding(.vertical, 10)
+        .background(
+            BlurredWindowBackground(material: .hudWindow,
+                                    blendingMode: .behindWindow)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 26))
+        .onDisappear {
+            model.unregisterHotkeys()
+        }
     }
     
     private func onSelect(index: Int) {
@@ -384,19 +264,75 @@ class QuickSnapperPanel: NSPanel {
 }
 
 @available(macOS 12.0, *)
-class QuickSnapper {
+class QuickSnapper: ObservableObject {
     var isOpen: Bool = false
     var panel: QuickSnapperPanel
+    
     private var windows: [QuickSnapperItem] = []
+    
+    var toggleHotkey: GlobalHotkey?
+    
+    private var prevLayoutHotkey: GlobalHotkey?
+    private var nextLayoutHotkey: GlobalHotkey?
+    private var prevWindowHotkey: GlobalHotkey?
+    private var nextWindowHotkey: GlobalHotkey?
+    private var tabHotkey: GlobalHotkey?
+    private var shiftTabHotkey: GlobalHotkey?
+    private var unsnapHotkey: GlobalHotkey?
+    private var snapZone1Hotkey: GlobalHotkey?
+    private var snapZone2Hotkey: GlobalHotkey?
+    private var snapZone3Hotkey: GlobalHotkey?
+    private var snapZone4Hotkey: GlobalHotkey?
+    private var snapZone5Hotkey: GlobalHotkey?
+    private var snapZone6Hotkey: GlobalHotkey?
+    private var snapZone7Hotkey: GlobalHotkey?
+    private var snapZone8Hotkey: GlobalHotkey?
+    private var snapZone9Hotkey: GlobalHotkey?
+    private var doneHotkey: GlobalHotkey?
+    private var closeHotkey: GlobalHotkey?
+    
+    @Published var selectedIndex = 0
+    
+    private var lastFocusedWindowId: UInt32?
     
     init() {
         panel = QuickSnapperPanel(contentRect: NSRect(x: 0, y: 0, width: 350, height: 600))
-        panel.contentView = NSHostingView(rootView: QuickSnapperView(windows: windows))
+        panel.contentView = NSHostingView(rootView: QuickSnapperView(model: self,
+                                                                     windows: windows))
         panel.level = .popUpMenu
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.backgroundColor = .clear
         panel.orderOut(nil)
+        
+        setupFocusObserver()
+    }
+    
+    func setup() {
+        setupHotkeys()
+    }
+    
+    private func setupFocusObserver() {
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                                          object: nil,
+                                                          queue: .main
+        ) { [weak self] notification in
+            if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+                if app.activationPolicy == .regular {
+                    let pid = app.processIdentifier
+                    let appElement = AXUIElementCreateApplication(pid)
+                    
+                    var focusedWindowRef: CFTypeRef?
+                    let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindowRef)
+                    
+                    if result == .success, let focusedWindow = focusedWindowRef {
+                        let windowId = getWindowID(from: focusedWindow as! AXUIElement)
+                        self?.lastFocusedWindowId = windowId
+                        debugLog("Focused window ID updated: \(String(describing: windowId))")
+                    }
+                }
+            }
+        }
     }
     
     func open(preload: Bool = true) {
@@ -404,6 +340,7 @@ class QuickSnapper {
         
         isOpen = true
         isQuickSnapping = true
+        selectedIndex = 0
         
         if preload {
             quickSnapper.loadVisibleWindows()
@@ -425,20 +362,24 @@ class QuickSnapper {
             context.duration = 0.5
             panel.animator().alphaValue = 1
         }, completionHandler: {
-            self.panel.center()
+            centerWindowOnFocusedScreen(self.panel)
             
             NSApp.activate(ignoringOtherApps: true)
             self.panel.makeKey()
         })
         
-        panel.center()
+        centerWindowOnFocusedScreen(panel)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
             userLayouts.currentLayout.layoutWindow.show()
         }
+        
+        registerHotkeys()
     }
     
     func close() {
+        unregisterHotkeys()
+        
         isOpen = false
         
         NSAnimationContext.runAnimationGroup({ context in
@@ -448,6 +389,9 @@ class QuickSnapper {
             self.panel.orderOut(nil)
         })
         
+        isFitting = false
+        toLeaveElement = nil
+        toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         
         isQuickSnapping = false
@@ -463,7 +407,8 @@ class QuickSnapper {
     
     func setWindows(_ windows: [QuickSnapperItem]) {
         self.windows = windows
-        let hostingView = NSHostingView(rootView: QuickSnapperView(windows: windows))
+        let hostingView = NSHostingView(rootView: QuickSnapperView(model: self,
+                                                                   windows: windows))
         panel.contentView = hostingView
     }
     
@@ -506,6 +451,235 @@ class QuickSnapper {
             }
         }
         
+        if let lastWindowId = lastFocusedWindowId {
+            windows.sort { item1, item2 in
+                if item1.windowId == lastWindowId && item2.windowId != lastWindowId {
+                    return true
+                } else if item1.windowId != lastWindowId && item2.windowId == lastWindowId {
+                    return false
+                }
+                return false
+            }
+        }
+        
         setWindows(windows)
+    }
+    
+    func snapToZone(_ number: Int) {
+        debugLog("Quick snapping to \(number)")
+        
+        let selectedWindow = windows[selectedIndex]
+        
+        guard let element = selectedWindow.element else { return }
+        guard let windowId = selectedWindow.windowId else { return }
+        
+        quickSnap(sectionNumber: number,
+                  element: element,
+                  windowId: windowId)
+    }
+    
+    func setupHotkeys() {
+        toggleHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.toggle()
+            }
+            
+            return noErr
+        }
+        
+        Task { @MainActor in
+            toggleHotkey?.register(for: appSettings.quickSnapShortcut)
+        }
+        
+        prevLayoutHotkey = GlobalHotkey {
+            Task { @MainActor in
+                userLayouts.currentLayout.hideAllWindows()
+                
+                let sortedKeys = userLayouts.layouts.keys.sorted()
+                if let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) {
+                    let prevIndex = (currentIndex - 1 + sortedKeys.count) % sortedKeys.count
+                    let layoutName = sortedKeys[prevIndex]
+                    
+                    userLayouts.currentLayoutName = layoutName
+                    userLayouts.currentLayout.show()
+                    
+                    spaceLayoutPreferences.setCurrent(layoutName: layoutName)
+                }
+            }
+            
+            return noErr
+        }
+        
+        nextLayoutHotkey = GlobalHotkey {
+            Task { @MainActor in
+                userLayouts.currentLayout.hideAllWindows()
+                
+                let sortedKeys = userLayouts.layouts.keys.sorted()
+                if let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) {
+                    let nextIndex = (currentIndex + 1) % sortedKeys.count
+                    let layoutName = sortedKeys[nextIndex]
+                    
+                    userLayouts.currentLayoutName = layoutName
+                    userLayouts.currentLayout.show()
+                    
+                    spaceLayoutPreferences.setCurrent(layoutName: layoutName)
+                }
+            }
+            
+            return noErr
+        }
+        
+        prevWindowHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.selectedIndex = (self.selectedIndex - 1 + self.windows.count) % self.windows.count
+            }
+            
+            return noErr
+        }
+            
+        nextWindowHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.selectedIndex = (self.selectedIndex + 1) % self.windows.count
+            }
+            
+            return noErr
+        }
+        
+        tabHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.selectedIndex = (self.selectedIndex + 1) % self.windows.count
+            }
+            
+            return noErr
+        }
+        
+        shiftTabHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.selectedIndex = (self.selectedIndex - 1 + self.windows.count) % self.windows.count
+            }
+            
+            return noErr
+        }
+            
+        unsnapHotkey = GlobalHotkey {
+            Task { @MainActor in
+                let selectedWindow = self.windows[self.selectedIndex]
+                
+                guard let element = selectedWindow.element else { return }
+                guard let windowId = selectedWindow.windowId else { return }
+                
+                if !PlacedWindows.isPlaced(windowId: windowId) { return }
+                
+                guard let originalSize = OriginalWindowProperties.getWindowSize(for: windowId) else { return }
+                guard let originalPosition = OriginalWindowProperties.getWindowPosition(for: windowId) else { return }
+                
+                PlacedWindows.unplace(windowId: windowId)
+                
+                resizeAndMoveWindow(element: element,
+                                    newPosition: originalPosition,
+                                    newSize: originalSize)
+            }
+            
+            return noErr
+        }
+        
+        snapZone1Hotkey = GlobalHotkey {
+            self.snapToZone(1)
+            return noErr
+        }
+        snapZone2Hotkey = GlobalHotkey {
+            self.snapToZone(2)
+            return noErr
+        }
+        snapZone3Hotkey = GlobalHotkey {
+            self.snapToZone(3)
+            return noErr
+        }
+        snapZone4Hotkey = GlobalHotkey {
+            self.snapToZone(4)
+            return noErr
+        }
+        snapZone5Hotkey = GlobalHotkey {
+            self.snapToZone(5)
+            return noErr
+        }
+        snapZone6Hotkey = GlobalHotkey {
+            self.snapToZone(6)
+            return noErr
+        }
+        snapZone7Hotkey = GlobalHotkey {
+            self.snapToZone(7)
+            return noErr
+        }
+        snapZone8Hotkey = GlobalHotkey {
+            self.snapToZone(8)
+            return noErr
+        }
+        snapZone9Hotkey = GlobalHotkey {
+            self.snapToZone(9)
+            return noErr
+        }
+        
+        doneHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.close()
+            }
+            
+            return noErr
+        }
+        
+        closeHotkey = GlobalHotkey {
+            Task { @MainActor in
+                self.close()
+            }
+            
+            return noErr
+        }
+    }
+    
+    func registerHotkeys() {
+        Task { @MainActor in
+            prevLayoutHotkey?.register(for: "Left")
+            nextLayoutHotkey?.register(for: "Right")
+            prevWindowHotkey?.register(for: "Up")
+            nextWindowHotkey?.register(for: "Down")
+            tabHotkey?.register(for: "Tab")
+            shiftTabHotkey?.register(for: "Shift+Tab")
+            unsnapHotkey?.register(for: "Backspace")
+            snapZone1Hotkey?.register(for: "1")
+            snapZone2Hotkey?.register(for: "2")
+            snapZone3Hotkey?.register(for: "3")
+            snapZone4Hotkey?.register(for: "4")
+            snapZone5Hotkey?.register(for: "5")
+            snapZone6Hotkey?.register(for: "6")
+            snapZone7Hotkey?.register(for: "7")
+            snapZone8Hotkey?.register(for: "8")
+            snapZone9Hotkey?.register(for: "9")
+            doneHotkey?.register(for: "Enter")
+            closeHotkey?.register(for: "Escape")
+        }
+    }
+    
+    func unregisterHotkeys() {
+        Task { @MainActor in
+            prevLayoutHotkey?.unregister()
+            nextLayoutHotkey?.unregister()
+            prevWindowHotkey?.unregister()
+            nextWindowHotkey?.unregister()
+            tabHotkey?.unregister()
+            shiftTabHotkey?.unregister()
+            unsnapHotkey?.unregister()
+            snapZone1Hotkey?.unregister()
+            snapZone2Hotkey?.unregister()
+            snapZone3Hotkey?.unregister()
+            snapZone4Hotkey?.unregister()
+            snapZone5Hotkey?.unregister()
+            snapZone6Hotkey?.unregister()
+            snapZone7Hotkey?.unregister()
+            snapZone8Hotkey?.unregister()
+            snapZone9Hotkey?.unregister()
+            doneHotkey?.unregister()
+            closeHotkey?.unregister()
+        }
     }
 }

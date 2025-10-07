@@ -28,6 +28,30 @@ let appUpdater = AppUpdater()
 @available(macOS 12.0, *)
 let quickSnapper = QuickSnapper()
 
+@available(macOS 12.0, *)
+let cycleForwardHotkey = GlobalHotkey() {
+    cycleWindowsInZone(forward: true)
+    return noErr
+}
+
+@available(macOS 12.0, *)
+let cycleBackwardHotkey = GlobalHotkey() {
+    cycleWindowsInZone(forward: false)
+    return noErr
+}
+
+var hasAccessibilityPermission = false
+var statusItem: NSStatusItem!
+var popover: NSPopover!
+var accessibilityDialog: AccessibilityDialog?
+var updateFailedDialog: UpdateFailedDialog?
+
+var mouseUpMonitor: Any?
+
+var isPreview: Bool {
+    return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+}
+
 @main
 struct MacsyZonesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -37,17 +61,7 @@ struct MacsyZonesApp: App {
     }
 }
 
-var statusItem: NSStatusItem!
-var popover: NSPopover!
-var accessibilityDialog: AccessibilityDialog?
-
-var mouseUpMonitor: Any?
-
-var isPreview: Bool {
-    return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-}
-
-final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sendable {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isPreview {
             debugLog("Running in preview mode, skipping setup.")
@@ -60,12 +74,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         NSApp.setActivationPolicy(.prohibited)
         
         checkIfRunning()
-        
         createTrayIcon()
         setupPopover()
-        
         userLayouts.load()
+        checkAccessibilityPermission()
         requestAccessibilityPermissions()
+        GlobalHotkey.setup()
+        
+        if #available(macOS 12.0, *) {
+            quickSnapper.setup()
+        }
         
         Thread { [self] in
             let apps = NSWorkspace.shared.runningApplications
@@ -129,11 +147,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 spaceLayoutPreferences.switchToCurrent()
                 
                 macsyReady.isReady = true
+                
+                if #available(macOS 12.0, *) {
+                   if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
+                       showOnboarding()
+                   }
+                    
+                    cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
+                    cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
+                }
             }
         }
         .start()
         
-        appUpdater.checkForUpdates()
+        checkUpdateState()
     }
     
     func checkIfRunning() {
@@ -173,6 +200,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         }
     }
     
+    func checkUpdateState() {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        
+        if updateState.hasFailedUpdate(currentVersion: currentVersion) {
+            showUpdateFailedDialog()
+        } else {
+            if let targetVersion = updateState.targetVersion {
+                if currentVersion == targetVersion || isVersionGreater(currentVersion, than: targetVersion) {
+                    updateState.clearUpdateAttempt()
+                }
+            }
+            
+            appUpdater.checkForUpdates()
+        }
+    }
+    
+    func showUpdateFailedDialog() {
+        if updateFailedDialog == nil {
+            updateFailedDialog = UpdateFailedDialog()
+        }
+        
+        updateFailedDialog?.show()
+    }
+    
     func createTrayIcon() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
@@ -195,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
         popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: TrayPopupView(layouts: userLayouts))
     }
     
@@ -220,14 +272,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
     
     func closePopover(sender: AnyObject?) {
+        PopoverState.shared.shouldStopListening = true
         popover.performClose(sender)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            PopoverState.shared.shouldStopListening = false
+        }
+    }
+    
+    func popoverWillClose(_ notification: Notification) {
+        PopoverState.shared.shouldStopListening = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            PopoverState.shared.shouldStopListening = false
+        }
+    }
+    
+    func checkAccessibilityPermission() {
+        let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
     
     func requestAccessibilityPermissions() {
-        let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
-        
-        if !isTrusted {
+        if !hasAccessibilityPermission {
             showAccessibilityPermissionPopover()
         } else {
             debugLog("Accessibility permissions granted.")
@@ -274,8 +341,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
     }
     
     func monitorShortcuts() {
-        var dispatchWorkItem: DispatchWorkItem?
+        var modifierKeyTask: DispatchWorkItem?
         var snapKeyUsed = false
+        var prevFlags = NSEvent.ModifierFlags()
         
         NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             var modifierKey: NSEvent.ModifierFlags = .control
@@ -286,85 +354,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 modifierKey = .option
             }
             
-            dispatchWorkItem?.cancel()
-            dispatchWorkItem = nil
+            modifierKeyTask?.cancel()
+            modifierKeyTask = nil
             
-            if #available(macOS 12.0, *) {
-                let quickSnapShortcut = appSettings.quickSnapShortcut.split(separator: "+")
-                let requiredModifiers = Array(quickSnapShortcut.dropLast())
-                let requiredKey = quickSnapShortcut.last
-                
-                if event.type == .keyDown {
-                    if event.keyCode == 53 { // Escape key
-                        quickSnapper.close()
-                        return
-                    }
-                    if isQuickSnapShortcut(event, requiredModifiers: requiredModifiers, requiredKey: requiredKey) {
-                        quickSnapper.toggle()
-                        return
-                    }
-                    
-                    // Handle cycling shortcuts
-                    let cycleForwardShortcut = appSettings.cycleWindowsForwardShortcut.split(separator: "+")
-                    let cycleForwardModifiers = Array(cycleForwardShortcut.dropLast())
-                    let cycleForwardKey = cycleForwardShortcut.last
-                    
-                    let cycleBackwardShortcut = appSettings.cycleWindowsBackwardShortcut.split(separator: "+")
-                    let cycleBackwardModifiers = Array(cycleBackwardShortcut.dropLast())
-                    let cycleBackwardKey = cycleBackwardShortcut.last
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: cycleForwardModifiers, requiredKey: cycleForwardKey) {
-                        cycleWindowsInZone(forward: true)
-                        return
-                    }
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: cycleBackwardModifiers, requiredKey: cycleBackwardKey) {
-                        cycleWindowsInZone(forward: false)
-                        return
-                    }
-                    
-                    // Handle zone navigation shortcuts
-                    let moveLeftShortcut = appSettings.moveZoneLeftShortcut.split(separator: "+")
-                    let moveLeftModifiers = Array(moveLeftShortcut.dropLast())
-                    let moveLeftKey = moveLeftShortcut.last
-                    
-                    let moveRightShortcut = appSettings.moveZoneRightShortcut.split(separator: "+")
-                    let moveRightModifiers = Array(moveRightShortcut.dropLast())
-                    let moveRightKey = moveRightShortcut.last
-                    
-                    let moveUpShortcut = appSettings.moveZoneUpShortcut.split(separator: "+")
-                    let moveUpModifiers = Array(moveUpShortcut.dropLast())
-                    let moveUpKey = moveUpShortcut.last
-                    
-                    let moveDownShortcut = appSettings.moveZoneDownShortcut.split(separator: "+")
-                    let moveDownModifiers = Array(moveDownShortcut.dropLast())
-                    let moveDownKey = moveDownShortcut.last
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: moveLeftModifiers, requiredKey: moveLeftKey) {
-                        debugLog("Zone navigation shortcut triggered: LEFT (\(appSettings.moveZoneLeftShortcut))")
-                        moveWindowToAdjacentZone(direction: .left)
-                        return
-                    }
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: moveRightModifiers, requiredKey: moveRightKey) {
-                        debugLog("Zone navigation shortcut triggered: RIGHT (\(appSettings.moveZoneRightShortcut))")
-                        moveWindowToAdjacentZone(direction: .right)
-                        return
-                    }
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: moveUpModifiers, requiredKey: moveUpKey) {
-                        debugLog("Zone navigation shortcut triggered: UP (\(appSettings.moveZoneUpShortcut))")
-                        moveWindowToAdjacentZone(direction: .up)
-                        return
-                    }
-                    
-                    if isQuickSnapShortcut(event, requiredModifiers: moveDownModifiers, requiredKey: moveDownKey) {
-                        debugLog("Zone navigation shortcut triggered: DOWN (\(appSettings.moveZoneDownShortcut))")
-                        moveWindowToAdjacentZone(direction: .down)
-                        return
-                    }
-                }
-            }
+            let modifierKeyUsed = !prevFlags.contains(modifierKey) && event.modifierFlags.contains(modifierKey)
+            prevFlags = event.modifierFlags
             
             if isEditing || isQuickSnapping {
                 return
@@ -412,20 +406,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                 
                 let delay = Double(appSettings.modifierKeyDelay) / 1000.0
                 
-                if event.modifierFlags.contains(modifierKey) {
+                if modifierKeyUsed {
                     if !isFitting {
-                        dispatchWorkItem = DispatchWorkItem {
+                        modifierKeyTask = DispatchWorkItem {
                             if isFitting {
                                 userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
                             }
                         }
                         
                         isFitting = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: dispatchWorkItem!)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: modifierKeyTask!)
                     }
                 } else {
-                    dispatchWorkItem?.cancel()
-                    dispatchWorkItem = nil
+                    modifierKeyTask?.cancel()
+                    modifierKeyTask = nil
                     
                     if isFitting {
                         isFitting = false
@@ -435,11 +429,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, Sendable {
                     }
                 }
             }
-        }
-        
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { _ in
-            dispatchWorkItem?.cancel()
-            dispatchWorkItem = nil
         }
     }
     

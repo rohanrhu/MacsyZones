@@ -12,14 +12,16 @@
 
 import Foundation
 import SwiftUI
+import AppKit
 
 func debugLog(_ message: String, file: String = #file, line: Int = #line) {
-    print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
+    #if DEBUG
+        print("[\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(message)")
+    #endif
 }
 
 public extension View {
-  func modifier<ModifiedContent: View>(@ViewBuilder content: (_ content: Self) -> ModifiedContent
-  ) -> ModifiedContent {
-    content(self)
-  }
+    func modifier<ModifiedContent: View>(@ViewBuilder content: (_ content: Self) -> ModifiedContent) -> ModifiedContent {
+        content(self)
+    }
 }

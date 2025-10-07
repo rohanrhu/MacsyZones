@@ -11,8 +11,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		211081F62E9223C7007E1E1F /* MacsyZones.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = MacsyZones.xcodeproj; sourceTree = "<group>"; };
+		211082682E92B99F007E1E1F /* MacsyZones.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = MacsyZones.xcodeproj; sourceTree = "<group>"; };
+		211082DC2E92C18E007E1E1F /* MacsyZones.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = MacsyZones.xcodeproj; sourceTree = "<group>"; };
+		214160D02E921F7B00DFA3CF /* MacsyZones.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = MacsyZones.xcodeproj; sourceTree = "<group>"; };
 		21AAC8862CB98BD800ECE0F0 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		21AEBE142C8DDE2B00881B54 /* MacsyZones-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MacsyZones-Bridging-Header.h"; sourceTree = "<group>"; };
+		21E9F75E2E91E72100A73FB6 /* MacsyZones.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = MacsyZones.xcodeproj; path = MacsyZones/MacsyZones.xcodeproj; sourceTree = SOURCE_ROOT; };
 		21ED7F3C2CACB9620017AA83 /* MacsyZones.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacsyZones.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -48,6 +53,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		211082052E9223C7007E1E1F /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		211082772E92B99F007E1E1F /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		211082EB2E92C18E007E1E1F /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		214160DF2E921F7B00DFA3CF /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		21B8118E2C8CD9AA00661EF9 = {
 			isa = PBXGroup;
 			children = (
@@ -62,6 +87,13 @@
 			isa = PBXGroup;
 			children = (
 				21ED7F3C2CACB9620017AA83 /* MacsyZones.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		21E9F7612E91E72100A73FB6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -121,6 +153,28 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 21B811982C8CD9AA00661EF9 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 214160DF2E921F7B00DFA3CF /* Products */;
+					ProjectRef = 214160D02E921F7B00DFA3CF /* MacsyZones.xcodeproj */;
+				},
+				{
+					ProductGroup = 211082772E92B99F007E1E1F /* Products */;
+					ProjectRef = 211082682E92B99F007E1E1F /* MacsyZones.xcodeproj */;
+				},
+				{
+					ProductGroup = 21E9F7612E91E72100A73FB6 /* Products */;
+					ProjectRef = 21E9F75E2E91E72100A73FB6 /* MacsyZones.xcodeproj */;
+				},
+				{
+					ProductGroup = 211082EB2E92C18E007E1E1F /* Products */;
+					ProjectRef = 211082DC2E92C18E007E1E1F /* MacsyZones.xcodeproj */;
+				},
+				{
+					ProductGroup = 211082052E9223C7007E1E1F /* Products */;
+					ProjectRef = 211081F62E9223C7007E1E1F /* MacsyZones.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				21B811962C8CD9AA00661EF9 /* MacsyZones */,
@@ -239,7 +293,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.9.2;
 				OTHER_SWIFT_FLAGS = "-DAPPSTORE";
 				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -406,7 +460,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -455,7 +509,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.8.1;
+				MARKETING_VERSION = 1.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

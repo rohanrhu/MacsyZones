@@ -14,23 +14,6 @@ import Cocoa
 import SwiftUI
 import AppKit
 
-struct FallbackableLiquidGlassView<Content: View>: View {
-    var variant: GlassVariant = .v11
-    var cornerRadius: CGFloat = 26
-    
-    var content: () -> Content
-    
-    var body: some View {
-        if hasLiquidGlass {
-            LiquidGlassView(variant: variant, cornerRadius: cornerRadius) {
-                content()
-            }
-        } else {
-            content()
-        }
-    }
-}
-
 struct SectionView: View {
     @ObservedObject var sectionWindow: SectionWindow
     
@@ -42,61 +25,67 @@ struct SectionView: View {
         sectionWindow.isHovered ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.9)
     }
     
+    var centerCircleBckground: AnyView {
+        if hasLiquidGlass {
+            return AnyView(
+                LiquidGlassView(variant: .v11, cornerRadius: .infinity) {}
+                    .background(Circle().stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+            )
+        } else {
+            if #available(macOS 14.0, *) {
+                return hasLiquidGlass ? AnyView(Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.25 : 0.05))
+                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+                    : AnyView(Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.2 : 0.1))
+                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.5 : 0.25), lineWidth: 4)
+                        .shadow(color: (sectionWindow.isHovered ? Color.accentColor : Color.black).opacity(sectionWindow.isHovered ? 0.5 : 0.5), radius: 2, x: 0, y: 0))
+            } else {
+                return AnyView(
+                    Circle()
+                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05))
+                )
+            }
+        }
+    }
+    
     var body: some View {
         GeometryReader { geometry in
-            if hasLiquidGlass {
-                VStack {
-                    LiquidGlassView(variant: .v11, cornerRadius: .infinity) {
-                        Text(String(sectionWindow.number))
-                            .frame(width: 100, height: 100)
-                            .font(.system(size: 50))
-                            .foregroundColor((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(0.5))
-                            .blendMode(.difference)
-                            .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
-                            .background(Circle().fill((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05)))
-                            .overlay(Circle().stroke((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
-                    }
-                    .fixedSize()
-                }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .modifier {
-                    if #available(macOS 14.0, *) {
-                        $0
-                            .background(
-                                RoundedRectangle(cornerRadius: 26)
-                                    .fill(backgroundColor)
-                                    .stroke(borderColor, lineWidth: 5)
-                            )
-                            .cornerRadius(26)
-                    } else {
-                        $0
-                            .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.5 : 0.35))
-                            .border(borderColor, width: 5)
-                            .cornerRadius(26)
-                    }
-                }
-            } else {
-                VStack {
+            VStack {
+                Group {
                     Text(String(sectionWindow.number))
+                        .frame(width: 100, height: 100)
                         .font(.system(size: 50))
-                        .foregroundColor(.white)
-                        .padding(50)
-                        .background(Circle().fill(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15)))
-                        .overlay(Circle().stroke(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), lineWidth: 4))
+                        .foregroundColor((sectionWindow.isHovered ? Color.accentColor: Color.white).opacity(0.5))
+                        .blendMode(.difference)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.7 : 0.15))
-                .border(Color(NSColor.selectedTextBackgroundColor).opacity(sectionWindow.isHovered ? 0.7 : 0.15), width: 5)
-                .cornerRadius(7)
+                .fixedSize()
+                .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
+                .background(centerCircleBckground)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .modifier {
+                if #available(macOS 14.0, *) {
+                    $0
+                        .background(
+                            RoundedRectangle(cornerRadius: 26)
+                                .fill(backgroundColor)
+                                .stroke(borderColor, lineWidth: 5)
+                                .shadow(color: .black.opacity(sectionWindow.isHovered ? 0.2 : 0.1), radius: sectionWindow.isHovered ? 8 : 4, x: 0, y: 4)
+                        )
+                        .cornerRadius(26)
+                } else {
+                    $0
+                        .background(BlurredSectionBackground(opacity: sectionWindow.isHovered ? 0.5 : 0.35))
+                        .border(borderColor, width: 5)
+                        .cornerRadius(26)
+                }
             }
         }
     }
 }
 
 class EditorSectionView: NSView {
-    private let blurView: NSVisualEffectView
-    private let edgeSize: CGFloat = 2
-    
     var onDelete: (() -> Void)?
     
     var number: Int = 0 {
@@ -105,6 +94,8 @@ class EditorSectionView: NSView {
         }
     }
     
+    private let background = NSView()
+    
     private let label = NSTextField(labelWithString: "")
     private let sizeLabel = NSTextField(labelWithString: "")
 
@@ -112,61 +103,68 @@ class EditorSectionView: NSView {
     private let deleteButton = NSButton()
 
     override init(frame frameRect: NSRect) {
-        blurView = NSVisualEffectView(frame: frameRect)
-        blurView.material = .hudWindow
-        blurView.state = .active
-        blurView.wantsLayer = true
-        
-        blurView.layer?.cornerRadius = 7
-        blurView.layer?.opacity = 0.7
-        blurView.layer?.borderWidth = 5
-        blurView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        blurView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
-        
         super.init(frame: frameRect)
         setupViews()
     }
     
     required init?(coder: NSCoder) {
-        blurView = NSVisualEffectView(frame: .zero)
-        blurView.material = .hudWindow
-        blurView.blendingMode = .behindWindow
-        blurView.state = .active
-        
         super.init(coder: coder)
         setupViews()
     }
     
     private func setupViews() {
-        blurView.frame = bounds
-        blurView.autoresizingMask = [.width, .height]
-        addSubview(blurView)
+        background.frame = bounds
+        background.wantsLayer = true
+        background.layer = CALayer()
+        background.layer?.cornerRadius = 26
+        background.layer?.masksToBounds = true
+        background.layer?.borderWidth = 3
+        background.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.1).cgColor
+        background.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
+        background.autoresizingMask = [.width, .height]
+        addSubview(background, positioned: .below, relativeTo: nil)
         
-        label.font = NSFont.systemFont(ofSize: 50)
-        label.textColor = .white
+        label.font = NSFont.systemFont(ofSize: 50, weight: .light)
+        label.textColor = NSColor.controlAccentColor
         label.alignment = .center
         label.isEditable = false
         label.isSelectable = false
         label.isBezeled = false
         label.backgroundColor = .clear
+        label.drawsBackground = false
+        label.shadow = NSShadow()
+        label.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
+        label.shadow?.shadowOffset = NSSize(width: 0, height: -1)
+        label.shadow?.shadowBlurRadius = 2
         addSubview(label)
         
-        sizeLabel.font = NSFont.systemFont(ofSize: 20)
-        sizeLabel.textColor = .white
+        sizeLabel.font = NSFont.systemFont(ofSize: 20, weight: .light)
+        sizeLabel.textColor = NSColor.controlAccentColor.withAlphaComponent(0.85)
         sizeLabel.alignment = .center
         sizeLabel.isEditable = false
         sizeLabel.isSelectable = false
         sizeLabel.isBezeled = false
         sizeLabel.backgroundColor = .clear
+        sizeLabel.drawsBackground = false
+        sizeLabel.shadow = NSShadow()
+        sizeLabel.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
+        sizeLabel.shadow?.shadowOffset = NSSize(width: 0, height: -1)
+        sizeLabel.shadow?.shadowBlurRadius = 2
         addSubview(sizeLabel)
 
         circleView.wantsLayer = true
         circleView.layer = CALayer()
         circleView.layer?.cornerRadius = 75
         circleView.layer?.masksToBounds = true
-        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
-        circleView.layer?.borderWidth = 4
+        circleView.layer?.backgroundColor = (
+            NSColor.controlAccentColor.withAlphaComponent(0.2).blended(withFraction: 0.5, of: .white) ??
+            NSColor.controlAccentColor.withAlphaComponent(0.05)
+        ).cgColor
+        circleView.layer?.borderColor = (
+            NSColor.controlAccentColor.withAlphaComponent(0.25).blended(withFraction: 0.5, of: .white) ??
+            NSColor.controlAccentColor.withAlphaComponent(0.1)
+        ).cgColor
+        circleView.layer?.borderWidth = 2
         addSubview(circleView)
         
         deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")?.withSymbolConfiguration(.init(pointSize: 18, weight: .regular))
@@ -175,7 +173,7 @@ class EditorSectionView: NSView {
         deleteButton.contentTintColor = .white
         deleteButton.isBordered = false
         deleteButton.wantsLayer = true
-        deleteButton.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.cgColor
+        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.saturate(by: 1.5).cgColor
         deleteButton.layer?.cornerRadius = 8
         deleteButton.layer?.masksToBounds = true
         deleteButton.target = self
@@ -199,14 +197,14 @@ class EditorSectionView: NSView {
             sizeLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 110),
             
-            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10)
+            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 20),
+            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20)
         ])
         
-        circleView.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.5).cgColor
-        circleView.layer?.borderColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(1).cgColor
+        circleView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
+        circleView.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(1).cgColor
         
-        deleteButton.layer?.backgroundColor = NSColor.selectedTextBackgroundColor.withAlphaComponent(0.25).cgColor
+        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.25).cgColor
         
         let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
         CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
@@ -275,6 +273,197 @@ struct BlurredSectionBackground: NSViewRepresentable {
     }
 }
 
+struct ScreenChangeWarningView: View {
+    var onDismiss: (() -> Void)?
+    
+    var body: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Image(systemName: "display.2")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 60, height: 60)
+                .foregroundColor(.accentColor)
+            
+            VStack(alignment: .center, spacing: 2) {
+                Text("Layout Design")
+                    .lineSpacing(6)
+                    .font(.title2)
+                
+                Spacer().frame(height: 16)
+                
+                Text("A layout can be designed on one screen.")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Spacer().frame(height: 8)
+                
+                Text("You can select your preferred layouts for each screen and workspace.")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Spacer().frame(height: 20)
+                
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.accentColor)
+                        Text("Tip: Design different layouts for each screen and workspace for your workflow.")
+                            .font(.system(size: 12))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding()
+                .background(Color.accentColor.opacity(0.1))
+                .cornerRadius(12)
+                
+                Spacer().frame(height: 20)
+                
+                Button(action: {
+                    onDismiss?()
+                }) {
+                    Text("Got It")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 25)
+        .padding(.vertical, 20)
+        .background(BlurredWindowBackground(material: .hudWindow,
+                                            blendingMode: .behindWindow)
+            .cornerRadius(16).padding(.horizontal, 10))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .multilineTextAlignment(.center)
+    }
+}
+
+class ScreenChangeWarningPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+    
+    init(contentRect: NSRect) {
+        super.init(contentRect: contentRect,
+                  styleMask: [.fullSizeContentView, .hudWindow, .nonactivatingPanel],
+                  backing: .buffered,
+                  defer: false)
+        
+        self.level = .statusBar + 1
+        self.isMovableByWindowBackground = true
+        self.isOpaque = false
+        self.backgroundColor = .clear
+        self.hasShadow = true
+        self.titleVisibility = .hidden
+        self.titlebarAppearsTransparent = true
+        self.isFloatingPanel = true
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        self.becomesKeyOnlyIfNeeded = true
+    }
+}
+
+class ScreenChangeWarningDialog {
+    private var panel: ScreenChangeWarningPanel
+    var onDismiss: (() -> Void)?
+    
+    init() {
+        panel = ScreenChangeWarningPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 340))
+        
+        let view = ScreenChangeWarningView(
+            onDismiss: {
+                self.dismiss()
+            }
+        )
+        panel.contentView = NSHostingView(rootView: view)
+        
+        panel.level = .statusBar + 1
+        panel.isReleasedWhenClosed = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        panel.backgroundColor = .clear
+        panel.orderOut(nil)
+    }
+    
+    private func positionOnScreen(_ screen: NSScreen) {
+        let screenFrame = screen.visibleFrame
+        let panelFrame = panel.frame
+        
+        let centerX = screenFrame.origin.x + (screenFrame.width - panelFrame.width) / 2
+        let centerY = screenFrame.origin.y + (screenFrame.height - panelFrame.height) / 2
+        
+        panel.setFrameOrigin(NSPoint(x: centerX, y: centerY))
+    }
+    
+    func show(on screen: NSScreen?) {
+        if let screen = screen {
+            positionOnScreen(screen)
+        } else {
+            panel.center()
+        }
+        panel.orderFrontRegardless()
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+    
+    func dismiss() {
+        panel.orderOut(nil)
+        onDismiss?()
+    }
+}
+
+class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
+    weak var sectionWindow: SectionWindow?
+    var originalScreen: NSScreen?
+    var hasShownWarning = false
+    var warningDialog: ScreenChangeWarningDialog?
+    
+    init(sectionWindow: SectionWindow?) {
+        self.sectionWindow = sectionWindow
+        self.originalScreen = sectionWindow?.editorWindow.screen
+        super.init()
+        self.warningDialog = ScreenChangeWarningDialog()
+        self.warningDialog?.onDismiss = { [weak self] in
+            self?.hasShownWarning = false
+        }
+    }
+    
+    func showScreenChangeWarning() {
+        warningDialog?.show(on: originalScreen)
+    }
+    
+    func windowDidChangeScreen(_ notification: Notification) {
+        guard isEditing else { return }
+        guard let window = notification.object as? NSWindow else { return }
+        guard let currentScreen = window.screen else { return }
+        guard let originalScreen = originalScreen else { return }
+        
+        if currentScreen != originalScreen {
+            debugLog("EditorSectionWindow moved to another screen, bringing it back")
+            
+            if !hasShownWarning {
+                hasShownWarning = true
+                showScreenChangeWarning()
+            }
+            
+            let currentFrame = window.frame
+            let relativeX = currentFrame.origin.x - currentScreen.frame.origin.x
+            let relativeY = currentFrame.origin.y - currentScreen.frame.origin.y
+            
+            let newX = originalScreen.frame.origin.x + relativeX
+            let newY = originalScreen.frame.origin.y + relativeY
+            
+            window.setFrameOrigin(NSPoint(x: newX, y: newY))
+        }
+    }
+}
+
 class EditorSectionWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -295,6 +484,7 @@ class SectionWindow: Hashable, ObservableObject {
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
     var sectionConfig: SectionConfig
+    var editorWindowDelegate: EditorSectionWindowDelegate?
     
     var isEditing: Bool { layoutWindow.isEditing }
     
@@ -353,6 +543,9 @@ class SectionWindow: Hashable, ObservableObject {
         editorSectionView.number = number
         editorWindow.contentView = editorSectionView
         
+        editorWindowDelegate = EditorSectionWindowDelegate(sectionWindow: self)
+        editorWindow.delegate = editorWindowDelegate
+        
         layoutWindow.window.addChildWindow(editorWindow, ordered: .above)
         
         window.orderOut(nil)
@@ -366,6 +559,8 @@ class SectionWindow: Hashable, ObservableObject {
         let contentRect = sectionConfig.getRect()
         window.setFrame(contentRect, display: true, animate: false)
         editorWindow.setFrame(contentRect, display: true, animate: false)
+        
+        editorWindowDelegate?.originalScreen = editorWindow.screen
     }
     
     func getBounds() -> SectionBounds {
@@ -380,6 +575,7 @@ class SectionWindow: Hashable, ObservableObject {
     }
     
     func startEditing() {
+        editorWindowDelegate?.originalScreen = editorWindow.screen
         editorWindow.orderFront(nil)
         editorWindow.level = .statusBar - 1
         window.orderOut(nil)
@@ -416,7 +612,7 @@ struct EditorBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "plus")
-                        Text("New Section")
+                        Text("New Zone")
                     }
                 }.frame(maxHeight: .infinity)
                  .buttonStyle(AccessoryBarButtonStyle())
@@ -426,7 +622,7 @@ struct EditorBarView: View {
                 }) {
                     HStack {
                         Image(systemName: "plus")
-                        Text("New Section")
+                        Text("New Zone")
                     }
                 }.frame(maxHeight: .infinity)
             }
@@ -465,16 +661,17 @@ struct EditorBarView: View {
                 }.frame(maxHeight: .infinity)
             }
             Spacer()
-        }.frame(height: 50)
-         .fixedSize(horizontal: false, vertical: true)
-         .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(10).padding(.horizontal, 7))
-         .alert(isPresented: $showNotProDialog) {
-             Alert(
-                 title: Text("Omg! 😊"),
-                 message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                 dismissButton: .default(Text("OK"))
-             )
-         }
+        }
+        .frame(height: 50)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(26).padding(.horizontal, 7))
+        .alert(isPresented: $showNotProDialog) {
+            Alert(
+                title: Text("Omg! 😊"),
+                message: Text("You must buy MacsyZones Pro to unlock this feature."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
@@ -526,7 +723,7 @@ class LayoutWindow {
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
         
-        let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        let focusedScreen = getFocusedScreen()
         let screenSize = focusedScreen?.frame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
 
         window = NSWindow(contentRect: screenSize,
@@ -745,7 +942,7 @@ class LayoutWindow {
     }
     
     func onSave() {
-        let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        let focusedScreen = getFocusedScreen()
         
         for number in unsavedNewSectionConfigs.keys {
             guard let newSectionConfig = unsavedNewSectionConfigs[number] else { continue }
@@ -826,7 +1023,7 @@ class LayoutWindow {
         editorBarWindow.orderOut(nil)
         
         if showLayouts {
-            if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+            if let focusedScreen = getFocusedScreen() {
                 window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             }
             
@@ -1001,16 +1198,17 @@ class LayoutWindow {
         
         window.orderFront(nil)
         
-        if let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+        if let focusedScreen = getFocusedScreen() {
             window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
             
             for sectionWindow in sectionWindows {
-                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
                 sectionWindow.startEditing()
+                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
             }
         } else {
             for sectionWindow in sectionWindows {
                 sectionWindow.startEditing()
+                sectionWindow.reset(sectionConfig: sectionWindow.sectionConfig)
             }
         }
         
@@ -1172,7 +1370,7 @@ class SnapResizer: NSWindow {
             return
         }
         
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else {
+        guard let focusedScreen = getFocusedScreen() else {
             if isSnapResizing && isMouseOverResizer {
                 userLayouts.currentLayout.layoutWindow.hide()
             }
@@ -1206,7 +1404,7 @@ class SnapResizer: NSWindow {
     override func mouseDragged(with event: NSEvent) {
         draggedOnce = true
         
-        guard let focusedScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) else { return }
+        guard let focusedScreen = getFocusedScreen() else { return }
         let focusedScreenNumber = NSScreen.screens.firstIndex(of: focusedScreen)
         
         resizerX += event.deltaX
@@ -1343,3 +1541,4 @@ struct SnapResizerView: View {
 
 #Preview {
 }
+
