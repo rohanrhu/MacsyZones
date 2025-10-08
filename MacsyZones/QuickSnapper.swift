@@ -368,7 +368,9 @@ class QuickSnapper: ObservableObject {
         }
 
         // Passive auto-association on QuickSnapper activation so matching windows become placed
-        autoAssociateAllWindowsInCurrentLayout(reason: "quick-snapper-open")
+        Task { @MainActor in
+            autoAssociateAllWindowsInCurrentLayout(reason: "quick-snapper-open")
+        }
         
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKey()

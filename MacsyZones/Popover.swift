@@ -310,7 +310,9 @@ struct Main: View {
                             spaceLayoutPreferences.save()
                             // Passive auto-association when user changes layout via picker
                             Task { @MainActor in
-                                autoAssociateAllWindowsInCurrentLayout(reason: "layout-switch")
+                                Task { @MainActor in
+                                    autoAssociateAllWindowsInCurrentLayout(reason: "layout-switch")
+                                }
                             }
                         }
                         

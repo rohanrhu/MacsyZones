@@ -24,6 +24,7 @@ private let autoAssociateEdgeTolerance: CGFloat = 6.0
 
 /// Attempt to associate all top-level standard windows that geometrically match a zone
 /// for the current layout & active screen/space.
+@MainActor
 func autoAssociateAllWindowsInCurrentLayout(reason: String = "") {
     guard hasAccessibilityPermission else { return }
     guard let _ = SpaceLayoutPreferences.getCurrentScreenAndSpace() else { return }
@@ -46,6 +47,7 @@ func autoAssociateAllWindowsInCurrentLayout(reason: String = "") {
 /// Associate a single AX window with current layout if geometry matches a zone.
 /// Mirrors filtering used when initially observing windows in AppDelegate (standard window with non-empty title).
 @discardableResult
+@MainActor
 func associateWindowWithCurrentLayout(element: AXUIElement, reason: String = "") -> Bool {
     guard hasAccessibilityPermission else { return false }
     guard let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() else { return false }

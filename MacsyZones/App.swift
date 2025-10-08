@@ -114,7 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                         if let title = titleValue as? String, !title.isEmpty {
                             debugLog("Window is being observed: \(title)")
                             // Attempt passive association immediately after observation
-                            associateWindowWithCurrentLayout(element: window, reason: "observed")
+                            Task { @MainActor in
+                                associateWindowWithCurrentLayout(element: window, reason: "observed")
+                            }
                         }
                         
                         Task { @MainActor in
@@ -151,7 +153,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 macsyReady.isReady = true
 
                 // Passive auto-association of already-aligned windows on startup
-                autoAssociateAllWindowsInCurrentLayout(reason: "startup")
+                Task { @MainActor in
+                    autoAssociateAllWindowsInCurrentLayout(reason: "startup")
+                }
                 
                 if #available(macOS 12.0, *) {
                    if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
