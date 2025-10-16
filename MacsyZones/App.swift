@@ -40,6 +40,30 @@ let cycleBackwardHotkey = GlobalHotkey() {
     return noErr
 }
 
+@available(macOS 12.0, *)
+let moveZoneLeftHotkey = GlobalHotkey() {
+    moveWindowToAdjacentZone(direction: .left)
+    return noErr
+}
+
+@available(macOS 12.0, *)
+let moveZoneRightHotkey = GlobalHotkey() {
+    moveWindowToAdjacentZone(direction: .right)
+    return noErr
+}
+
+@available(macOS 12.0, *)
+let moveZoneUpHotkey = GlobalHotkey() {
+    moveWindowToAdjacentZone(direction: .up)
+    return noErr
+}
+
+@available(macOS 12.0, *)
+let moveZoneDownHotkey = GlobalHotkey() {
+    moveWindowToAdjacentZone(direction: .down)
+    return noErr
+}
+
 var hasAccessibilityPermission = false
 var statusItem: NSStatusItem!
 var popover: NSPopover!
@@ -149,12 +173,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 macsyReady.isReady = true
                 
                 if #available(macOS 12.0, *) {
-                   if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
-                       showOnboarding()
-                   }
-                    
+                    if !onboardingState.hasCompletedOnboarding && hasAccessibilityPermission {
+                        showOnboarding()
+                    }
                     cycleForwardHotkey.register(for: appSettings.cycleWindowsForwardShortcut)
                     cycleBackwardHotkey.register(for: appSettings.cycleWindowsBackwardShortcut)
+                    moveZoneLeftHotkey.register(for: appSettings.moveZoneLeftShortcut)
+                    moveZoneRightHotkey.register(for: appSettings.moveZoneRightShortcut)
+                    moveZoneUpHotkey.register(for: appSettings.moveZoneUpShortcut)
+                    moveZoneDownHotkey.register(for: appSettings.moveZoneDownShortcut)
                 }
             }
         }

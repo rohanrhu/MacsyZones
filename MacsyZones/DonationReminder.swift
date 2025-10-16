@@ -177,18 +177,26 @@ class DonationReminder {
         countI += 1
         
         if countI % interval == 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                if #available(macOS 12.0, *) {
-                    if isQuickSnapping {
-                        self.panel.orderFront(nil)
+            // Check if zone navigation is happening and suppress donation reminder
+            // This is because its a "spammy" action and this would be extremely annoying
+            // if we didnt skip it
+            if isZoneNavigating {
+                return
+            }
+
+            if #available(macOS 12.0, *) {
+                if isQuickSnapping {
+                    self.panel.orderFront(nil)
+                    // Only bring QuickSnapper to front if it's actually open
+                    if quickSnapper.isOpen {
                         quickSnapper.panel.makeKeyAndOrderFront(nil)
                     } else {
-                        self.panel.makeKeyAndOrderFront(nil)
+                        debugLog("DonationReminder.count() - QuickSnapper is not open, not bringing it to front")
                     }
                 } else {
                     self.panel.makeKeyAndOrderFront(nil)
                 }
-                
+
                 self.panel.center()
             }
             
