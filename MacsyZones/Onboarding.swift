@@ -13,6 +13,7 @@
 import SwiftUI
 import AVKit
 import AVFoundation
+import MediaPlayer
 
 struct OnboardingStateData: Codable {
     var hasCompletedOnboarding: Bool?
@@ -405,6 +406,18 @@ struct OnboardingPageView: View {
     private func setupPlayer(url: URL) -> AVPlayer {
         let player = AVPlayer(url: url)
         
+        player.preventsDisplaySleepDuringVideoPlayback = false
+        player.allowsExternalPlayback = false
+        player.isMuted = true
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = [:]
+        MPRemoteCommandCenter.shared().playCommand.isEnabled = false
+        MPRemoteCommandCenter.shared().pauseCommand.isEnabled = false
+        MPRemoteCommandCenter.shared().togglePlayPauseCommand.isEnabled = false
+        MPRemoteCommandCenter.shared().stopCommand.isEnabled = false
+        MPRemoteCommandCenter.shared().nextTrackCommand.isEnabled = false
+        MPRemoteCommandCenter.shared().previousTrackCommand.isEnabled = false
+        
         let observer = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: player.currentItem,
@@ -513,6 +526,11 @@ struct OnboardingPageView: View {
                 NotificationCenter.default.removeObserver(observer)
                 loopObserver = nil
             }
+            
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            MPRemoteCommandCenter.shared().playCommand.isEnabled = false
+            MPRemoteCommandCenter.shared().pauseCommand.isEnabled = false
+            MPRemoteCommandCenter.shared().togglePlayPauseCommand.isEnabled = false
         }
     }
 }
