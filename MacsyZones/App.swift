@@ -47,6 +47,8 @@ var accessibilityDialog: AccessibilityDialog?
 var updateFailedDialog: UpdateFailedDialog?
 
 var mouseUpMonitor: Any?
+var mouseDownMonitor: Any?
+var mouseDragMonitor: Any?
 
 var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -136,6 +138,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             }
             
             Task { @MainActor in
+                mouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { event in
+                    onMouseDown(event: event)
+                }
+                
+                mouseDragMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { event in
+                    onMouseDragged(event: event)
+                }
+                
                 mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { event in
                     onMouseUp(event: event)
                 }

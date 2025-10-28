@@ -27,8 +27,54 @@ var isQuickSnapping = false
 var isSnapResizing = false
 
 var isMovingAWindow = false
+var draggedWindowElement: AXUIElement?
+var draggedWindowInitialPosition: CGPoint?
 
 let spaceLayoutPreferences = SpaceLayoutPreferences()
+
+func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
+    let mouseLocation = NSEvent.mouseLocation
+    
+    // Get the window under the mouse cursor using CGWindowListCopyWindowInfo
+    guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+        return nil
+    }
+    
+    for windowInfo in windowList {
+        guard let bounds = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+              let windowLayer = windowInfo[kCGWindowLayer as String] as? Int,
+              let windowId = windowInfo[kCGWindowNumber as String] as? UInt32 else {
+            continue
+        }
+        
+        if windowLayer != 0 { continue }
+        
+        let x = bounds["X"] ?? 0
+        let y = bounds["Y"] ?? 0
+        let width = bounds["Width"] ?? 0
+        let height = bounds["Height"] ?? 0
+        
+        if mouseLocation.x >= x && mouseLocation.x <= x + width &&
+           mouseLocation.y >= y && mouseLocation.y <= y + height {
+            
+            if let element = retrieveFreshWindowElement(for: windowId) {
+                var subroleRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef) == .success {
+                    if let subrole = subroleRef as? String, subrole == kAXStandardWindowSubrole {
+                        return (element: element, windowId: windowId)
+                    }
+                }
+            }
+        }
+    }
+    
+    return nil
+}
+
+func onMouseDown(event: NSEvent) {
+    draggedWindowElement = nil
+    draggedWindowInitialPosition = nil
+}
 
 func startEditing() {
     isFitting = false
@@ -429,7 +475,7 @@ func isElementResizable(element: AXUIElement) -> Bool {
     return resizable.boolValue
 }
 
-func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0, retryParent: Bool = false) {
+func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CGSize, retries: Int = 0, retryParent: Bool = false, useFallback: Bool = true) {
     if retryParent && !isElementResizable(element: element) {
         debugLog("Window is not resizable! Trying parent window...")
         
@@ -452,7 +498,7 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
             let parentElement = parentElementRef as! AXUIElement
             
             if subrole == kAXStandardWindowSubrole {
-                return resizeAndMoveWindow(element: parentElement, newPosition: newPosition, newSize: newSize, retries: retries)
+                return resizeAndMoveWindow(element: parentElement, newPosition: newPosition, newSize: newSize, retries: retries, useFallback: useFallback)
             }
         }
         
@@ -476,6 +522,9 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
             }
         }
     }
+    
+    var lastPositionResult: AXError = .success
+    var lastSizeResult: AXError = .success
     
     for i in 0..<(retries == 0 ? 1 : retries) {
         DispatchQueue.main.asyncAfter(deadline: .now() + (0.05 * Double(i))) { [element] in
@@ -506,11 +555,51 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
            case let (currentSize, currentPosition) = getWindowSizeAndPosition(from: windowId)
         {
             if currentSize == newSize && currentPosition == newPosition {
-                break
+                return
             }
         } else {
             break
         }
+    }
+    
+    var positionValue = newPosition
+    if let positionAXValue = AXValueCreate(.cgPoint, &positionValue) {
+        lastPositionResult = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
+    }
+    
+    var sizeValue = newSize
+    if let sizeAXValue = AXValueCreate(.cgSize, &sizeValue) {
+        lastSizeResult = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
+    }
+
+    if (lastPositionResult != .success || lastSizeResult != .success) && useFallback {
+        debugLog("Snap operation failed (position: \(lastPositionResult.rawValue), size: \(lastSizeResult.rawValue)), attempting fallback with fresh window element...")
+        
+        if let windowId = getWindowID(from: element) {
+            if let freshElement = retrieveFreshWindowElement(for: windowId) {
+                debugLog("Retrieved fresh window element by ID, retrying snap operation...")
+                resizeAndMoveWindow(element: freshElement, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
+                return
+            }
+            
+            if let title = getWindowTitle(from: element) {
+                var currentPosition: CGPoint?
+                var positionRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success {
+                    var position: CGPoint = .zero
+                    AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
+                    currentPosition = position
+                }
+                
+                if let freshElementInfo = retrieveFreshWindowElementByTitle(title: title, approximatePosition: currentPosition) {
+                    debugLog("Retrieved fresh window element by title, retrying snap operation...")
+                    resizeAndMoveWindow(element: freshElementInfo.element, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
+                    return
+                }
+            }
+        }
+        
+        debugLog("Fallback failed: could not retrieve fresh window element")
     }
 }
 
@@ -600,6 +689,104 @@ func resizeWindow(element: AXUIElement, newSize: CGSize) {
     }
 }
 
+func retrieveFreshWindowElement(for windowId: UInt32) -> AXUIElement? {
+    debugLog("Attempting to retrieve fresh window element for window ID: \(windowId)")
+    
+    let runningApps = NSWorkspace.shared.runningApplications.filter {
+        $0.activationPolicy == .regular
+    }
+    
+    for app in runningApps {
+        let pid = app.processIdentifier as pid_t
+        let appElement = AXUIElementCreateApplication(pid)
+        
+        var windowListRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowListRef)
+        
+        if result != .success { continue }
+        
+        guard let windowList = windowListRef as? [AXUIElement] else { continue }
+        
+        for window in windowList {
+            if let currentWindowId = getWindowID(from: window), currentWindowId == windowId {
+                debugLog("Successfully retrieved fresh window element for window ID: \(windowId)")
+                return window
+            }
+        }
+    }
+    
+    debugLog("Failed to retrieve fresh window element for window ID: \(windowId)")
+    
+    return nil
+}
+
+func retrieveFreshWindowElementByTitle(title: String, approximatePosition: CGPoint? = nil) -> (element: AXUIElement, windowId: UInt32)? {
+    debugLog("Attempting to retrieve fresh window element by title: \(title)")
+    
+    let runningApps = NSWorkspace.shared.runningApplications.filter {
+        $0.activationPolicy == .regular
+    }
+    
+    var candidates: [(element: AXUIElement, windowId: UInt32, position: CGPoint?)] = []
+    
+    for app in runningApps {
+        let pid = app.processIdentifier as pid_t
+        let appElement = AXUIElementCreateApplication(pid)
+        
+        var windowListRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowListRef)
+        
+        if result != .success { continue }
+        
+        guard let windowList = windowListRef as? [AXUIElement] else { continue }
+        
+        for window in windowList {
+            var titleValue: CFTypeRef?
+            AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue)
+            
+            if let windowTitle = titleValue as? String, windowTitle == title {
+                if let windowId = getWindowID(from: window) {
+                    // Get window position for better matching
+                    var positionRef: CFTypeRef?
+                    var windowPosition: CGPoint?
+                    if AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionRef) == .success {
+                        var position: CGPoint = .zero
+                        AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
+                        windowPosition = position
+                    }
+                    
+                    candidates.append((element: window, windowId: windowId, position: windowPosition))
+                }
+            }
+        }
+    }
+    
+    if let approximatePosition = approximatePosition, !candidates.isEmpty {
+        let closest = candidates.min { candidate1, candidate2 in
+            guard let pos1 = candidate1.position, let pos2 = candidate2.position else {
+                return candidate1.position != nil
+            }
+            let dist1 = sqrt(pow(pos1.x - approximatePosition.x, 2) + pow(pos1.y - approximatePosition.y, 2))
+            let dist2 = sqrt(pow(pos2.x - approximatePosition.x, 2) + pow(pos2.y - approximatePosition.y, 2))
+            return dist1 < dist2
+        }
+        
+        if let match = closest {
+            debugLog("Successfully retrieved fresh window element by title and position for: \(title)")
+            return (element: match.element, windowId: match.windowId)
+        }
+    }
+    
+    if let first = candidates.first {
+        debugLog("Successfully retrieved fresh window element by title for: \(title)")
+        return (element: first.element, windowId: first.windowId)
+    }
+    
+    debugLog("Failed to retrieve fresh window element by title: \(title)")
+    
+    return nil
+}
+
 func getFocusedWindowAXUIElement() -> AXUIElement? {
     guard let frontmostApp = NSWorkspace.shared.frontmostApplication else { return nil }
     
@@ -615,6 +802,50 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
     }
     
     return focusedWindow as! AXUIElement?
+}
+
+func onMouseDragged(event: NSEvent) {
+    if isEditing { return }
+    if isSnapResizing { return }
+    if isQuickSnapping { return }
+    
+    if !isMovingAWindow {
+        if let windowInfo = getWindowUnderMouse() {
+            let element = windowInfo.element
+            let windowId = windowInfo.windowId
+            
+            var positionRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success {
+                var currentPosition: CGPoint = .zero
+                AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &currentPosition)
+                
+                if let storedElement = draggedWindowElement,
+                   let storedPosition = draggedWindowInitialPosition,
+                   let storedWindowId = getWindowID(from: storedElement),
+                   storedWindowId == windowId {
+                    
+                    let distanceMoved = sqrt(pow(currentPosition.x - storedPosition.x, 2) + 
+                                           pow(currentPosition.y - storedPosition.y, 2))
+                    
+                    if distanceMoved > 5.0 {
+                        isMovingAWindow = true
+                        toLeaveElement = element
+                        debugLog("Detected window drag via mouse monitor: \(windowId)")
+                    }
+                } else {
+                    draggedWindowElement = element
+                    draggedWindowInitialPosition = currentPosition
+                }
+            }
+        }
+    }
+    
+    if isMovingAWindow {
+        if let hoveredSectionWindow = getHoveredSectionWindow() {
+            toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
+            toLeaveSectionWindow = hoveredSectionWindow
+        }
+    }
 }
 
 func onMouseUp(event: NSEvent) {
@@ -634,7 +865,7 @@ func onMouseUp(event: NSEvent) {
     }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
-        toLeaveElement = toLeaveElement ?? getFocusedWindowAXUIElement()
+        toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
         toLeaveSectionWindow = hoveredSectionWindow
     }
     
@@ -642,6 +873,8 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
+        draggedWindowElement = nil
+        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
@@ -649,6 +882,8 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
+        draggedWindowElement = nil
+        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
         toLeaveElement = nil
         return
@@ -678,8 +913,13 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
+        draggedWindowElement = nil
+        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
     }
+    
+    draggedWindowElement = nil
+    draggedWindowInitialPosition = nil
 }
 
 // MARK: - Window Cycling Functions
