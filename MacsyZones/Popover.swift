@@ -323,6 +323,11 @@ struct Main: View {
                                     .frame(height: buttonHeight)
                             }
                             
+                            Button(action: { stopEditing(); page = "duplicate" }) {
+                                Image(systemName: "plus.rectangle.on.rectangle")
+                                    .frame(height: buttonHeight)
+                            }
+                            
                             Button(action: { stopEditing(); page = "new" }) {
                                 Image(systemName: "plus")
                                     .frame(height: buttonHeight)
@@ -837,6 +842,10 @@ struct NewView: View {
                     }
                     
                     Button(action: {
+                        if layoutName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            return
+                        }
+                        
                         if layouts.layouts.keys.contains(layoutName) {
                             showAlreadyExistsAlert = true
                             return
@@ -850,6 +859,7 @@ struct NewView: View {
                         Image(systemName: "checkmark").foregroundColor(.green)
                         Text("Create")
                     }
+                    .disabled(layoutName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
@@ -887,14 +897,76 @@ struct RenameView: View {
                     }
                     
                     Button(action: {
+                        if layoutName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            return
+                        }
+                        
                         userLayouts.renameCurrentLayout(to: layoutName)
                         page = "main"
                     }) {
                         Image(systemName: "checkmark").foregroundColor(.green)
                         Text("Rename")
                     }
+                    .disabled(layoutName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+        }
+    }
+}
+
+struct DuplicateView: View {
+    @Binding var page: String
+    @ObservedObject var layouts = userLayouts
+    
+    @State var layoutName: String
+    
+    @State var showAlreadyExistsAlert: Bool = false
+    
+    var body: some View {
+        VStack {
+            Text("MacsyZones").font(.headline).padding(.bottom, 10)
+            
+            Text("Layout Name:").font(.subheadline)
+            
+            VStack {
+                TextField("Enter Layout Name", text: $layoutName).cornerRadius(5)
+                
+                HStack(alignment: .center) {
+                    Button(action: {
+                        page = "main"
+                    }) {
+                        Image(systemName: "xmark").foregroundColor(.red)
+                        Text("Cancel")
+                    }
+                    
+                    Button(action: {
+                        if layoutName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            return
+                        }
+                        
+                        if layouts.layouts.keys.contains(layoutName) {
+                            showAlreadyExistsAlert = true
+                            return
+                        }
+                        
+                        layouts.duplicateCurrentLayout(newName: layoutName)
+                        startEditing()
+                        
+                        page = "main"
+                    }) {
+                        Image(systemName: "checkmark").foregroundColor(.green)
+                        Text("Duplicate")
+                    }
+                    .disabled(layoutName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .alert(isPresented: $showAlreadyExistsAlert) {
+            Alert(
+                title: Text("Omg! 😊"),
+                message: Text("Another layout with this name already exists. Please choose another name."),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 }
@@ -982,6 +1054,19 @@ struct TrayPopupView: View {
     @State private var page = "main"
     @ObservedObject var layouts = userLayouts
     
+    func generateUniqueDuplicateName() -> String {
+        let baseName = layouts.currentLayoutName
+        var copyName = baseName + " Copy"
+        var counter = 2
+        
+        while layouts.layouts.keys.contains(copyName) {
+            copyName = baseName + " Copy \(counter)"
+            counter += 1
+        }
+        
+        return copyName
+    }
+    
     var body: some View {
         if !ready.isReady {
             VStack {
@@ -997,6 +1082,8 @@ struct TrayPopupView: View {
                     NewView(page: $page)
                 case "rename":
                     RenameView(page: $page, layoutName: layouts.currentLayoutName)
+                case "duplicate":
+                    DuplicateView(page: $page, layoutName: generateUniqueDuplicateName())
                 case "unlock":
                     UnlockProView(proLock: proLock, page: $page)
                 default:

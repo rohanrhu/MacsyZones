@@ -390,6 +390,24 @@ class UserLayouts: UserData, ObservableObject {
         
         save()
     }
+    
+    func duplicateCurrentLayout(newName: String) {
+        stopEditing()
+        currentLayout.hideAllWindows()
+        
+        if layouts.keys.contains(newName) { return }
+        
+        if let currentLayout = layouts[currentLayoutName] {
+            let sectionConfigs = Array(currentLayout.sectionConfigs.values)
+            let duplicatedLayout = UserLayout(name: newName, sectionConfigs: sectionConfigs)
+            layouts[newName] = duplicatedLayout
+            
+            currentLayoutName = newName
+            spaceLayoutPreferences.setCurrent(layoutName: newName)
+            
+            save()
+        }
+    }
 }
 
 struct SectionConfig: Codable {
