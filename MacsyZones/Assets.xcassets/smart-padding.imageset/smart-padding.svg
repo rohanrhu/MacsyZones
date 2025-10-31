@@ -1,0 +1,10 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Two zones with padding between them -->
+  <!-- Left zone -->
+  <rect x="4" y="10" width="10" height="12" fill="currentColor" opacity="0.8" rx="1"/>
+  <!-- Right zone -->
+  <rect x="18" y="10" width="10" height="12" fill="currentColor" opacity="0.8" rx="1"/>
+  <!-- Padding indicator (double arrow in the middle) -->
+  <path d="M 12 16 L 14 16 M 18 16 L 16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M 13 14 L 15 16 L 13 18 M 19 14 L 17 16 L 19 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

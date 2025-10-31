@@ -1,0 +1,6 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background screen outline -->
+  <rect x="4" y="8" width="24" height="16" fill="none" stroke="currentColor" stroke-width="1.5" rx="1"/>
+  <!-- Active bottom third -->
+  <rect x="4.75" y="18.75" width="22.5" height="4.5" fill="currentColor" opacity="0.9" rx="0.5"/>
+</svg>

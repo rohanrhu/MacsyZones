@@ -85,138 +85,257 @@ struct SectionView: View {
     }
 }
 
-class EditorSectionView: NSView {
-    var onDelete: (() -> Void)?
+enum PositioningPreset: Hashable {
+    case leftHalf, rightHalf
+    case topHalf, bottomHalf
+    case topLeft, topRight, bottomLeft, bottomRight
+    case leftThird, centerThirdVertical, rightThird
+    case topThird, centerThirdHorizontal, bottomThird
+    case center
+    case fullScreen
     
-    var number: Int = 0 {
-        didSet {
-            label.stringValue = String(number)
+    var iconName: String {
+        switch self {
+        case .leftHalf: return "left-half"
+        case .rightHalf: return "right-half"
+        case .topHalf: return "top-half"
+        case .bottomHalf: return "bottom-half"
+        case .topLeft: return "top-left"
+        case .topRight: return "top-right"
+        case .bottomLeft: return "bottom-left"
+        case .bottomRight: return "bottom-right"
+        case .leftThird: return "left-third"
+        case .centerThirdVertical: return "center-third-vertical"
+        case .rightThird: return "right-third"
+        case .topThird: return "top-third"
+        case .centerThirdHorizontal: return "center-third-horizontal"
+        case .bottomThird: return "bottom-third"
+        case .center: return "center"
+        case .fullScreen: return "fullscreen"
         }
     }
     
-    private let background = NSView()
-    
-    private let label = NSTextField(labelWithString: "")
-    private let sizeLabel = NSTextField(labelWithString: "")
-
-    private let circleView = NSView()
-    private let deleteButton = NSButton()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupViews()
+    var tooltip: String {
+        switch self {
+        case .leftHalf: return "Left Half"
+        case .rightHalf: return "Right Half"
+        case .topHalf: return "Top Half"
+        case .bottomHalf: return "Bottom Half"
+        case .topLeft: return "Top Left Quarter"
+        case .topRight: return "Top Right Quarter"
+        case .bottomLeft: return "Bottom Left Quarter"
+        case .bottomRight: return "Bottom Right Quarter"
+        case .leftThird: return "Left Third"
+        case .centerThirdVertical: return "Center Third (Vertical)"
+        case .rightThird: return "Right Third"
+        case .topThird: return "Top Third"
+        case .centerThirdHorizontal: return "Center Third (Horizontal)"
+        case .bottomThird: return "Bottom Third"
+        case .center: return "Center"
+        case .fullScreen: return "Full Screen"
+        }
     }
     
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupViews()
+    func calculateFrame(for screenFrame: NSRect) -> NSRect {
+        let x = screenFrame.origin.x
+        let y = screenFrame.origin.y
+        let width = screenFrame.width
+        let height = screenFrame.height
+        
+        switch self {
+        case .leftHalf:
+            return NSRect(x: x, y: y, width: width / 2, height: height)
+        case .rightHalf:
+            return NSRect(x: x + width / 2, y: y, width: width / 2, height: height)
+        case .topHalf:
+            return NSRect(x: x, y: y + height / 2, width: width, height: height / 2)
+        case .bottomHalf:
+            return NSRect(x: x, y: y, width: width, height: height / 2)
+        case .topLeft:
+            return NSRect(x: x, y: y + height / 2, width: width / 2, height: height / 2)
+        case .topRight:
+            return NSRect(x: x + width / 2, y: y + height / 2, width: width / 2, height: height / 2)
+        case .bottomLeft:
+            return NSRect(x: x, y: y, width: width / 2, height: height / 2)
+        case .bottomRight:
+            return NSRect(x: x + width / 2, y: y, width: width / 2, height: height / 2)
+        case .leftThird:
+            return NSRect(x: x, y: y, width: width / 3, height: height)
+        case .centerThirdVertical:
+            return NSRect(x: x + width / 3, y: y, width: width / 3, height: height)
+        case .rightThird:
+            return NSRect(x: x + width * 2 / 3, y: y, width: width / 3, height: height)
+        case .topThird:
+            return NSRect(x: x, y: y + height * 2 / 3, width: width, height: height / 3)
+        case .centerThirdHorizontal:
+            return NSRect(x: x, y: y + height / 3, width: width, height: height / 3)
+        case .bottomThird:
+            return NSRect(x: x, y: y, width: width, height: height / 3)
+        case .center:
+            let centerWidth = width * 0.5
+            let centerHeight = height * 0.5
+            return NSRect(x: x + (width - centerWidth) / 2, y: y + (height - centerHeight) / 2, width: centerWidth, height: centerHeight)
+        case .fullScreen:
+            return screenFrame
+        }
+    }
+}
+
+struct ViewSizeKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
+}
+
+struct EditorSectionView: View {
+    var onDelete: (() -> Void)?
+    @ObservedObject var sectionWindow: SectionWindow
+    var number: Int
+    
+    private let buttonGroups: [[PositioningPreset]] = [
+        [.leftHalf, .rightHalf, .topHalf, .bottomHalf, .topLeft, .topRight, .bottomLeft, .bottomRight],
+        [.leftThird, .centerThirdVertical, .rightThird, .topThird, .centerThirdHorizontal, .bottomThird, .center, .fullScreen]
+    ]
+    
+    private let buttonSize: CGFloat = 32
+    private let spacing: CGFloat = 6
+    private let groupSpacing: CGFloat = 12
+    private let padding: CGFloat = 10
+    private let rowSpacing: CGFloat = 8
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 26)
+                .strokeBorder(Color.accentColor.opacity(0.5), lineWidth: 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 26)
+                        .fill(Color.accentColor.opacity(0.1))
+                )
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                ZStack {
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .background(
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.5))
+                        )
+                        .frame(width: 150, height: 150)
+                    
+                    Text("\(number)")
+                        .font(.system(size: 50, weight: .light))
+                        .foregroundColor(Color.accentColor)
+                        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: -1)
+                }
+                
+                Text("\(Int(sectionWindow.windowSize.width))x\(Int(sectionWindow.windowSize.height))")
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundColor(Color.accentColor.opacity(0.85))
+                    .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: -1)
+                    .padding(.top, 110)
+                
+                VStack(spacing: rowSpacing) {
+                    ForEach(Array(buttonGroups.enumerated()), id: \.offset) { groupIndex, group in
+                        HStack(spacing: spacing) {
+                            ForEach(group, id: \.self) { preset in
+                                PositioningButton(preset: preset) {
+                                    applyPositioningPreset(preset)
+                                }
+                                .frame(width: buttonSize, height: buttonSize)
+                            }
+                        }
+                        
+                        if groupIndex < buttonGroups.count - 1 {
+                            Spacer()
+                                .frame(height: groupSpacing - rowSpacing)
+                        }
+                    }
+                }
+                .padding(padding)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.accentColor.opacity(0.15))
+                )
+                .padding(.top, 20)
+                
+                Spacer()
+            }
+            
+            VStack {
+                HStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        onDelete?()
+                    }) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundColor(.white)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.accentColor.opacity(0.25))
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.top, 20)
+                    .padding(.trailing, 20)
+                }
+                
+                Spacer()
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            setCursorInBackground()
+        }
     }
     
-    private func setupViews() {
-        background.frame = bounds
-        background.wantsLayer = true
-        background.layer = CALayer()
-        background.layer?.cornerRadius = 26
-        background.layer?.masksToBounds = true
-        background.layer?.borderWidth = 3
-        background.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.1).cgColor
-        background.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
-        background.autoresizingMask = [.width, .height]
-        addSubview(background, positioned: .below, relativeTo: nil)
+    private func applyPositioningPreset(_ preset: PositioningPreset) {
+        let screenFrame = sectionWindow.layoutWindow.window.frame
         
-        label.font = NSFont.systemFont(ofSize: 50, weight: .light)
-        label.textColor = NSColor.controlAccentColor
-        label.alignment = .center
-        label.isEditable = false
-        label.isSelectable = false
-        label.isBezeled = false
-        label.backgroundColor = .clear
-        label.drawsBackground = false
-        label.shadow = NSShadow()
-        label.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
-        label.shadow?.shadowOffset = NSSize(width: 0, height: -1)
-        label.shadow?.shadowBlurRadius = 2
-        addSubview(label)
+        let newFrame = preset.calculateFrame(for: screenFrame)
         
-        sizeLabel.font = NSFont.systemFont(ofSize: 20, weight: .light)
-        sizeLabel.textColor = NSColor.controlAccentColor.withAlphaComponent(0.85)
-        sizeLabel.alignment = .center
-        sizeLabel.isEditable = false
-        sizeLabel.isSelectable = false
-        sizeLabel.isBezeled = false
-        sizeLabel.backgroundColor = .clear
-        sizeLabel.drawsBackground = false
-        sizeLabel.shadow = NSShadow()
-        sizeLabel.shadow?.shadowColor = NSColor.black.withAlphaComponent(0.4)
-        sizeLabel.shadow?.shadowOffset = NSSize(width: 0, height: -1)
-        sizeLabel.shadow?.shadowBlurRadius = 2
-        addSubview(sizeLabel)
-
-        circleView.wantsLayer = true
-        circleView.layer = CALayer()
-        circleView.layer?.cornerRadius = 75
-        circleView.layer?.masksToBounds = true
-        circleView.layer?.backgroundColor = (
-            NSColor.controlAccentColor.withAlphaComponent(0.2).blended(withFraction: 0.5, of: .white) ??
-            NSColor.controlAccentColor.withAlphaComponent(0.05)
-        ).cgColor
-        circleView.layer?.borderColor = (
-            NSColor.controlAccentColor.withAlphaComponent(0.25).blended(withFraction: 0.5, of: .white) ??
-            NSColor.controlAccentColor.withAlphaComponent(0.1)
-        ).cgColor
-        circleView.layer?.borderWidth = 2
-        addSubview(circleView)
-        
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")?.withSymbolConfiguration(.init(pointSize: 18, weight: .regular))
-        deleteButton.frame.size = CGSize(width: 80, height: 80)
-        deleteButton.imagePosition = .imageOnly
-        deleteButton.contentTintColor = .white
-        deleteButton.isBordered = false
-        deleteButton.wantsLayer = true
-        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.saturate(by: 1.5).cgColor
-        deleteButton.layer?.cornerRadius = 8
-        deleteButton.layer?.masksToBounds = true
-        deleteButton.target = self
-        deleteButton.action = #selector(deleteSection)
-        addSubview(deleteButton)
-        
-        label.translatesAutoresizingMaskIntoConstraints = false
-        sizeLabel.translatesAutoresizingMaskIntoConstraints = false
-        circleView.translatesAutoresizingMaskIntoConstraints = false
-        deleteButton.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            circleView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            circleView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            circleView.widthAnchor.constraint(equalToConstant: 150),
-            circleView.heightAnchor.constraint(equalTo: circleView.widthAnchor),
-            
-            label.centerXAnchor.constraint(equalTo: centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor),
-
-            sizeLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 110),
-            
-            deleteButton.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            deleteButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20)
-        ])
-        
-        circleView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor
-        circleView.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(1).cgColor
-        
-        deleteButton.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.25).cgColor
-        
+        sectionWindow.editorWindow.setFrame(newFrame, display: true, animate: true)
+        sectionWindow.window.setFrame(newFrame, display: true, animate: true)
+    }
+    
+    private func setCursorInBackground() {
         let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
-        CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
+        if let cursorInBg = cursorInBg {
+            _ = CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
+        }
     }
+}
+
+struct PositioningButton: View {
+    let preset: PositioningPreset
+    let action: () -> Void
     
-    override func layout() {
-        super.layout()
-        sizeLabel.stringValue = "\(Int(bounds.width))x\(Int(bounds.height))"
-    }
+    @State private var isHovered: Bool = false
     
-    @objc private func deleteSection() {
-        onDelete?()
+    var body: some View {
+        Button(action: action) {
+            if let image = NSImage(named: preset.iconName) {
+                Image(nsImage: image)
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.accentColor.opacity(isHovered ? 0.5 : 0.35))
+        )
+        .help(preset.tooltip)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
@@ -462,6 +581,16 @@ class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
             window.setFrameOrigin(NSPoint(x: newX, y: newY))
         }
     }
+    
+    func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        sectionWindow?.windowSize = window.frame.size
+        sectionWindow?.layoutWindow?.refreshEditorBarState()
+    }
+    
+    func windowDidMove(_ notification: Notification) {
+        sectionWindow?.layoutWindow?.refreshEditorBarState()
+    }
 }
 
 class EditorSectionWindow: NSWindow {
@@ -471,15 +600,9 @@ class EditorSectionWindow: NSWindow {
 }
 
 class SectionWindow: Hashable, ObservableObject {
-    @Published var number: Int = 0 {
-        didSet {
-            guard let editorWindow else { return }
-            guard let editorSectionView = editorWindow.contentView as? EditorSectionView else { return }
-            
-            editorSectionView.number = number
-        }
-    }
+    @Published var number: Int = 0
     @Published var isHovered: Bool = false
+    @Published var windowSize: CGSize = .zero
     var editorWindow: NSWindow!
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
@@ -497,6 +620,7 @@ class SectionWindow: Hashable, ObservableObject {
         self.onDelete = onDelete
         
         let contentRect = sectionConfig.getRect()
+        self.windowSize = contentRect.size
 
         window = NSWindow(contentRect: contentRect,
                           styleMask: [.borderless],
@@ -536,12 +660,14 @@ class SectionWindow: Hashable, ObservableObject {
         editorWindow.standardWindowButton(.miniaturizeButton)?.isHidden = false
         editorWindow.standardWindowButton(.zoomButton)?.isHidden = false
         
-        let editorSectionView = EditorSectionView(frame: NSRect(x: 0, y: 0, width: contentRect.width, height: contentRect.height))
-        editorSectionView.onDelete = { [unowned self] in
-            onDelete(self)
-        }
-        editorSectionView.number = number
-        editorWindow.contentView = editorSectionView
+        let editorSectionView = EditorSectionView(
+            onDelete: { [unowned self] in
+                onDelete(self)
+            },
+            sectionWindow: self,
+            number: number
+        )
+        editorWindow.contentView = NSHostingView(rootView: editorSectionView)
         
         editorWindowDelegate = EditorSectionWindowDelegate(sectionWindow: self)
         editorWindow.delegate = editorWindowDelegate
@@ -559,6 +685,7 @@ class SectionWindow: Hashable, ObservableObject {
         let contentRect = sectionConfig.getRect()
         window.setFrame(contentRect, display: true, animate: false)
         editorWindow.setFrame(contentRect, display: true, animate: false)
+        windowSize = contentRect.size
         
         editorWindowDelegate?.originalScreen = editorWindow.screen
     }
@@ -595,13 +722,19 @@ class SectionWindow: Hashable, ObservableObject {
 }
 
 struct EditorBarView: View {
-    var layoutWindow: LayoutWindow
+    @ObservedObject var layoutWindow: LayoutWindow
     
     var onNewSection: () -> Void
+    var onSmartPadding: () -> Void
     var onSave: () -> Void
     var onCancel: () -> Void
     
     @State var showNotProDialog = false
+    
+    var isSmartGapEnabled: Bool {
+        _ = layoutWindow.zoneLayoutVersion
+        return layoutWindow.hasAnyAdjacentZones()
+    }
     
     var body: some View {
         HStack {
@@ -625,6 +758,37 @@ struct EditorBarView: View {
                         Text("New Zone")
                     }
                 }.frame(maxHeight: .infinity)
+            }
+            Divider()
+            if #available(macOS 14.0, *) {
+                Button(action: {
+                    onSmartPadding()
+                }) {
+                    HStack {
+                        if let image = NSImage(named: "smart-padding") {
+                            Image(nsImage: image)
+                                .renderingMode(.template)
+                        }
+                        Text("Add Smart Gap")
+                    }
+                }
+                .frame(maxHeight: .infinity)
+                .buttonStyle(AccessoryBarButtonStyle())
+                .disabled(!isSmartGapEnabled)
+            } else {
+                Button(action: {
+                    onSmartPadding()
+                }) {
+                    HStack {
+                        if let image = NSImage(named: "smart-padding") {
+                            Image(nsImage: image)
+                                .renderingMode(.template)
+                        }
+                        Text("Add Smart Gap")
+                    }
+                }
+                .frame(maxHeight: .infinity)
+                .disabled(!isSmartGapEnabled)
             }
             Divider()
             if #available(macOS 14.0, *) {
@@ -663,6 +827,7 @@ struct EditorBarView: View {
             Spacer()
         }
         .frame(height: 50)
+        .padding(.horizontal, 15)
         .fixedSize(horizontal: false, vertical: true)
         .background(BlurredWindowBackground(material: .hudWindow, blendingMode: .behindWindow).cornerRadius(26).padding(.horizontal, 7))
         .alert(isPresented: $showNotProDialog) {
@@ -690,13 +855,14 @@ struct LayoutView: View {
 func macssyStartEditing() { startEditing() }
 func macsyStopEditing() { stopEditing() }
 
-class LayoutWindow {
+class LayoutWindow: ObservableObject {
     var name: String
     var sectionConfigs: [Int:SectionConfig] = [:]
     
     var window: NSWindow
     var sectionWindows: [SectionWindow] = []
     var editorBarWindow: NSWindow
+    var editorBarHostingView: NSHostingView<EditorBarView>?
     
     var isEditing: Bool = false
     
@@ -710,6 +876,8 @@ class LayoutWindow {
     var snapResizerProximityThreshold: CGFloat { appSettings.snapResizeThreshold }
     
     var activeSnapResizers: [String: SnapResizer] = [:]
+    
+    @Published var zoneLayoutVersion: Int = 0
 
     var nextNumber: Int {
         if unsavedNewSectionConfigs.count > 0 {
@@ -746,7 +914,22 @@ class LayoutWindow {
         editorBarWindow.backgroundColor = .clear
         editorBarWindow.titlebarAppearsTransparent = true
         editorBarWindow.isMovableByWindowBackground = true
-        editorBarWindow.contentView = NSHostingView(rootView: EditorBarView(layoutWindow: self, onNewSection: onNewSection, onSave: onSave, onCancel: onCancel))
+        
+        let hostingView = NSHostingView(rootView: EditorBarView(
+            layoutWindow: self, 
+            onNewSection: onNewSection, 
+            onSmartPadding: { [weak self] in
+                self?.applySmartPadding()
+            },
+            onSave: onSave, 
+            onCancel: onCancel
+        ))
+        editorBarWindow.contentView = hostingView
+        editorBarHostingView = hostingView
+        
+        let fittingSize = hostingView.fittingSize
+        editorBarWindow.setContentSize(fittingSize)
+        
         editorBarWindow.orderOut(nil)
         editorBarWindow.level = .statusBar + 1
         
@@ -776,6 +959,164 @@ class LayoutWindow {
         if let monitor = mouseMonitor {
             NSEvent.removeMonitor(monitor)
         }
+    }
+    
+    func hasAnyAdjacentZones() -> Bool {
+        let adjacencyThreshold: CGFloat = 10
+        let screenFrame = window.frame
+        
+        for sectionWindow in sectionWindows {
+            let originalFrame = sectionWindow.editorWindow.frame
+            
+            let left = originalFrame.minX
+            let right = originalFrame.maxX
+            let top = originalFrame.maxY
+            let bottom = originalFrame.minY
+            
+            if abs(left - screenFrame.minX) <= adjacencyThreshold ||
+               abs(right - screenFrame.maxX) <= adjacencyThreshold ||
+               abs(top - screenFrame.maxY) <= adjacencyThreshold ||
+               abs(bottom - screenFrame.minY) <= adjacencyThreshold {
+                return true
+            }
+            
+            for otherWindow in sectionWindows {
+                guard otherWindow !== sectionWindow else { continue }
+                
+                let otherFrame = otherWindow.editorWindow.frame
+                let otherLeft = otherFrame.minX
+                let otherRight = otherFrame.maxX
+                let otherTop = otherFrame.maxY
+                let otherBottom = otherFrame.minY
+                
+                if abs(left - otherRight) <= adjacencyThreshold {
+                    let overlapTop = min(top, otherTop)
+                    let overlapBottom = max(bottom, otherBottom)
+                    if overlapTop > overlapBottom {
+                        return true
+                    }
+                }
+                
+                if abs(right - otherLeft) <= adjacencyThreshold {
+                    let overlapTop = min(top, otherTop)
+                    let overlapBottom = max(bottom, otherBottom)
+                    if overlapTop > overlapBottom {
+                        return true
+                    }
+                }
+                
+                if abs(top - otherBottom) <= adjacencyThreshold {
+                    let overlapLeft = max(left, otherLeft)
+                    let overlapRight = min(right, otherRight)
+                    if overlapRight > overlapLeft {
+                        return true
+                    }
+                }
+                
+                if abs(bottom - otherTop) <= adjacencyThreshold {
+                    let overlapLeft = max(left, otherLeft)
+                    let overlapRight = min(right, otherRight)
+                    if overlapRight > overlapLeft {
+                        return true
+                    }
+                }
+            }
+        }
+        
+        return false
+    }
+    
+    func applySmartPadding() {
+        let padding: CGFloat = 4
+        let adjacencyThreshold: CGFloat = 10
+        
+        let screenFrame = window.frame
+        
+        for sectionWindow in sectionWindows {
+            let originalFrame = sectionWindow.editorWindow.frame
+            var newFrame = originalFrame
+            
+            
+            let left = originalFrame.minX
+            let right = originalFrame.maxX
+            let top = originalFrame.maxY
+            let bottom = originalFrame.minY
+            
+            let isAtScreenLeft = abs(left - screenFrame.minX) <= adjacencyThreshold
+            let isAtScreenRight = abs(right - screenFrame.maxX) <= adjacencyThreshold
+            let isAtScreenTop = abs(top - screenFrame.maxY) <= adjacencyThreshold
+            let isAtScreenBottom = abs(bottom - screenFrame.minY) <= adjacencyThreshold
+            
+            var hasAdjacentLeft = isAtScreenLeft
+            var hasAdjacentRight = isAtScreenRight
+            var hasAdjacentTop = isAtScreenTop
+            var hasAdjacentBottom = isAtScreenBottom
+            
+            for otherWindow in sectionWindows {
+                guard otherWindow !== sectionWindow else { continue }
+                
+                let otherFrame = otherWindow.editorWindow.frame
+                let otherLeft = otherFrame.minX
+                let otherRight = otherFrame.maxX
+                let otherTop = otherFrame.maxY
+                let otherBottom = otherFrame.minY
+                
+                if !hasAdjacentLeft && abs(left - otherRight) <= adjacencyThreshold {
+                    let overlapTop = min(top, otherTop)
+                    let overlapBottom = max(bottom, otherBottom)
+                    if overlapTop > overlapBottom {
+                        hasAdjacentLeft = true
+                    }
+                }
+                
+                if !hasAdjacentRight && abs(right - otherLeft) <= adjacencyThreshold {
+                    let overlapTop = min(top, otherTop)
+                    let overlapBottom = max(bottom, otherBottom)
+                    if overlapTop > overlapBottom {
+                        hasAdjacentRight = true
+                    }
+                }
+                
+                if !hasAdjacentTop && abs(top - otherBottom) <= adjacencyThreshold {
+                    let overlapLeft = max(left, otherLeft)
+                    let overlapRight = min(right, otherRight)
+                    if overlapRight > overlapLeft {
+                        hasAdjacentTop = true
+                    }
+                }
+                
+                if !hasAdjacentBottom && abs(bottom - otherTop) <= adjacencyThreshold {
+                    let overlapLeft = max(left, otherLeft)
+                    let overlapRight = min(right, otherRight)
+                    if overlapRight > overlapLeft {
+                        hasAdjacentBottom = true
+                    }
+                }
+            }
+            
+            let leftPadding: CGFloat = hasAdjacentLeft ? padding : 0
+            let rightPadding: CGFloat = hasAdjacentRight ? padding : 0
+            let topPadding: CGFloat = hasAdjacentTop ? padding : 0
+            let bottomPadding: CGFloat = hasAdjacentBottom ? padding : 0
+            
+            newFrame.origin.x += leftPadding
+            newFrame.origin.y += bottomPadding
+            newFrame.size.width -= (leftPadding + rightPadding)
+            newFrame.size.height -= (bottomPadding + topPadding)
+            
+            sectionWindow.editorWindow.setFrame(newFrame, display: true, animate: true)
+            sectionWindow.window.setFrame(newFrame, display: true, animate: true)
+        }
+    }
+    
+    func updateEditorBarWindowSize() {
+        guard let hostingView = editorBarHostingView else { return }
+        let fittingSize = hostingView.fittingSize
+        editorBarWindow.setContentSize(fittingSize)
+    }
+    
+    func refreshEditorBarState() {
+        zoneLayoutVersion += 1
     }
     
     func handleMouseMoved(event: NSEvent) {
@@ -926,6 +1267,8 @@ class LayoutWindow {
         
         sectionWindows.removeAll { $0.number == number }
         unsavedNewSectionWindows.removeAll { $0.number == number }
+        
+        refreshEditorBarState()
     }
     
     func onNewSection() {
@@ -939,6 +1282,8 @@ class LayoutWindow {
         
         unsavedNewSectionWindows.append(sectionWindow)
         unsavedNewSectionConfigs[sectionWindow.number] = newSectionConfig
+        
+        refreshEditorBarState()
     }
     
     func onSave() {
@@ -1195,6 +1540,12 @@ class LayoutWindow {
     
     func startEditing() {
         isEditing = true
+        
+        sectionWindows.sort {
+            let frame1 = $0.window.frame
+            let frame2 = $1.window.frame
+            return (frame1.width * frame1.height) > (frame2.width * frame2.height)
+        }
         
         window.orderFront(nil)
         
