@@ -170,6 +170,7 @@ struct Main: View {
     
     @State var showNotProDialog = false
     @State var showAboutDialog = false
+    @State var showResetToDefaultsDialog = false
     
     @State var showDialog = false
     @State var showLayoutHelpDialog = false
@@ -652,6 +653,16 @@ struct Main: View {
                 }
                 .disabled(updater.isChecking || updater.isDownloading)
                 
+                Button(action: {
+                    showResetToDefaultsDialog = true
+                    showDialog = true
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.counterclockwise.circle")
+                        Text("Reset")
+                    }
+                }
+                
                 if #available(macOS 12.0, *) {
                     Button(action: { showOnboarding() }) {
                         Image(systemName: "questionmark.circle")
@@ -666,12 +677,24 @@ struct Main: View {
                     }
                 }
             }
+            .fixedSize()
             .padding(.top, 5)
         }
         .frame(minWidth: 400)
         .fixedSize()
         .alert(isPresented: $showDialog) {
-            if showLayoutHelpDialog {
+            if showResetToDefaultsDialog {
+                return Alert(
+                    title: Text("Reset to Defaults"),
+                    message: Text("Are you sure you want to reset all settings to their default values? This action cannot be undone."),
+                    primaryButton: .destructive(Text("Reset")) {
+                        Task { @MainActor in
+                            appSettings.resetToDefaults()
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+            } else if showLayoutHelpDialog {
                 return Alert(
                    title: Text("Layouts"),
                    message: Text("""

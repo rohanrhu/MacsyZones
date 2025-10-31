@@ -33,23 +33,42 @@ struct AppSettingsData: Codable {
 }
 
 class AppSettings: UserData, ObservableObject {
-    @Published var modifierKey: String = "Control"
-    @Published var snapKey: String = "Shift"
-    @Published var modifierKeyDelay: Int = 1000
-    @Published var fallbackToPreviousSize: Bool = true
-    @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = true
-    @Published var selectPerDesktopLayout: Bool = true
-    @Published var prioritizeCenterToSnap: Bool = true
-    @Published var shakeToSnap: Bool = true
-    @Published var shakeAccelerationThreshold: CGFloat = 50000.0
-    @Published var snapResize: Bool = true
-    @Published var snapResizeThreshold: CGFloat = 33.0
-    @Published var quickSnapShortcut: String = "Control+Shift+S"
-    @Published var snapWithRightClick: Bool = true
-    @Published var showSnapResizersOnHover: Bool = true
-    @Published var cycleWindowsForwardShortcut: String = "Command+]"
-    @Published var cycleWindowsBackwardShortcut: String = "Command+["
-    @Published var snapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    // Default values
+    private static let defaultModifierKey: String = "Control"
+    private static let defaultSnapKey: String = "Shift"
+    private static let defaultModifierKeyDelay: Int = 1000
+    private static let defaultFallbackToPreviousSize: Bool = true
+    private static let defaultOnlyFallbackToPreviousSizeWithUserEvent: Bool = true
+    private static let defaultSelectPerDesktopLayout: Bool = true
+    private static let defaultPrioritizeCenterToSnap: Bool = true
+    private static let defaultShakeToSnap: Bool = true
+    private static let defaultShakeAccelerationThreshold: CGFloat = 50000.0
+    private static let defaultSnapResize: Bool = true
+    private static let defaultSnapResizeThreshold: CGFloat = 33.0
+    private static let defaultQuickSnapShortcut: String = "Control+Shift+S"
+    private static let defaultSnapWithRightClick: Bool = true
+    private static let defaultShowSnapResizersOnHover: Bool = true
+    private static let defaultCycleWindowsForwardShortcut: String = "Command+]"
+    private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
+    private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    
+    @Published var modifierKey: String = defaultModifierKey
+    @Published var snapKey: String = defaultSnapKey
+    @Published var modifierKeyDelay: Int = defaultModifierKeyDelay
+    @Published var fallbackToPreviousSize: Bool = defaultFallbackToPreviousSize
+    @Published var onlyFallbackToPreviousSizeWithUserEvent: Bool = defaultOnlyFallbackToPreviousSizeWithUserEvent
+    @Published var selectPerDesktopLayout: Bool = defaultSelectPerDesktopLayout
+    @Published var prioritizeCenterToSnap: Bool = defaultPrioritizeCenterToSnap
+    @Published var shakeToSnap: Bool = defaultShakeToSnap
+    @Published var shakeAccelerationThreshold: CGFloat = defaultShakeAccelerationThreshold
+    @Published var snapResize: Bool = defaultSnapResize
+    @Published var snapResizeThreshold: CGFloat = defaultSnapResizeThreshold
+    @Published var quickSnapShortcut: String = defaultQuickSnapShortcut
+    @Published var snapWithRightClick: Bool = defaultSnapWithRightClick
+    @Published var showSnapResizersOnHover: Bool = defaultShowSnapResizersOnHover
+    @Published var cycleWindowsForwardShortcut: String = defaultCycleWindowsForwardShortcut
+    @Published var cycleWindowsBackwardShortcut: String = defaultCycleWindowsBackwardShortcut
+    @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -115,6 +134,35 @@ class AppSettings: UserData, ObservableObject {
         } catch {
             debugLog("Error encoding settings JSON: \(error)")
         }
+    }
+    
+    @MainActor
+    func resetToDefaults() {
+        modifierKey = Self.defaultModifierKey
+        snapKey = Self.defaultSnapKey
+        modifierKeyDelay = Self.defaultModifierKeyDelay
+        fallbackToPreviousSize = Self.defaultFallbackToPreviousSize
+        onlyFallbackToPreviousSizeWithUserEvent = Self.defaultOnlyFallbackToPreviousSizeWithUserEvent
+        selectPerDesktopLayout = Self.defaultSelectPerDesktopLayout
+        prioritizeCenterToSnap = Self.defaultPrioritizeCenterToSnap
+        shakeToSnap = Self.defaultShakeToSnap
+        shakeAccelerationThreshold = Self.defaultShakeAccelerationThreshold
+        snapResize = Self.defaultSnapResize
+        snapResizeThreshold = Self.defaultSnapResizeThreshold
+        quickSnapShortcut = Self.defaultQuickSnapShortcut
+        snapWithRightClick = Self.defaultSnapWithRightClick
+        showSnapResizersOnHover = Self.defaultShowSnapResizersOnHover
+        cycleWindowsForwardShortcut = Self.defaultCycleWindowsForwardShortcut
+        cycleWindowsBackwardShortcut = Self.defaultCycleWindowsBackwardShortcut
+        snapHighlightStrategy = Self.defaultSnapHighlightStrategy
+        
+        if #available(macOS 12.0, *) {
+            quickSnapper.toggleHotkey?.register(for: quickSnapShortcut)
+            cycleForwardHotkey.register(for: cycleWindowsForwardShortcut)
+            cycleBackwardHotkey.register(for: cycleWindowsBackwardShortcut)
+        }
+        
+        save()
     }
 }
 
