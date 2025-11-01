@@ -230,40 +230,91 @@ class UpdateState: UserData, ObservableObject {
 class UserLayouts: UserData, ObservableObject {
     @Published var layouts: [String: UserLayout] = [:]
     
+    var splitScreenLayout: UserLayout {
+        .init(name: "Split Screen", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.5, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left Half"),
+            .init(number: 2, widthPercentage: 0.5, heightPercentage: 1.0, xPercentage: 0.5, yPercentage: 0.0, name: "Right Half"),
+            .init(number: 3, widthPercentage: 0.6, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left 60%"),
+            .init(number: 4, widthPercentage: 0.6, heightPercentage: 1.0, xPercentage: 0.4, yPercentage: 0.0, name: "Right 60%"),
+            .init(number: 5, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
+    var mainSidebarLayout: UserLayout {
+        .init(name: "Main + Sidebar", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.7, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Main 70%"),
+            .init(number: 2, widthPercentage: 0.3, heightPercentage: 1.0, xPercentage: 0.7, yPercentage: 0.0, name: "Sidebar 30%"),
+            .init(number: 3, widthPercentage: 0.75, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Main 75%"),
+            .init(number: 4, widthPercentage: 0.25, heightPercentage: 1.0, xPercentage: 0.75, yPercentage: 0.0, name: "Sidebar 25%"),
+            .init(number: 5, widthPercentage: 0.6667, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Main 2/3"),
+            .init(number: 6, widthPercentage: 0.3333, heightPercentage: 1.0, xPercentage: 0.6667, yPercentage: 0.0, name: "Sidebar 1/3"),
+            .init(number: 7, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
+    var quartersLayout: UserLayout {
+        .init(name: "Quarters", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.0, yPercentage: 0.0, name: "Top Left"),
+            .init(number: 2, widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.5, yPercentage: 0.0, name: "Top Right"),
+            .init(number: 3, widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.0, yPercentage: 0.5, name: "Bottom Left"),
+            .init(number: 4, widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.5, yPercentage: 0.5, name: "Bottom Right"),
+            .init(number: 5, widthPercentage: 0.5, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left Half"),
+            .init(number: 6, widthPercentage: 0.5, heightPercentage: 1.0, xPercentage: 0.5, yPercentage: 0.0, name: "Right Half"),
+            .init(number: 7, widthPercentage: 1.0, heightPercentage: 0.5, xPercentage: 0.0, yPercentage: 0.0, name: "Top Half"),
+            .init(number: 8, widthPercentage: 1.0, heightPercentage: 0.5, xPercentage: 0.0, yPercentage: 0.5, name: "Bottom Half"),
+            .init(number: 9, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
+    var focusedLayout: UserLayout {
+        .init(name: "Focused", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.7, heightPercentage: 0.85, xPercentage: 0.15, yPercentage: 0.075, name: "Large Focus"),
+            .init(number: 2, widthPercentage: 0.6, heightPercentage: 0.75, xPercentage: 0.2, yPercentage: 0.125, name: "Medium Focus"),
+            .init(number: 3, widthPercentage: 0.5, heightPercentage: 0.65, xPercentage: 0.25, yPercentage: 0.175, name: "Small Focus"),
+            .init(number: 4, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen Focus")
+        ])
+    }
+    
+    var tripleColumnLayout: UserLayout {
+        .init(name: "Triple Column", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.3333, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left 1/3"),
+            .init(number: 2, widthPercentage: 0.3333, heightPercentage: 1.0, xPercentage: 0.3333, yPercentage: 0.0, name: "Center 1/3"),
+            .init(number: 3, widthPercentage: 0.3333, heightPercentage: 1.0, xPercentage: 0.6667, yPercentage: 0.0, name: "Right 1/3"),
+            .init(number: 4, widthPercentage: 0.6667, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left 2/3"),
+            .init(number: 5, widthPercentage: 0.6667, heightPercentage: 1.0, xPercentage: 0.3333, yPercentage: 0.0, name: "Right 2/3"),
+            .init(number: 6, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
+    var productivityLayout: UserLayout {
+        .init(name: "Productivity", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.65, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Main 65%"),
+            .init(number: 2, widthPercentage: 0.7, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Main 70%"),
+            .init(number: 3, widthPercentage: 0.35, heightPercentage: 0.5, xPercentage: 0.65, yPercentage: 0.0, name: "Top Right"),
+            .init(number: 4, widthPercentage: 0.35, heightPercentage: 0.5, xPercentage: 0.65, yPercentage: 0.5, name: "Bottom Right"),
+            .init(number: 5, widthPercentage: 0.35, heightPercentage: 1.0, xPercentage: 0.65, yPercentage: 0.0, name: "Right Full"),
+            .init(number: 6, widthPercentage: 0.3, heightPercentage: 1.0, xPercentage: 0.7, yPercentage: 0.0, name: "Right Narrow"),
+            .init(number: 7, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
+    var ultrawideLayout: UserLayout {
+        .init(name: "Ultrawide", sectionConfigs: [
+            .init(number: 1, widthPercentage: 0.2, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left Panel"),
+            .init(number: 2, widthPercentage: 0.6, heightPercentage: 1.0, xPercentage: 0.2, yPercentage: 0.0, name: "Center Main"),
+            .init(number: 3, widthPercentage: 0.2, heightPercentage: 1.0, xPercentage: 0.8, yPercentage: 0.0, name: "Right Panel"),
+            .init(number: 4, widthPercentage: 0.8, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Left + Center"),
+            .init(number: 5, widthPercentage: 0.8, heightPercentage: 1.0, xPercentage: 0.2, yPercentage: 0.0, name: "Center + Right"),
+            .init(number: 6, widthPercentage: 0.7, heightPercentage: 1.0, xPercentage: 0.15, yPercentage: 0.0, name: "Wide Center"),
+            .init(number: 7, widthPercentage: 1.0, heightPercentage: 1.0, xPercentage: 0.0, yPercentage: 0.0, name: "Fullscreen")
+        ])
+    }
+    
     var defaultLayout: UserLayout {
-        .init(name: "Some Zones", sectionConfigs: [
-            .init(number: 1, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.2, yPercentage: 0.2, name: "Main Zone"),
-            .init(number: 2, widthPercentage: 0.35, heightPercentage: 0.35, xPercentage: 0.55, yPercentage: 0.55, name: "Secondary Zone"),
-            .init(number: 4, widthPercentage: 0.6, heightPercentage: 0.12, xPercentage: 0.2, yPercentage: 0.01, name: "Status Bar"),
-            .init(number: 5, widthPercentage: 0.15, heightPercentage: 0.15, xPercentage: 0.84, yPercentage: 0.01, name: "Notification Corner"),
-            .init(number: 6, widthPercentage: 0.8, heightPercentage: 0.2, xPercentage: 0.1, yPercentage: 0.79, name: "Media Controls"),
-        ])
+        splitScreenLayout
     }
     
-    var fourCornersLayout: UserLayout {
-        .init(name: "Four Corners Plus", sectionConfigs: [
-            // Top-left corner
-            .init(number: 1, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.025, yPercentage: 0.025, name: "Top Left"),
-            // Top-right corner
-            .init(number: 2, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.525, yPercentage: 0.025, name: "Top Right"),
-            // Bottom-left corner
-            .init(number: 3, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.025, yPercentage: 0.525, name: "Bottom Left"),
-            // Bottom-right corner
-            .init(number: 4, widthPercentage: 0.45, heightPercentage: 0.45, xPercentage: 0.525, yPercentage: 0.525, name: "Bottom Right"),
-            // Center section
-            .init(number: 5, widthPercentage: 0.3, heightPercentage: 0.3, xPercentage: 0.35, yPercentage: 0.35, name: "Center")
-        ])
-    }
-    
-    var threeColumnLayout: UserLayout {
-        .init(name: "Three Columns", sectionConfigs: [
-            .init(number: 1, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.025, yPercentage: 0.05, name: "Left Column"),
-            .init(number: 2, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.35, yPercentage: 0.05, name: "Middle Column"),
-            .init(number: 3, widthPercentage: 0.3, heightPercentage: 0.9, xPercentage: 0.675, yPercentage: 0.05, name: "Right Column")
-        ])
-    }
-    
-    @Published var currentLayoutName: String = "Some Zones"
+    @Published var currentLayoutName: String = "Split Screen"
     
     var currentLayout: UserLayout {
         layouts[currentLayoutName] ?? defaultLayout
@@ -286,9 +337,14 @@ class UserLayouts: UserData, ObservableObject {
             }
             
             if layouts.isEmpty {
-                layouts["Some Zones"] = defaultLayout
-                layouts["Four Corners Plus"] = fourCornersLayout
-                layouts["Three Columns"] = threeColumnLayout
+                layouts["Split Screen"] = splitScreenLayout
+                layouts["Main + Sidebar"] = mainSidebarLayout
+                layouts["Quarters"] = quartersLayout
+                layouts["Focused"] = focusedLayout
+                layouts["Triple Column"] = tripleColumnLayout
+                layouts["Productivity"] = productivityLayout
+                layouts["Ultrawide"] = ultrawideLayout
+                currentLayoutName = "Split Screen"
             } else {
                 currentLayoutName = layouts.keys.first!
             }
@@ -318,7 +374,7 @@ class UserLayouts: UserData, ObservableObject {
         if layouts.keys.contains(name) {
             currentLayoutName = name
         } else {
-            currentLayoutName = "Some Zones"
+            currentLayoutName = "Split Screen"
         }
     }
     
