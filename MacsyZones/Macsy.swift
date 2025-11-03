@@ -30,12 +30,13 @@ var isMovingAWindow = false
 var draggedWindowElement: AXUIElement?
 var draggedWindowInitialPosition: CGPoint?
 
+var windowMovingOnScreen: NSScreen? = nil
+
 let spaceLayoutPreferences = SpaceLayoutPreferences()
 
 func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
     let mouseLocation = NSEvent.mouseLocation
     
-    // Get the window under the mouse cursor using CGWindowListCopyWindowInfo
     guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
         return nil
     }
@@ -209,10 +210,13 @@ func getHoveredSectionWindow() -> SectionWindow? {
     var hoveredSectionWindow: SectionWindow?
     
     guard let focusedScreen = getFocusedScreen() else {
-        for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-            sectionWindow.isHovered = false
+        for layout in userLayouts.layouts.values {
+            for sectionWindow in layout.layoutWindow.sectionWindows {
+                sectionWindow.isHovered = false
+            }
         }
-        return nil 
+        
+        return nil
     }
     
     let mouseLocation = NSEvent.mouseLocation
@@ -221,11 +225,11 @@ func getHoveredSectionWindow() -> SectionWindow? {
         if appSettings.snapHighlightStrategy != .centerProximity && appSettings.prioritizeCenterToSnap {
             for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
                 let screenSize = focusedScreen.frame
-                let bounds = sectionWindow.getBounds()
+                let bounds = sectionWindow.getBounds(for: focusedScreen)
                 let width = bounds.widthPercentage * screenSize.width
                 let height = bounds.heightPercentage * screenSize.height
-                let x = (bounds.xPercentage * screenSize.width + width / 2) - 50
-                let y = (bounds.yPercentage * screenSize.height + height / 2) - 50
+                let x = focusedScreen.frame.origin.x + (bounds.xPercentage * screenSize.width + width / 2) - 50
+                let y = focusedScreen.frame.origin.y + (bounds.yPercentage * screenSize.height + height / 2) - 50
                 
                 if mouseLocation.x > x && mouseLocation.x < x + 100 && mouseLocation.y > y && mouseLocation.y < y + 100 {
                     hoveredSectionWindow = sectionWindow
@@ -240,15 +244,16 @@ func getHoveredSectionWindow() -> SectionWindow? {
             if appSettings.snapHighlightStrategy == .centerProximity {
                 sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
                     let screenSize = focusedScreen.frame
+                    let screenOrigin = focusedScreen.frame.origin
                     
-                    let bounds1 = $0.getBounds()
-                    let center1X = bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
-                    let center1Y = bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
+                    let bounds1 = $0.getBounds(for: focusedScreen)
+                    let center1X = screenOrigin.x + bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
+                    let center1Y = screenOrigin.y + bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
                     let distance1 = sqrt(pow(mouseLocation.x - center1X, 2) + pow(mouseLocation.y - center1Y, 2))
                     
-                    let bounds2 = $1.getBounds()
-                    let center2X = bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
-                    let center2Y = bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
+                    let bounds2 = $1.getBounds(for: focusedScreen)
+                    let center2X = screenOrigin.x + bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
+                    let center2Y = screenOrigin.y + bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
                     let distance2 = sqrt(pow(mouseLocation.x - center2X, 2) + pow(mouseLocation.y - center2Y, 2))
                     
                     return distance1 < distance2
@@ -263,11 +268,12 @@ func getHoveredSectionWindow() -> SectionWindow? {
             
             for sectionWindow in sortedSectionWindows {
                 let screenSize = focusedScreen.frame
-                let bounds = sectionWindow.getBounds()
+                let screenOrigin = focusedScreen.frame.origin
+                let bounds = sectionWindow.getBounds(for: focusedScreen)
                 let width = bounds.widthPercentage * screenSize.width
                 let height = bounds.heightPercentage * screenSize.height
-                let x = bounds.xPercentage * screenSize.width
-                let y = bounds.yPercentage * screenSize.height
+                let x = screenOrigin.x + bounds.xPercentage * screenSize.width
+                let y = screenOrigin.y + bounds.yPercentage * screenSize.height
                 
                 if mouseLocation.x > x && mouseLocation.x < x + width && mouseLocation.y > y && mouseLocation.y < y + height {
                     hoveredSectionWindow = sectionWindow
@@ -289,6 +295,36 @@ func getHoveredSectionWindow() -> SectionWindow? {
 }
 
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
+    if let movingOnScreen = windowMovingOnScreen {
+        if let screen = getFocusedScreen(), screen != movingOnScreen {
+            windowMovingOnScreen = screen
+            
+            for layout in userLayouts.layouts.values {
+                for sectionWindow in layout.layoutWindow.sectionWindows {
+                    sectionWindow.isHovered = false
+                    sectionWindow.window.orderOut(nil)
+                }
+            }
+            
+            if appSettings.selectPerDesktopLayout {
+                if let layoutName = spaceLayoutPreferences.getCurrent() {
+                    userLayouts.currentLayoutName = layoutName
+                }
+            }
+            
+            if isFitting {
+                userLayouts.currentLayout.layoutWindow.show()
+            }
+            
+            toLeaveElement = nil
+            toLeaveSectionWindow = nil
+            
+            return
+        }
+    }
+    
+    windowMovingOnScreen = getFocusedScreen()
+    
     if appSettings.shakeToSnap {
         let currentTime = Date().timeIntervalSince1970
         
@@ -413,7 +449,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                         
                         if appSettings.selectPerDesktopLayout {
                             if let layoutName = spaceLayoutPreferences.getCurrent() {
-                                userLayouts.currentLayoutName = layoutName
+                                userLayouts.setCurrentLayout(name: layoutName)
                             }
                         }
                         
@@ -746,7 +782,6 @@ func retrieveFreshWindowElementByTitle(title: String, approximatePosition: CGPoi
             
             if let windowTitle = titleValue as? String, windowTitle == title {
                 if let windowId = getWindowID(from: window) {
-                    // Get window position for better matching
                     var positionRef: CFTypeRef?
                     var windowPosition: CGPoint?
                     if AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionRef) == .success {
@@ -838,9 +873,7 @@ func onMouseDragged(event: NSEvent) {
                 }
             }
         }
-    }
-    
-    if isMovingAWindow {
+    } else {
         if let hoveredSectionWindow = getHoveredSectionWindow() {
             toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
             toLeaveSectionWindow = hoveredSectionWindow

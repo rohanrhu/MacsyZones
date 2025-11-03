@@ -690,14 +690,15 @@ class SectionWindow: Hashable, ObservableObject {
         editorWindowDelegate?.originalScreen = editorWindow.screen
     }
     
-    func getBounds() -> SectionBounds {
-        let screenSize = NSScreen.main!.frame
+    func getBounds(for screen: NSScreen? = nil) -> SectionBounds {
+        let screenSize = (screen ?? NSScreen.main)!.frame
+        let screenOrigin = (screen ?? NSScreen.main)!.frame.origin
         
         return SectionBounds(
             widthPercentage: window.frame.width / screenSize.width,
             heightPercentage: window.frame.height / screenSize.height,
-            xPercentage: window.frame.minX / screenSize.width,
-            yPercentage: window.frame.minY / screenSize.height
+            xPercentage: (window.frame.minX - screenOrigin.x) / screenSize.width,
+            yPercentage: (window.frame.minY - screenOrigin.y) / screenSize.height
         )
     }
     

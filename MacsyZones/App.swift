@@ -387,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 
                 if appSettings.selectPerDesktopLayout {
                     if let layoutName = spaceLayoutPreferences.getCurrent() {
-                        userLayouts.currentLayoutName = layoutName
+                        userLayouts.setCurrentLayout(name: layoutName)
                     }
                 }
                 
@@ -410,7 +410,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             if !snapKeyUsed && appSettings.modifierKey != "None" && event.type == .flagsChanged {
                 if appSettings.selectPerDesktopLayout {
                     if let layoutName = spaceLayoutPreferences.getCurrent() {
-                        userLayouts.currentLayoutName = layoutName
+                        userLayouts.setCurrentLayout(name: layoutName)
                     }
                 }
                 
