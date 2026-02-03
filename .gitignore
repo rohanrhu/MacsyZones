@@ -1,3 +1,7 @@
 .DS_Store
 MacsyZones.xcodeproj/project.xcworkspace/xcuserdata/oguzhan.xcuserdatad/UserInterfaceState.xcuserstate
 MacsyZones.xcodeproj/xcuserdata/oguzhan.xcuserdatad/xcdebugger/Breakpoints_v2.xcbkptlist
+build/
+.vscode/
+buildServer.json
+*.code-workspace

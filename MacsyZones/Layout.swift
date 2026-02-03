@@ -22,14 +22,16 @@ struct SectionView: View {
     }
     
     var borderColor: Color {
-        sectionWindow.isHovered ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.9)
+        sectionWindow.isHovered ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.4)
     }
     
     var centerCircleBckground: AnyView {
         if hasLiquidGlass {
             return AnyView(
-                LiquidGlassView(variant: .v11, cornerRadius: .infinity) {}
-                    .background(Circle().stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
+                Circle()
+                    .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05))
+                    .background(Circle()
+                    .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 2))
             )
         } else {
             if #available(macOS 14.0, *) {
@@ -70,7 +72,7 @@ struct SectionView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 26)
                                 .fill(backgroundColor)
-                                .stroke(borderColor, lineWidth: 5)
+                                .stroke(borderColor, lineWidth: 4)
                                 .shadow(color: .black.opacity(sectionWindow.isHovered ? 0.2 : 0.1), radius: sectionWindow.isHovered ? 8 : 4, x: 0, y: 4)
                         )
                         .cornerRadius(26)
