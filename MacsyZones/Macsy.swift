@@ -32,6 +32,38 @@ var draggedWindowInitialPosition: CGPoint?
 
 var windowMovingOnScreen: NSScreen? = nil
 
+func isSnapKeyPressed() -> Bool {
+    guard appSettings.snapKey != "None" else { return false }
+    
+    let currentFlags = NSEvent.modifierFlags
+    
+    switch appSettings.snapKey {
+    case "Shift":
+        return currentFlags.contains(.shift)
+    case "Control":
+        return currentFlags.contains(.control)
+    case "Command":
+        return currentFlags.contains(.command)
+    case "Option":
+        return currentFlags.contains(.option)
+    default:
+        return false
+    }
+}
+
+func checkSnapKeyOnWindowMoveStart() {
+    if isSnapKeyPressed() && !isFitting {
+        if appSettings.selectPerDesktopLayout {
+            if let layoutName = spaceLayoutPreferences.getCurrent() {
+                userLayouts.setCurrentLayout(name: layoutName)
+            }
+        }
+        
+        isFitting = true
+        userLayouts.currentLayout.layoutWindow.show()
+    }
+}
+
 let spaceLayoutPreferences = SpaceLayoutPreferences()
 
 func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
@@ -358,6 +390,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     
     if NSEvent.pressedMouseButtons & 1 != 0 {
         isMovingAWindow = true
+        checkSnapKeyOnWindowMoveStart()
     }
     
     if let hoveredSectionWindow = getHoveredSectionWindow() {
@@ -866,6 +899,7 @@ func onMouseDragged(event: NSEvent) {
                         isMovingAWindow = true
                         toLeaveElement = element
                         debugLog("Detected window drag via mouse monitor: \(windowId)")
+                        checkSnapKeyOnWindowMoveStart()
                     }
                 } else {
                     draggedWindowElement = element
