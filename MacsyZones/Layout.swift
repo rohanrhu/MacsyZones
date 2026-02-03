@@ -1769,21 +1769,13 @@ class SnapResizer: NSWindow {
     override func mouseUp(with event: NSEvent) {
         isSnapResizing = false
         
-        if isSnapResizing && isMouseOverResizer {
-            userLayouts.currentLayout.layoutWindow.hide()
-        }
+        userLayouts.currentLayout.layoutWindow.hide()
         
         if !draggedOnce {
             return
         }
         
-        guard let focusedScreen = getFocusedScreen() else {
-            if isSnapResizing && isMouseOverResizer {
-                userLayouts.currentLayout.layoutWindow.hide()
-            }
-            
-            return
-        }
+        guard let focusedScreen = getFocusedScreen() else { return }
         
         let sectionConfigs = userLayouts.currentLayout.sectionConfigs
         
@@ -1800,12 +1792,6 @@ class SnapResizer: NSWindow {
         }
         
         userLayouts.save()
-        
-        isSnapResizing = false
-        
-        if isSnapResizing && isMouseOverResizer {
-            userLayouts.currentLayout.layoutWindow.hide()
-        }
     }
 
     override func mouseDragged(with event: NSEvent) {
