@@ -313,27 +313,34 @@ struct Main: View {
                         
                         HStack(alignment: .center, spacing: 2) {
                             let buttonHeight: CGFloat = 25
-                            
-                            Button(action: { toggleEditing() }) {
+
+                            Button(action: {
+                                if layouts.currentLayout.layoutType == .grid {
+                                    stopEditing()
+                                    page = "editGrid"
+                                } else {
+                                    toggleEditing()
+                                }
+                            }) {
                                 Image(systemName: "pencil")
                                     .frame(height: buttonHeight)
                             }
-                            
+
                             Button(action: { stopEditing(); page = "rename" }) {
                                 Image(systemName: "rectangle.and.pencil.and.ellipsis")
                                     .frame(height: buttonHeight)
                             }
-                            
+
                             Button(action: { stopEditing(); page = "duplicate" }) {
                                 Image(systemName: "plus.rectangle.on.rectangle")
                                     .frame(height: buttonHeight)
                             }
-                            
+
                             Button(action: { stopEditing(); page = "new" }) {
                                 Image(systemName: "plus")
                                     .frame(height: buttonHeight)
                             }
-                            
+
                             Button(action: { layouts.removeCurrentLayout() }) {
                                 Image(systemName: "trash")
                                     .frame(height: buttonHeight)
@@ -341,6 +348,19 @@ struct Main: View {
                             .disabled(layouts.layouts.count < 2)
                         }
                         .frame(maxWidth: .infinity)
+
+                        if layouts.currentLayout.layoutType == .grid,
+                           let gridConfig = layouts.currentLayout.gridConfig {
+                            HStack(spacing: 4) {
+                                Image(systemName: "grid")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                                Text("Grid: \(gridConfig.rows) x \(gridConfig.columns)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 2)
+                        }
                     }
                     
                     Divider().padding(.vertical, 2)
@@ -844,18 +864,38 @@ struct NewView: View {
     @ObservedObject var layouts = userLayouts
 
     @State var layoutName: String = "My Layout"
-    
+    @State var layoutType: LayoutType = .zone
+    @State var gridRows: Int = 3
+    @State var gridColumns: Int = 3
+
     @State var showAlreadyExistsAlert: Bool = false
-    
+
     var body: some View {
         VStack {
             Text("MacsyZones").font(.headline).padding(.bottom, 10)
-            
+
             Text("Layout Name:").font(.subheadline)
-            
+
             VStack {
                 TextField("Enter Layout Name", text: $layoutName).cornerRadius(5)
-                
+
+                Picker("Layout Type", selection: $layoutType) {
+                    Text("Zones").tag(LayoutType.zone)
+                    Text("Grid").tag(LayoutType.grid)
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.vertical, 4)
+
+                if layoutType == .grid {
+                    VStack(spacing: 6) {
+                        Stepper("Rows: \(gridRows)", value: $gridRows, in: 1...24)
+                        Stepper("Columns: \(gridColumns)", value: $gridColumns, in: 1...24)
+                    }
+                    .padding(8)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                }
+
                 HStack(alignment: .center) {
                     Button(action: {
                         page = "main"
@@ -863,20 +903,25 @@ struct NewView: View {
                         Image(systemName: "xmark").foregroundColor(.red)
                         Text("Cancel")
                     }
-                    
+
                     Button(action: {
                         if layoutName.trimmingCharacters(in: .whitespaces).isEmpty {
                             return
                         }
-                        
+
                         if layouts.layouts.keys.contains(layoutName) {
                             showAlreadyExistsAlert = true
                             return
                         }
-                        
-                        layouts.createLayout(name: layoutName)
-                        startEditing()
-                        
+
+                        switch layoutType {
+                        case .zone:
+                            layouts.createLayout(name: layoutName)
+                            startEditing()
+                        case .grid:
+                            layouts.createGridLayout(name: layoutName, rows: gridRows, columns: gridColumns)
+                        }
+
                         page = "main"
                     }) {
                         Image(systemName: "checkmark").foregroundColor(.green)
@@ -888,7 +933,7 @@ struct NewView: View {
         }
         .alert(isPresented: $showAlreadyExistsAlert) {
             Alert(
-                title: Text("Omg! 😊"),
+                title: Text("Omg!"),
                 message: Text("Another layout with this name already exists. Please choose another name."),
                 dismissButton: .default(Text("OK"))
             )
@@ -1070,6 +1115,96 @@ struct UnlockProView: View {
     }
 }
 
+struct GridPreview: View {
+    let rows: Int
+    let columns: Int
+
+    var body: some View {
+        GeometryReader { geometry in
+            let cellWidth = geometry.size.width / CGFloat(columns)
+            let cellHeight = geometry.size.height / CGFloat(rows)
+
+            ForEach(0..<rows, id: \.self) { row in
+                ForEach(0..<columns, id: \.self) { col in
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.accentColor.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                        )
+                        .frame(width: cellWidth - 3, height: cellHeight - 3)
+                        .position(
+                            x: CGFloat(col) * cellWidth + cellWidth / 2,
+                            y: CGFloat(row) * cellHeight + cellHeight / 2
+                        )
+                }
+            }
+        }
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+struct GridEditorView: View {
+    @Binding var page: String
+    @ObservedObject var layouts = userLayouts
+
+    @State var gridRows: Int
+    @State var gridColumns: Int
+
+    init(page: Binding<String>) {
+        _page = page
+        let config = userLayouts.currentLayout.gridConfig ?? GridConfig.defaultGrid
+        _gridRows = State(initialValue: config.rows)
+        _gridColumns = State(initialValue: config.columns)
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("MacsyZones").font(.headline).padding(.bottom, 4)
+
+            Text("Edit Grid: \(layouts.currentLayoutName)").font(.subheadline)
+
+            GridPreview(rows: gridRows, columns: gridColumns)
+                .frame(width: 200, height: 130)
+                .padding(.vertical, 4)
+
+            VStack(spacing: 6) {
+                Stepper("Rows: \(gridRows)", value: $gridRows, in: 1...24)
+                Stepper("Columns: \(gridColumns)", value: $gridColumns, in: 1...24)
+            }
+            .padding(8)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+
+            HStack(spacing: 12) {
+                Button(action: {
+                    page = "main"
+                }) {
+                    Image(systemName: "xmark").foregroundColor(.red)
+                    Text("Cancel")
+                }
+
+                Button(action: {
+                    let newConfig = GridConfig(rows: gridRows, columns: gridColumns)
+                    layouts.currentLayout.gridConfig = newConfig
+                    layouts.currentLayout.gridLayoutWindow?.gridConfig = newConfig
+                    layouts.currentLayout.gridLayoutWindow?.updateView()
+                    layouts.save()
+                    page = "main"
+                }) {
+                    Image(systemName: "checkmark").foregroundColor(.green)
+                    Text("Save")
+                }
+            }
+        }
+    }
+}
+
 struct TrayPopupView: View {
     @ObservedObject var ready = macsyReady
     @ObservedObject var proLock = macsyProLock
@@ -1107,6 +1242,8 @@ struct TrayPopupView: View {
                     RenameView(page: $page, layoutName: layouts.currentLayoutName)
                 case "duplicate":
                     DuplicateView(page: $page, layoutName: generateUniqueDuplicateName())
+                case "editGrid":
+                    GridEditorView(page: $page)
                 case "unlock":
                     UnlockProView(proLock: proLock, page: $page)
                 default:

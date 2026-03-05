@@ -394,11 +394,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
                     snapKeyUsed = true
                     isFitting = true
-                    userLayouts.currentLayout.layoutWindow.show()
+                    userLayouts.currentLayout.show()
+                    if userLayouts.currentLayout.layoutType == .grid {
+                        userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                    }
                 } else if isFitting {
                     isFitting = false
                     if !isQuickSnapping {
-                        userLayouts.currentLayout.layoutWindow.hide()
+                        userLayouts.currentLayout.hide()
                     }
                 }
                 
@@ -420,7 +423,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     if !isFitting {
                         modifierKeyTask = DispatchWorkItem {
                             if isFitting {
-                                userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
+                                if userLayouts.currentLayout.layoutType == .zone {
+                                    userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
+                                } else {
+                                    userLayouts.currentLayout.show()
+                                }
                             }
                         }
                         
@@ -434,7 +441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     if isFitting {
                         isFitting = false
                         if !isQuickSnapping {
-                            userLayouts.currentLayout.layoutWindow.hide()
+                            userLayouts.currentLayout.hide()
                         }
                     }
                 }
@@ -457,11 +464,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 {
                     userLayouts.currentLayoutName = layoutName
                 }
-                
-                userLayouts.currentLayout.layoutWindow.show()
+
+                userLayouts.currentLayout.show()
+                if userLayouts.currentLayout.layoutType == .grid {
+                    userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                }
                 isFitting = true
             } else {
-                userLayouts.currentLayout.layoutWindow.hide()
+                userLayouts.currentLayout.hide()
                 isFitting = false
             }
         }

@@ -1932,6 +1932,211 @@ struct SnapResizerView: View {
     }
 }
 
+// MARK: - Grid Layout
+
+struct GridCell: Hashable {
+    var row: Int
+    var col: Int
+}
+
+class GridSelectionState: ObservableObject {
+    @Published var anchorCell: GridCell?
+    @Published var currentCell: GridCell?
+    @Published var isSelecting: Bool = false
+
+    var selectionBounds: (minRow: Int, maxRow: Int, minCol: Int, maxCol: Int)? {
+        guard let anchor = anchorCell, let current = currentCell else { return nil }
+        return (
+            minRow: min(anchor.row, current.row),
+            maxRow: max(anchor.row, current.row),
+            minCol: min(anchor.col, current.col),
+            maxCol: max(anchor.col, current.col)
+        )
+    }
+
+    func reset() {
+        anchorCell = nil
+        currentCell = nil
+        isSelecting = false
+    }
+}
+
+struct GridOverlayView: View {
+    let rows: Int
+    let columns: Int
+    @ObservedObject var selectionState: GridSelectionState
+
+    private func isCellSelected(row: Int, col: Int) -> Bool {
+        guard let bounds = selectionState.selectionBounds else { return false }
+        return row >= bounds.minRow && row <= bounds.maxRow &&
+               col >= bounds.minCol && col <= bounds.maxCol
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let cellWidth = geometry.size.width / CGFloat(columns)
+            let cellHeight = geometry.size.height / CGFloat(rows)
+
+            ZStack {
+                // Cell backgrounds
+                ForEach(0..<rows, id: \.self) { row in
+                    ForEach(0..<columns, id: \.self) { col in
+                        let isSelected = isCellSelected(row: row, col: col)
+
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(isSelected ? Color.accentColor.opacity(0.25) : Color.white.opacity(0.04))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.white.opacity(0.15), lineWidth: isSelected ? 2 : 1)
+                            )
+                            .frame(width: cellWidth - 4, height: cellHeight - 4)
+                            .position(
+                                x: CGFloat(col) * cellWidth + cellWidth / 2,
+                                y: CGFloat(row) * cellHeight + cellHeight / 2
+                            )
+                    }
+                }
+
+                if let bounds = selectionState.selectionBounds {
+                    let x = CGFloat(bounds.minCol) * cellWidth
+                    let y = CGFloat(bounds.minRow) * cellHeight
+                    let width = CGFloat(bounds.maxCol - bounds.minCol + 1) * cellWidth
+                    let height = CGFloat(bounds.maxRow - bounds.minRow + 1) * cellHeight
+
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentColor, lineWidth: 3)
+                        .shadow(color: Color.accentColor.opacity(0.4), radius: 8, x: 0, y: 0)
+                        .frame(width: width - 2, height: height - 2)
+                        .position(x: x + width / 2, y: y + height / 2)
+                }
+            }
+        }
+        .background(Color.clear)
+    }
+}
+
+class GridLayoutWindow {
+    var name: String
+    var gridConfig: GridConfig
+    var window: NSWindow
+    var selectionState = GridSelectionState()
+    var isShown = false
+
+    init(name: String, gridConfig: GridConfig) {
+        self.name = name
+        self.gridConfig = gridConfig
+
+        let screenSize = getFocusedScreen()?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+
+        window = NSWindow(
+            contentRect: screenSize,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Macsy Grid Layout"
+        window.level = .statusBar
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.ignoresMouseEvents = true
+        window.isMovableByWindowBackground = false
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.hasShadow = false
+
+        updateView()
+        window.orderOut(nil)
+    }
+
+    func updateView() {
+        let view = GridOverlayView(
+            rows: gridConfig.rows,
+            columns: gridConfig.columns,
+            selectionState: selectionState
+        )
+        window.contentView = NSHostingView(rootView: view)
+    }
+
+    func show() {
+        guard !isShown else { return }
+        isShown = true
+
+        if let focusedScreen = getFocusedScreen() {
+            window.setFrame(focusedScreen.visibleFrame, display: true)
+        }
+
+        selectionState.reset()
+        updateView()
+
+        window.alphaValue = 0
+        window.orderFront(nil)
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            window.animator().alphaValue = 1
+        }
+    }
+
+    func hide() {
+        guard isShown else { return }
+        isShown = false
+
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            self?.window.orderOut(nil)
+            self?.selectionState.reset()
+        })
+    }
+
+    func setAnchorAtMousePosition() {
+        guard let screen = getFocusedScreen() else { return }
+        let mouseLocation = NSEvent.mouseLocation
+
+        if let cell = gridConfig.cellAt(point: mouseLocation, on: screen) {
+            selectionState.anchorCell = GridCell(row: cell.row, col: cell.col)
+            selectionState.currentCell = GridCell(row: cell.row, col: cell.col)
+            selectionState.isSelecting = true
+        }
+    }
+
+    func updateSelectionToMousePosition() {
+        guard selectionState.isSelecting else { return }
+        guard let screen = getFocusedScreen() else { return }
+        let mouseLocation = NSEvent.mouseLocation
+
+        if let cell = gridConfig.cellAt(point: mouseLocation, on: screen) {
+            selectionState.currentCell = GridCell(row: cell.row, col: cell.col)
+        }
+    }
+
+    func getSelectionRect() -> NSRect? {
+        guard let bounds = selectionState.selectionBounds,
+              let screen = getFocusedScreen() else { return nil }
+
+        return gridConfig.getSelectionRect(
+            fromRow: bounds.minRow,
+            fromCol: bounds.minCol,
+            toRow: bounds.maxRow,
+            toCol: bounds.maxCol,
+            on: screen
+        )
+    }
+
+    func getSelectionAXRect() -> NSRect? {
+        guard let bounds = selectionState.selectionBounds,
+              let screen = getFocusedScreen() else { return nil }
+
+        return gridConfig.getSelectionAXRect(
+            fromRow: bounds.minRow,
+            fromCol: bounds.minCol,
+            toRow: bounds.maxRow,
+            toCol: bounds.maxCol,
+            on: screen
+        )
+    }
+}
+
 #Preview {
 }
 

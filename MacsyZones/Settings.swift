@@ -41,7 +41,7 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultOnlyFallbackToPreviousSizeWithUserEvent: Bool = true
     private static let defaultSelectPerDesktopLayout: Bool = true
     private static let defaultPrioritizeCenterToSnap: Bool = true
-    private static let defaultShakeToSnap: Bool = true
+    private static let defaultShakeToSnap: Bool = true 
     private static let defaultShakeAccelerationThreshold: CGFloat = 50000.0
     private static let defaultSnapResize: Bool = true
     private static let defaultSnapResizeThreshold: CGFloat = 33.0

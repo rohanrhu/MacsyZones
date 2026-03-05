@@ -134,13 +134,15 @@ struct QuickSnapperView: View {
                         Image(systemName: "window.vertical.closed")
                             .renderingMode(.template).foregroundColor(.primary)
                     }
-                    
-                    Label {
-                        Text("1-9")
-                            .font(.system(size: 12, weight: .medium))
-                    } icon: {
-                        Image(systemName: "square.grid.3x3")
-                            .renderingMode(.template).foregroundColor(.primary)
+
+                    if userLayouts.currentLayout.layoutType == .zone {
+                        Label {
+                            Text("1-9")
+                                .font(.system(size: 12, weight: .medium))
+                        } icon: {
+                            Image(systemName: "square.grid.3x3")
+                                .renderingMode(.template).foregroundColor(.primary)
+                        }
                     }
                     
                     Label {
@@ -386,7 +388,7 @@ class QuickSnapper: ObservableObject {
         centerWindowOnFocusedScreen(panel)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
-            userLayouts.currentLayout.layoutWindow.show()
+            userLayouts.currentLayout.show()
         }
         
         registerHotkeys()
@@ -407,7 +409,7 @@ class QuickSnapper: ObservableObject {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.hide()
         
         isQuickSnapping = false
     }

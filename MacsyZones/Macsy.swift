@@ -20,6 +20,7 @@ var userLayouts: UserLayouts = .init()
 var updateState: UpdateState = .init()
 var toLeaveElement: AXUIElement?
 var toLeaveSectionWindow: SectionWindow?
+var toLeaveGridRect: NSRect?
 
 var isFitting = false
 var isEditing = false
@@ -58,9 +59,17 @@ func checkSnapKeyOnWindowMoveStart() {
                 userLayouts.setCurrentLayout(name: layoutName)
             }
         }
-        
+
         isFitting = true
-        userLayouts.currentLayout.layoutWindow.show()
+
+        let currentLayout = userLayouts.currentLayout
+        switch currentLayout.layoutType {
+        case .zone:
+            currentLayout.layoutWindow.show()
+        case .grid:
+            currentLayout.gridLayoutWindow?.show()
+            currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+        }
     }
 }
 
@@ -345,12 +354,20 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             }
             
             if isFitting {
-                userLayouts.currentLayout.layoutWindow.show()
+                let currentLayout = userLayouts.currentLayout
+                switch currentLayout.layoutType {
+                case .zone:
+                    currentLayout.layoutWindow.show()
+                case .grid:
+                    currentLayout.gridLayoutWindow?.show()
+                    currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                }
             }
-            
+
             toLeaveElement = nil
             toLeaveSectionWindow = nil
-            
+            toLeaveGridRect = nil
+
             return
         }
     }
@@ -392,10 +409,20 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         isMovingAWindow = true
         checkSnapKeyOnWindowMoveStart()
     }
-    
-    if let hoveredSectionWindow = getHoveredSectionWindow() {
-        toLeaveElement = element
-        toLeaveSectionWindow = hoveredSectionWindow
+
+    let currentLayout = userLayouts.currentLayout
+    switch currentLayout.layoutType {
+    case .zone:
+        if let hoveredSectionWindow = getHoveredSectionWindow() {
+            toLeaveElement = element
+            toLeaveSectionWindow = hoveredSectionWindow
+        }
+    case .grid:
+        if isFitting {
+            currentLayout.gridLayoutWindow?.updateSelectionToMousePosition()
+            toLeaveElement = element
+            toLeaveGridRect = currentLayout.gridLayoutWindow?.getSelectionAXRect()
+        }
     }
     
     guard let windowId = getWindowID(from: element) else {
@@ -488,9 +515,9 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
                         
                         isFitting = !isFitting
                         if isFitting {
-                            userLayouts.currentLayout.layoutWindow.show()
+                            userLayouts.currentLayout.show()
                         } else {
-                            userLayouts.currentLayout.layoutWindow.hide()
+                            userLayouts.currentLayout.hide()
                         }
                         
                         shakeMagnitudeCount = 0
@@ -908,40 +935,62 @@ func onMouseDragged(event: NSEvent) {
             }
         }
     } else {
-        if let hoveredSectionWindow = getHoveredSectionWindow() {
-            toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
-            toLeaveSectionWindow = hoveredSectionWindow
+        let currentLayout = userLayouts.currentLayout
+        switch currentLayout.layoutType {
+        case .zone:
+            if let hoveredSectionWindow = getHoveredSectionWindow() {
+                toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
+                toLeaveSectionWindow = hoveredSectionWindow
+            }
+        case .grid:
+            if isFitting {
+                currentLayout.gridLayoutWindow?.updateSelectionToMousePosition()
+                toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
+                toLeaveGridRect = currentLayout.gridLayoutWindow?.getSelectionAXRect()
+            }
         }
     }
 }
 
 func onMouseUp(event: NSEvent) {
     isMovingAWindow = false
-    
+
     previousPosition = nil
     previousVelocity = nil
     previousTime = nil
     lastShakeTime = Date().timeIntervalSince1970 + 0.75
-    
+
     if isQuickSnapping { return }
-    
+
     if !isFitting { return }
-    
+
     if isEditing || isSnapResizing || isQuickSnapping {
         isFitting = false
     }
-    
+
+    let currentLayout = userLayouts.currentLayout
+
+    switch currentLayout.layoutType {
+    case .zone:
+        handleZoneMouseUp()
+    case .grid:
+        handleGridMouseUp()
+    }
+
+    draggedWindowElement = nil
+    draggedWindowInitialPosition = nil
+}
+
+private func handleZoneMouseUp() {
     if let hoveredSectionWindow = getHoveredSectionWindow() {
         toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
         toLeaveSectionWindow = hoveredSectionWindow
     }
-    
+
     guard let window = toLeaveElement else {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        draggedWindowElement = nil
-        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
@@ -949,19 +998,16 @@ func onMouseUp(event: NSEvent) {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        draggedWindowElement = nil
-        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
-        toLeaveElement = nil
         return
     }
-    
+
     if let sectionWindow = toLeaveSectionWindow {
         if isFitting {
             OriginalWindowProperties.update(windowID: windowId)
-            
+
             moveWindowToMatch(element: window, targetWindow: sectionWindow.window)
-            
+
             if let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() {
                 PlacedWindows.place(windowId: windowId,
                                     screenNumber: screenNumber,
@@ -970,23 +1016,75 @@ func onMouseUp(event: NSEvent) {
                                     sectionNumber: toLeaveSectionWindow!.number,
                                     element: toLeaveElement!)
             }
-            
+
             justDidMouseUp = true
         }
-        
+
         isFitting = false
         userLayouts.currentLayout.layoutWindow.hide()
     } else {
         isFitting = false
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        draggedWindowElement = nil
-        draggedWindowInitialPosition = nil
         userLayouts.currentLayout.layoutWindow.hide()
     }
-    
-    draggedWindowElement = nil
-    draggedWindowInitialPosition = nil
+}
+
+private func handleGridMouseUp() {
+    let gridLayoutWindow = userLayouts.currentLayout.gridLayoutWindow
+
+    gridLayoutWindow?.updateSelectionToMousePosition()
+    toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
+    toLeaveGridRect = gridLayoutWindow?.getSelectionAXRect()
+
+    guard let window = toLeaveElement else {
+        isFitting = false
+        toLeaveElement = nil
+        toLeaveGridRect = nil
+        gridLayoutWindow?.hide()
+        return
+    }
+    guard let windowId = getWindowID(from: window) else {
+        isFitting = false
+        toLeaveElement = nil
+        toLeaveGridRect = nil
+        gridLayoutWindow?.hide()
+        return
+    }
+    guard let snapRect = toLeaveGridRect else {
+        isFitting = false
+        toLeaveElement = nil
+        toLeaveGridRect = nil
+        gridLayoutWindow?.hide()
+        return
+    }
+
+    if isFitting {
+        OriginalWindowProperties.update(windowID: windowId)
+
+        resizeAndMoveWindow(
+            element: window,
+            newPosition: snapRect.origin,
+            newSize: snapRect.size,
+            retries: 10
+        )
+
+        if let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() {
+            PlacedWindows.place(windowId: windowId,
+                                screenNumber: screenNumber,
+                                workspaceNumber: workspaceNumber,
+                                layoutName: userLayouts.currentLayoutName,
+                                sectionNumber: -1,
+                                element: window)
+        }
+
+        justDidMouseUp = true
+    }
+
+    isFitting = false
+    toLeaveElement = nil
+    toLeaveGridRect = nil
+    gridLayoutWindow?.hide()
 }
 
 // MARK: - Window Cycling Functions
