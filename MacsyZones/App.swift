@@ -356,6 +356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         var prevFlags = NSEvent.ModifierFlags()
         
         NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if !macsyReady.isReady { return }
             var modifierKey: NSEvent.ModifierFlags = .control
             
             if appSettings.modifierKey == "Command" {
@@ -451,6 +452,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     
     private func monitorRightClick() {
         mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { event in
+            if !macsyReady.isReady { return }
             if event.buttonNumber != 1 { return }
             if !appSettings.snapWithRightClick { return }
             if isEditing { return }

@@ -53,6 +53,7 @@ func isSnapKeyPressed() -> Bool {
 }
 
 func checkSnapKeyOnWindowMoveStart() {
+    if !macsyReady.isReady { return }
     if isSnapKeyPressed() && !isFitting {
         if appSettings.selectPerDesktopLayout {
             if let layoutName = spaceLayoutPreferences.getCurrent() {
@@ -336,6 +337,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
 }
 
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
+    if !macsyReady.isReady { return }
     if let movingOnScreen = windowMovingOnScreen {
         if let screen = getFocusedScreen(), screen != movingOnScreen {
             windowMovingOnScreen = screen
@@ -900,6 +902,7 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
 }
 
 func onMouseDragged(event: NSEvent) {
+    if !macsyReady.isReady { return }
     if isEditing { return }
     if isSnapResizing { return }
     if isQuickSnapping { return }
@@ -953,6 +956,7 @@ func onMouseDragged(event: NSEvent) {
 }
 
 func onMouseUp(event: NSEvent) {
+    if !macsyReady.isReady { return }
     isMovingAWindow = false
 
     previousPosition = nil
