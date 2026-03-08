@@ -2057,7 +2057,6 @@ class GridLayoutWindow {
     }
 
     func show() {
-        guard !isShown else { return }
         isShown = true
 
         if let focusedScreen = getFocusedScreen() {
@@ -2084,8 +2083,11 @@ class GridLayoutWindow {
             context.duration = 0.15
             window.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            self?.window.orderOut(nil)
-            self?.selectionState.reset()
+            guard let self = self else { return }
+            if !self.isShown {
+                self.window.orderOut(nil)
+                self.selectionState.reset()
+            }
         })
     }
 
