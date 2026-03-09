@@ -2057,6 +2057,7 @@ class GridLayoutWindow {
     }
 
     func show() {
+        let wasShown = isShown
         isShown = true
 
         if let focusedScreen = getFocusedScreen() {
@@ -2066,28 +2067,29 @@ class GridLayoutWindow {
         selectionState.reset()
         updateView()
 
-        window.alphaValue = 0
-        window.orderFront(nil)
+        if !wasShown {
+            window.alphaValue = 0
+            window.orderFront(nil)
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            window.animator().alphaValue = 1
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.35
+                window.animator().alphaValue = 1
+            }
+        } else {
+            window.alphaValue = 1
+            window.orderFront(nil)
         }
     }
 
     func hide() {
-        guard isShown else { return }
         isShown = false
 
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
-            window.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            guard let self = self else { return }
-            if !self.isShown {
-                self.window.orderOut(nil)
-                self.selectionState.reset()
-            }
+            context.duration = 0.35
+            self.window.animator().alphaValue = 0
+        }, completionHandler: {
+            self.window.orderOut(nil)
+            self.selectionState.reset()
         })
     }
 
