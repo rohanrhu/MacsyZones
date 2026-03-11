@@ -309,6 +309,12 @@ struct Main: View {
                             if wasEditing { startEditing() }
                             spaceLayoutPreferences.setCurrent(layoutName: layouts.currentLayoutName)
                             spaceLayoutPreferences.save()
+                            // Passive auto-association when user changes layout via picker
+                            Task { @MainActor in
+                                Task { @MainActor in
+                                    autoAssociateAllWindowsInCurrentLayout(reason: "layout-switch")
+                                }
+                            }
                         }
                         
                         HStack(alignment: .center, spacing: 2) {
