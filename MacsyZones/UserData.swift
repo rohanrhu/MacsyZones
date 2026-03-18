@@ -127,7 +127,7 @@ class UserData {
         let filePath = appDirectory.appendingPathComponent(fileName)
         
         do {
-            try data.write(to: filePath, atomically: true, encoding: .utf8)
+            try data.write(to: filePath, atomically: false, encoding: .utf8)
         } catch (let error) {
             debugLog("Error saving user data: \(error)")
         }
