@@ -10,7 +10,7 @@ Make your workflow more efficient with MacsyZones. Organize your windows with ea
 Visit [https://macsyzones.com](https://macsyzones.com) to download MacsyZones.
 
 | ![MacsyZones](media/MacsyZonesAppIcon.png) | MacsyZones is a FancyZones equivalent for macOS. MacsyZones allows you to create layouts and sections in your layouts as you want and fit your windows into sections with ease. |
-| --- | --- |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 
 <img width="1728" height="1760" alt="MacsyZones Settings" src="https://github.com/user-attachments/assets/54385d2e-7d97-4d85-8aab-a9681cea8b70" />
 
@@ -45,8 +45,8 @@ You love [MacsyZones](https://macsyzones.com)? You can support the development b
 
 | Currency          | Address                                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------------------- |
-| BTC               | bc1qhvlc762kwuzeawedl9a8z0duhs8449nwwc35e2                                                      |
-| ETH / USDT / USDC | 0x1D99B2a2D85C34d478dD8519792e82B18f861974                                                      |
+| BTC               | 1A3NkkFEMFc2wq74GGRXdzrsEn42Ts1ajm                                                              |
+| ETH / USDT / USDC | 0xDDD5e5029F4d1CA54461abCF558Cb6dcAD6Df3CB                                                      |
 | XMR               | 88qvS4sfUnLZ7nehFrz3PG1pWovvEgprcUhkmVLaiL8PVAFgfHjspjKPLhWLj3DUcm92rwNQENbJ1ZbvESdukWvh3epBUty |
 
 Preferably, donating USDT or USDC is recommended but you can donate any of the above currencies. 🥳
@@ -65,7 +65,7 @@ We have adopted a Code of Conduct that we expect project participants to adhere 
 
 ## License
 
-Copyright (C) 2024, Oğuzhan Eroğlu <rohanrhu2@gmail.com> (<https://meowingcat.io/>)
+Copyright (C) 2024, Oğuzhan Eroğlu <rohanrhu2@gmail.com> ([https://meowingcat.io/](https://meowingcat.io/))
 
 GNU General Public License v3 (GPL-3)
 
