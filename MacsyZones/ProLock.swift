@@ -76,7 +76,7 @@ class ProLock: ObservableObject {
         let filePath = appDirectory.appendingPathComponent(licenseFileName)
         
         do {
-            try licenseKey.write(to: filePath, atomically: true, encoding: .utf8)
+            try licenseKey.write(to: filePath, atomically: false, encoding: .utf8)
             debugLog("License key saved")
         } catch {
             debugLog("Error saving license key: \(error)")
