@@ -1192,7 +1192,7 @@ class LayoutWindow: ObservableObject {
         
         let mouseLocation = NSEvent.mouseLocation
         let resizerRectsWithInfo = calculateSnapResizerRectsWithInfo()
-        let proximityRects = resizerRectsWithInfo.filter { $0.rect.insetBy(dx: -snapResizerProximityThreshold, dy: -snapResizerProximityThreshold).contains(mouseLocation) }
+        let proximityRects = resizerRectsWithInfo.filter { $0.rect.insetBy(dx: -snapResizerProximityThreshold, dy: -snapResizerProximityThreshold).contains(mouseLocation) && hasVisibleSnappedWindow(in: $0.relatedSections) }
         var newActiveKeys: Set<String> = []
         
         for info in proximityRects {
@@ -1234,6 +1234,54 @@ class LayoutWindow: ObservableObject {
 
     func rectKey(_ rect: NSRect) -> String {
         return String(format: "%.1f,%.1f,%.1f,%.1f", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+    }
+
+    func hasVisibleSnappedWindow(in relatedSections: [RelatedSection]) -> Bool {
+        let onScreenWindowIDs: Set<UInt32> = {
+            guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+                return []
+            }
+            var ids = Set<UInt32>()
+            for info in windowList {
+                if let windowId = info[kCGWindowNumber as String] as? UInt32 {
+                    ids.insert(windowId)
+                }
+            }
+            return ids
+        }()
+
+        let sectionNumbers = Set(relatedSections.map { $0.sectionWindow.number })
+
+        for (windowId, sectionNumber) in PlacedWindows.windows {
+            guard sectionNumbers.contains(sectionNumber) else { continue }
+            guard PlacedWindows.layouts[windowId] == name else { continue }
+            guard onScreenWindowIDs.contains(windowId) else { continue }
+
+            if let element = PlacedWindows.elements[windowId] {
+                var minimizedValue: AnyObject?
+                if AXUIElementCopyAttributeValue(element, kAXMinimizedAttribute as CFString, &minimizedValue) == .success,
+                   let isMinimized = minimizedValue as? Bool, isMinimized {
+                    continue
+                }
+
+                var pidValue: pid_t = 0
+                AXUIElementGetPid(element, &pidValue)
+                if let app = NSRunningApplication(processIdentifier: pidValue), app.isHidden {
+                    continue
+                }
+            }
+
+            if let wList = CGWindowListCopyWindowInfo(.optionIncludingWindow, CGWindowID(windowId)) as? [[String: Any]],
+               let wInfo = wList.first,
+               let alpha = wInfo[kCGWindowAlpha as String] as? CGFloat,
+               alpha <= 0 {
+                continue
+            }
+
+            return true
+        }
+
+        return false
     }
 
     func calculateSnapResizerRectsWithInfo() -> [(rect: NSRect, relatedSections: [RelatedSection], mode: SnapResizerMode)] {
@@ -1504,6 +1552,8 @@ class LayoutWindow: ObservableObject {
                             }
                         }
                         
+                        guard hasVisibleSnappedWindow(in: relatedSections) else { continue }
+                        
                         let sectionResizer = SnapResizer(width: verticalButtonWidth,
                                                          height: verticalButtonHeight,
                                                          relatedSections: relatedSections,
@@ -1551,6 +1601,8 @@ class LayoutWindow: ObservableObject {
                                                              gapToButton: yGapToButton))
                             }
                         }
+                        
+                        guard hasVisibleSnappedWindow(in: relatedSections) else { continue }
                         
                         let sectionResizer = SnapResizer(width: horizontalButtonWidth, height: horizontalButtonHeight, relatedSections: relatedSections, mode: .horizontal)
                         sectionResizer.setFrame(NSRect(x: buttonX, y: buttonY, width: horizontalButtonWidth, height: horizontalButtonHeight), display: true, animate: false)
