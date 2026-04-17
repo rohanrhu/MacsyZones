@@ -81,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         userLayouts.load()
         checkAccessibilityPermission()
         requestAccessibilityPermissions()
+        monitorActivations()
         GlobalHotkey.setup()
         
         if #available(macOS 12.0, *) {
@@ -172,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         
         checkUpdateState()
     }
+    
     
     func checkIfRunning() {
         let notificationName = "MeowingCat.MacsyZones.CheckIfRunning"
@@ -316,6 +318,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             accessibilityDialog = AccessibilityDialog()
         }
         accessibilityDialog?.show()
+    }
+
+    func monitorActivations() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAppActivation(_:)),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWindowDidBecomeKey(_:)),
+            name: NSWindow.didBecomeKeyNotification,
+            object: nil
+        )
+    }
+
+    @objc func handleAppActivation(_ notification: Notification) {
+        if !appSettings.selectPerDesktopLayout { return }
+        spaceLayoutPreferences.switchToCurrent()
+    }
+
+    @objc func handleWindowDidBecomeKey(_ notification: Notification) {
+        if !appSettings.selectPerDesktopLayout { return }
+        spaceLayoutPreferences.switchToCurrent()
     }
     
     func startObserving(pid: pid_t, element: AXUIElement? = nil) {

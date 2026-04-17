@@ -120,6 +120,8 @@ class SpaceLayoutPreferences: UserData {
             for (_, layout) in userLayouts.layouts {
                 layout.hideAllWindows()
             }
+            
+            debugLog("Switched to layout: \(userLayouts.currentLayoutName) for current space")
         }
     }
     
