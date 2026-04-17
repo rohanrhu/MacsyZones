@@ -276,7 +276,15 @@ struct EditorSectionView: View {
                         }
                         
                         if !veryCompact {
-                            Text("\(Int(sectionWindow.windowSize.width))x\(Int(sectionWindow.windowSize.height))")
+                            let screenWidth = sectionWindow.layoutWindow.window.frame.width
+                            let screenHeight = sectionWindow.layoutWindow.window.frame.height
+                            let widthPct = screenWidth > 0 ? sectionWindow.windowSize.width / screenWidth : 0
+                            let heightPct = screenHeight > 0 ? sectionWindow.windowSize.height / screenHeight : 0
+                            let widthRatio = screenRatioString(for: widthPct)
+                            let heightRatio = screenRatioString(for: heightPct)
+                            let widthLabel = widthRatio.map { "\(Int(sectionWindow.windowSize.width)) px (\($0))" } ?? "\(Int(sectionWindow.windowSize.width)) px"
+                            let heightLabel = heightRatio.map { "\(Int(sectionWindow.windowSize.height)) px (\($0))" } ?? "\(Int(sectionWindow.windowSize.height)) px"
+                            Text("\(widthLabel) × \(heightLabel)")
                                 .font(.system(size: sizeFontSize, weight: .light))
                                 .foregroundColor(Color.accentColor.opacity(0.85))
                                 .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: -1)
