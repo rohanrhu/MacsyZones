@@ -95,6 +95,12 @@ class GlobalHotkey: Identifiable, Equatable {
         
         self.shortcut = newShortcut
         
+        if newShortcut.isEmpty {
+            unregister()
+            debugLog("Shortcut is empty, unregistered and skipping registration")
+            return
+        }
+        
         if let existingHotKeyRef = hotKeyRef {
             let unregisterStatus = UnregisterEventHotKey(existingHotKeyRef)
             debugLog("Unregistered old hotkey with status: \(unregisterStatus)")

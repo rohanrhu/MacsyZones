@@ -30,26 +30,40 @@ struct ShortcutInputView: View {
     @ObservedObject private var popoverState = PopoverState.shared
 
     var body: some View {
-        Button(action: {
-            toggleListening()
-        }) {
-            VStack {
-                Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : presentingShortcut(shortcut))
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .cornerRadius(7)
+        HStack(spacing: 4) {
+            Button(action: {
+                toggleListening()
+            }) {
+                VStack {
+                    Text(isListening ? "Listening for shortcut..." : shortcut.isEmpty ? "Click to set shortcut" : presentingShortcut(shortcut))
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .cornerRadius(7)
+                }
+                .frame(height: 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(isListening ? Color(NSColor.selectedTextBackgroundColor) : Color.gray, lineWidth: 1)
+                )
             }
-            .frame(height: 20)
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(isListening ? Color(NSColor.selectedTextBackgroundColor).opacity(0.2) : Color.gray.opacity(0.1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 7)
-                    .stroke(isListening ? Color(NSColor.selectedTextBackgroundColor) : Color.gray, lineWidth: 1)
-            )
+            .buttonStyle(PlainButtonStyle())
+
+            if !shortcut.isEmpty {
+                Button(action: {
+                    stopListening()
+                    shortcut = ""
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
         }
-        .buttonStyle(PlainButtonStyle())
         .onDisappear {
             stopListening()
             isFocused.wrappedValue = false
