@@ -5,3 +5,4 @@ build/
 .vscode/
 buildServer.json
 *.code-workspace
+.compile
