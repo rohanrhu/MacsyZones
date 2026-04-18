@@ -337,12 +337,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
 
     @objc func handleAppActivation(_ notification: Notification) {
-        if !appSettings.selectPerDesktopLayout { return }
+        guard appSettings.selectPerDesktopLayout,
+              !isQuickSnapping,
+              !isEditing,
+              !isFitting,
+              !isSnapResizing
+        else { return }
+
         spaceLayoutPreferences.switchToCurrent()
     }
 
     @objc func handleWindowDidBecomeKey(_ notification: Notification) {
-        if !appSettings.selectPerDesktopLayout { return }
+        guard appSettings.selectPerDesktopLayout,
+              !isQuickSnapping,
+              !isEditing,
+              !isFitting,
+              !isSnapResizing
+        else { return }
+        
         spaceLayoutPreferences.switchToCurrent()
     }
     
