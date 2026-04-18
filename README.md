@@ -34,6 +34,12 @@ You can buy MacsyZones Pro (the same MacsyZones just "Pro") to support me.
 
 Visit [MacsyZones website](https://macsyzones.com) to buy.
 
+## Buy QuakeNotch to support me
+
+You can try my other app QuakeNotch too. It is a Agentic AI Quake Terminal app and more.
+
+Visit [QuakeNotch website](https://quakenotch.com) to buy.
+
 ## Donations ❤️
 
 You love [MacsyZones](https://macsyzones.com)? You can support the development by making a donation. You have the following options to donate:
