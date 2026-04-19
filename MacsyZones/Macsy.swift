@@ -27,11 +27,13 @@ var isEditing = false
 var isQuickSnapping = false
 var isSnapResizing = false
 
+var movingWindowInfo: (element: AXUIElement, windowId: UInt32)?
 var isMovingAWindow = false
 var draggedWindowElement: AXUIElement?
 var draggedWindowInitialPosition: CGPoint?
 
 var windowMovingOnScreen: NSScreen? = nil
+var placedWindowMoveStartPosition: CGPoint?
 
 func isSnapKeyPressed() -> Bool {
     guard appSettings.snapKey != "None" else { return false }
@@ -337,9 +339,11 @@ func getHoveredSectionWindow() -> SectionWindow? {
 }
 
 func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFString, title: String, position: CGPoint) {
-    if !macsyReady.isReady { return }
+    guard macsyReady.isReady else { return }
+
     if let movingOnScreen = windowMovingOnScreen {
         if let screen = getFocusedScreen(), screen != movingOnScreen {
+            movingWindowInfo = (element: element, windowId: getWindowID(from: element) ?? 0)
             windowMovingOnScreen = screen
             
             for layout in userLayouts.layouts.values {
@@ -385,9 +389,10 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         }
     }
     
-    if isEditing { return }
-    if isSnapResizing { return }
-    if isQuickSnapping { return }
+    guard !isEditing,
+          !isSnapResizing,
+          !isQuickSnapping
+    else { return }
     
     var subroleRef: CFTypeRef?
     AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef)
@@ -404,6 +409,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     let role = roleRef as? String ?? "Unknown"
     
     if role != kAXWindowRole {
+        debugLog("Element is not a window! Role: \(role), Subrole: \(subrole)")
         return
     }
     
@@ -413,18 +419,19 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     }
 
     let currentLayout = userLayouts.currentLayout
+
     switch currentLayout.layoutType {
-    case .zone:
-        if let hoveredSectionWindow = getHoveredSectionWindow() {
-            toLeaveElement = element
-            toLeaveSectionWindow = hoveredSectionWindow
-        }
-    case .grid:
-        if isFitting {
-            currentLayout.gridLayoutWindow?.updateSelectionToMousePosition()
-            toLeaveElement = element
-            toLeaveGridRect = currentLayout.gridLayoutWindow?.getSelectionAXRect()
-        }
+        case .zone:
+            if let hoveredSectionWindow = getHoveredSectionWindow() {
+                toLeaveElement = element
+                toLeaveSectionWindow = hoveredSectionWindow
+            }
+        case .grid:
+            if isFitting {
+                currentLayout.gridLayoutWindow?.updateSelectionToMousePosition()
+                toLeaveElement = element
+                toLeaveGridRect = currentLayout.gridLayoutWindow?.getSelectionAXRect()
+            }
     }
     
     guard let windowId = getWindowID(from: element) else {
@@ -438,31 +445,46 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     if isPlaced && !justDidMouseUp &&
         (!appSettings.onlyFallbackToPreviousSizeWithUserEvent || (NSEvent.pressedMouseButtons & 0x1) != 0)
     {
-        PlacedWindows.unplace(windowId: windowId)
+        if placedWindowMoveStartPosition == nil {
+            placedWindowMoveStartPosition = position
+        }
         
-        if appSettings.fallbackToPreviousSize {
-            if let originalSize,
-               case let (currentSize?, currentPosition?) = getWindowSizeAndPosition(from: windowId)
-            {
-                let mouseLocation = NSEvent.mouseLocation
-                let relativeX = (mouseLocation.x - currentPosition.x) / currentSize.width
+        if let startPosition = placedWindowMoveStartPosition {
+            let distanceMoved = sqrt(pow(position.x - startPosition.x, 2) +
+                                     pow(position.y - startPosition.y, 2))
+            
+            if distanceMoved > 10 {
+                placedWindowMoveStartPosition = nil
+                PlacedWindows.unplace(windowId: windowId)
+                
+                if appSettings.fallbackToPreviousSize {
+                    if let originalSize,
+                       case let (currentSize?, currentPosition?) = getWindowSizeAndPosition(from: windowId)
+                    {
+                        let mouseLocation = NSEvent.mouseLocation
+                        let relativeX = (mouseLocation.x - currentPosition.x) / currentSize.width
 
-                let widthDifference = currentSize.width - originalSize.width
-                if widthDifference != 0 {
-                    let newXPosition = mouseLocation.x - (originalSize.width * relativeX)
-                    
-                    resizeAndMoveWindow(element: element,
-                                        newPosition: CGPoint(x: newXPosition, y: currentPosition.y),
-                                        newSize: originalSize)
+                        let widthDifference = currentSize.width - originalSize.width
+                        if widthDifference != 0 {
+                            let newXPosition = mouseLocation.x - (originalSize.width * relativeX)
+                            
+                            resizeAndMoveWindow(element: element,
+                                                newPosition: CGPoint(x: newXPosition, y: currentPosition.y),
+                                                newSize: originalSize)
+                        }
+                    } else if let originalSize {
+                        resizeWindow(element: element, newSize: originalSize)
+                        debugLog("Window resized to original size!")
+                    }
                 }
-            } else if let originalSize {
-                resizeWindow(element: element, newSize: originalSize)
-                debugLog("Window resized to original size!")
+            } else {
+                return
             }
         }
     }
     
     justDidMouseUp = false
+    placedWindowMoveStartPosition = nil
     
     if isPlaced {
         return
@@ -673,27 +695,25 @@ func resizeAndMoveWindow(element: AXUIElement, newPosition: CGPoint, newSize: CG
     if (lastPositionResult != .success || lastSizeResult != .success) && useFallback {
         debugLog("Snap operation failed (position: \(lastPositionResult.rawValue), size: \(lastSizeResult.rawValue)), attempting fallback with fresh window element...")
         
-        if let windowId = getWindowID(from: element) {
-            if let freshElement = retrieveFreshWindowElement(for: windowId) {
-                debugLog("Retrieved fresh window element by ID, retrying snap operation...")
-                resizeAndMoveWindow(element: freshElement, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
-                return
+        if let freshElement = getFocusedWindowAXUIElement() {
+            debugLog("Retrieved fresh window element by ID, retrying snap operation...")
+            resizeAndMoveWindow(element: freshElement, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
+            return
+        }
+        
+        if let title = getWindowTitle(from: element) {
+            var currentPosition: CGPoint?
+            var positionRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success {
+                var position: CGPoint = .zero
+                AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
+                currentPosition = position
             }
             
-            if let title = getWindowTitle(from: element) {
-                var currentPosition: CGPoint?
-                var positionRef: CFTypeRef?
-                if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success {
-                    var position: CGPoint = .zero
-                    AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
-                    currentPosition = position
-                }
-                
-                if let freshElementInfo = retrieveFreshWindowElementByTitle(title: title, approximatePosition: currentPosition) {
-                    debugLog("Retrieved fresh window element by title, retrying snap operation...")
-                    resizeAndMoveWindow(element: freshElementInfo.element, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
-                    return
-                }
+            if let freshElementInfo = retrieveFreshWindowElementByTitle(title: title, approximatePosition: currentPosition) {
+                debugLog("Retrieved fresh window element by title, retrying snap operation...")
+                resizeAndMoveWindow(element: freshElementInfo.element, newPosition: newPosition, newSize: newSize, retries: retries, retryParent: retryParent, useFallback: false)
+                return
             }
         }
         
@@ -782,7 +802,13 @@ func resizeWindow(element: AXUIElement, newSize: CGSize) {
         let result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAXValue)
         
         if result != .success {
-            debugLog("Failed to set window size, error code: \(result.rawValue)")
+            debugLog("Failed to set window size, error code: \(result.rawValue) Retrying with fresh window element...")
+
+            if let freshElement = getFocusedWindowAXUIElement() {
+                debugLog("Retrieved fresh window element by ID, retrying resize operation...")
+                resizeWindow(element: freshElement, newSize: newSize)
+                return
+            }
         }
     }
 }
@@ -902,71 +928,22 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
 }
 
 func onMouseDragged(event: NSEvent) {
-    if !macsyReady.isReady { return }
-    if isEditing { return }
-    if isSnapResizing { return }
-    if isQuickSnapping { return }
-    
-    if !isMovingAWindow {
-        if let windowInfo = getWindowUnderMouse() {
-            let element = windowInfo.element
-            let windowId = windowInfo.windowId
-            
-            var positionRef: CFTypeRef?
-            if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success {
-                var currentPosition: CGPoint = .zero
-                AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &currentPosition)
-                
-                if let storedElement = draggedWindowElement,
-                   let storedPosition = draggedWindowInitialPosition,
-                   let storedWindowId = getWindowID(from: storedElement),
-                   storedWindowId == windowId {
-                    
-                    let distanceMoved = sqrt(pow(currentPosition.x - storedPosition.x, 2) + 
-                                           pow(currentPosition.y - storedPosition.y, 2))
-                    
-                    if distanceMoved > 5.0 {
-                        isMovingAWindow = true
-                        toLeaveElement = element
-                        debugLog("Detected window drag via mouse monitor: \(windowId)")
-                        checkSnapKeyOnWindowMoveStart()
-                    }
-                } else {
-                    draggedWindowElement = element
-                    draggedWindowInitialPosition = currentPosition
-                }
-            }
-        }
-    } else {
-        let currentLayout = userLayouts.currentLayout
-        switch currentLayout.layoutType {
-        case .zone:
-            if let hoveredSectionWindow = getHoveredSectionWindow() {
-                toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
-                toLeaveSectionWindow = hoveredSectionWindow
-            }
-        case .grid:
-            if isFitting {
-                currentLayout.gridLayoutWindow?.updateSelectionToMousePosition()
-                toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
-                toLeaveGridRect = currentLayout.gridLayoutWindow?.getSelectionAXRect()
-            }
-        }
-    }
 }
 
 func onMouseUp(event: NSEvent) {
-    if !macsyReady.isReady { return }
-    isMovingAWindow = false
+    guard macsyReady.isReady else { return }
 
+    movingWindowInfo = nil
+    isMovingAWindow = false
+    placedWindowMoveStartPosition = nil
     previousPosition = nil
     previousVelocity = nil
     previousTime = nil
     lastShakeTime = Date().timeIntervalSince1970 + 0.75
 
-    if isQuickSnapping { return }
-
-    if !isFitting { return }
+    guard !isQuickSnapping,
+          isFitting
+    else { return }
 
     if isEditing || isSnapResizing || isQuickSnapping {
         isFitting = false
@@ -987,7 +964,6 @@ func onMouseUp(event: NSEvent) {
 
 private func handleZoneMouseUp() {
     if let hoveredSectionWindow = getHoveredSectionWindow() {
-        toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
         toLeaveSectionWindow = hoveredSectionWindow
     }
 
