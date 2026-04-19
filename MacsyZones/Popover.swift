@@ -612,7 +612,7 @@ struct Main: View {
                         
                         if settings.shakeToSnap {
                             HStack {
-                                Text("Sensitivity").font(.caption2)
+                                Text("Shake Power").font(.caption2)
                                     .padding(.top, 4)
                                 Spacer()
                                 Text(sensitivityLabel(for: settings.shakeAccelerationThreshold)).font(.caption2).foregroundColor(.secondary)
