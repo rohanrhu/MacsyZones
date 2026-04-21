@@ -2006,12 +2006,10 @@ class GridSelectionState: ObservableObject {
 
     var selectionBounds: (minRow: Int, maxRow: Int, minCol: Int, maxCol: Int)? {
         guard let anchor = anchorCell, let current = currentCell else { return nil }
-        return (
-            minRow: min(anchor.row, current.row),
-            maxRow: max(anchor.row, current.row),
-            minCol: min(anchor.col, current.col),
-            maxCol: max(anchor.col, current.col)
-        )
+        return (minRow: min(anchor.row, current.row),
+                maxRow: max(anchor.row, current.row),
+                minCol: min(anchor.col, current.col),
+                maxCol: max(anchor.col, current.col))
     }
 
     func reset() {
@@ -2022,6 +2020,8 @@ class GridSelectionState: ObservableObject {
 }
 
 struct GridOverlayView: View {
+    let width: CGFloat
+    let height: CGFloat
     let rows: Int
     let columns: Int
     @ObservedObject var selectionState: GridSelectionState
@@ -2033,45 +2033,38 @@ struct GridOverlayView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let cellWidth = geometry.size.width / CGFloat(columns)
-            let cellHeight = geometry.size.height / CGFloat(rows)
+        let cellWidth = width / CGFloat(columns)
+        let cellHeight = height / CGFloat(rows)
 
-            ZStack {
-                // Cell backgrounds
-                ForEach(0..<rows, id: \.self) { row in
-                    ForEach(0..<columns, id: \.self) { col in
-                        let isSelected = isCellSelected(row: row, col: col)
+        ZStack {
+            ForEach(0..<rows, id: \.self) { row in
+                ForEach(0..<columns, id: \.self) { col in
+                    let isSelected = isCellSelected(row: row, col: col)
 
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(isSelected ? Color.accentColor.opacity(0.25) : Color.white.opacity(0.04))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.white.opacity(0.15), lineWidth: isSelected ? 2 : 1)
-                            )
-                            .frame(width: cellWidth - 4, height: cellHeight - 4)
-                            .position(
-                                x: CGFloat(col) * cellWidth + cellWidth / 2,
-                                y: CGFloat(row) * cellHeight + cellHeight / 2
-                            )
-                    }
-                }
-
-                if let bounds = selectionState.selectionBounds {
-                    let x = CGFloat(bounds.minCol) * cellWidth
-                    let y = CGFloat(bounds.minRow) * cellHeight
-                    let width = CGFloat(bounds.maxCol - bounds.minCol + 1) * cellWidth
-                    let height = CGFloat(bounds.maxRow - bounds.minRow + 1) * cellHeight
-
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.accentColor, lineWidth: 3)
-                        .shadow(color: Color.accentColor.opacity(0.4), radius: 8, x: 0, y: 0)
-                        .frame(width: width - 2, height: height - 2)
-                        .position(x: x + width / 2, y: y + height / 2)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.accentColor.opacity(0.25) : Color.white.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                                    .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.white.opacity(0.15), lineWidth: isSelected ? 2 : 1))
+                        .frame(width: cellWidth - 4, height: cellHeight - 4)
+                        .position(x: CGFloat(col) * cellWidth + cellWidth / 2,
+                                  y: CGFloat(row) * cellHeight + cellHeight / 2)
                 }
             }
+
+            if let bounds = selectionState.selectionBounds {
+                let x = CGFloat(bounds.minCol) * cellWidth
+                let y = CGFloat(bounds.minRow) * cellHeight
+                let width = CGFloat(bounds.maxCol - bounds.minCol + 1) * cellWidth
+                let height = CGFloat(bounds.maxRow - bounds.minRow + 1) * cellHeight
+
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.accentColor, lineWidth: 3)
+                    .shadow(color: Color.accentColor.opacity(0.4), radius: 8, x: 0, y: 0)
+                    .frame(width: width - 2, height: height - 2)
+                    .position(x: x + width / 2, y: y + height / 2)
+            }
         }
-        .background(Color.clear)
+        .frame(width: width, height: height)
     }
 }
 
@@ -2108,11 +2101,11 @@ class GridLayoutWindow {
     }
 
     func updateView() {
-        let view = GridOverlayView(
-            rows: gridConfig.rows,
-            columns: gridConfig.columns,
-            selectionState: selectionState
-        )
+        let view = GridOverlayView(width: window.frame.width,
+                                                    height: window.frame.height,
+                                                    rows: gridConfig.rows,
+                                                    columns: gridConfig.columns,
+                                                    selectionState: selectionState)
         window.contentView = NSHostingView(rootView: view)
     }
 
@@ -2121,7 +2114,7 @@ class GridLayoutWindow {
         isShown = true
 
         if let focusedScreen = getFocusedScreen() {
-            window.setFrame(focusedScreen.visibleFrame, display: true)
+            window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
         }
 
         selectionState.reset()
