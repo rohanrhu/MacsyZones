@@ -24,3 +24,5 @@ extern int CGSMainConnectionID(void);
 typedef int CGSConnectionID;
 CGError CGSSetConnectionProperty(CGSConnectionID cid, CGSConnectionID targetCID, CFStringRef key, CFTypeRef value);
 int _CGSDefaultConnection();
+typedef uint64_t CGSSpaceID;
+CGSSpaceID CGSGetActiveSpace(CGSConnectionID cid);

@@ -56,6 +56,7 @@ func isSnapKeyPressed() -> Bool {
 
 func checkSnapKeyOnWindowMoveStart() {
     if !macsyReady.isReady { return }
+
     if isSnapKeyPressed() && !isFitting {
         if appSettings.selectPerDesktopLayout {
             if let layoutName = spaceLayoutPreferences.getCurrent() {
@@ -66,12 +67,13 @@ func checkSnapKeyOnWindowMoveStart() {
         isFitting = true
 
         let currentLayout = userLayouts.currentLayout
+
         switch currentLayout.layoutType {
-        case .zone:
-            currentLayout.layoutWindow.show()
-        case .grid:
-            currentLayout.gridLayoutWindow?.show()
-            currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+            case .zone:
+                currentLayout.layoutWindow.show()
+            case .grid:
+                currentLayout.gridLayoutWindow?.show()
+                currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
         }
     }
 }
@@ -119,6 +121,10 @@ func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
 func onMouseDown(event: NSEvent) {
     draggedWindowElement = nil
     draggedWindowInitialPosition = nil
+
+    if let preferredLayoutName = spaceLayoutPreferences.getCurrent() {
+        userLayouts.currentLayoutName = preferredLayoutName
+    }
 }
 
 func startEditing() {

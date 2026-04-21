@@ -60,34 +60,33 @@ class SpaceLayoutPreferences: UserData {
             return nil
         }
 
+        debugLog("Getting layout for screen \(screenNumber) and space \(spaceNumber)")
+
         return get(screenNumber: screenNumber, spaceNumber: spaceNumber)
     }
 
     static func getCurrentScreenAndSpace() -> (Int, Int)? {
-        guard let focusedScreen = getFocusedScreen(),
-              let screenIndex = NSScreen.screens.firstIndex(of: focusedScreen) else {
-            return nil
+        guard let focusedScreen = getFocusedScreen() else { return nil }
+
+        var screenIndex: Int?
+
+        if #available(macOS 26.0, *) {
+            screenIndex = focusedScreen.cgDirectDisplayID?.hashValue
+        } else {
+            screenIndex = NSScreen.screens.firstIndex(of: focusedScreen)
         }
 
-        guard let spaceNumber = getCurrentSpaceNumber() else {
-            return nil
-        }
+        guard let screenIndex else { return nil }
+        guard let spaceNumber = getCurrentSpaceNumber() else { return nil }
 
         return (screenIndex, spaceNumber)
     }
 
     static func getCurrentSpaceNumber() -> Int? {
-        let connection = CGSMainConnectionID()
+        let activeSpaceID = CGSGetActiveSpace(_CGSDefaultConnection())
+        guard activeSpaceID > 0 else { return nil }
 
-        if let unmanagedDisplaySpaces = CGSCopyManagedDisplaySpaces(connection) {
-            if let displaySpaces = unmanagedDisplaySpaces.takeRetainedValue() as? [[String: Any]],
-               let currentSpaceDict = displaySpaces.first,
-               let currentSpace = currentSpaceDict["Current Space"] as? NSDictionary,
-               let activeSpaceID = currentSpace["ManagedSpaceID"] as? Int {
-                   return activeSpaceID
-               }
-        }
-        return nil
+        return Int(activeSpaceID)
     }
 
     override func save() {
@@ -132,7 +131,7 @@ class SpaceLayoutPreferences: UserData {
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil,
             queue: nil,
-            using: { _ in
+            using: { notification in
                 stopEditing()
                 isFitting = false
                 userLayouts.hideAllSectionWindows()
