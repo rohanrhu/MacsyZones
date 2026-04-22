@@ -71,7 +71,9 @@ class SpaceLayoutPreferences: UserData {
         var screenIndex: Int?
 
         if #available(macOS 26.0, *) {
-            screenIndex = focusedScreen.cgDirectDisplayID?.hashValue
+            if let displayId = focusedScreen.cgDirectDisplayID {
+                screenIndex = Int(displayId)
+            }
         } else {
             screenIndex = NSScreen.screens.firstIndex(of: focusedScreen)
         }
@@ -79,14 +81,45 @@ class SpaceLayoutPreferences: UserData {
         guard let screenIndex else { return nil }
         guard let spaceNumber = getCurrentSpaceNumber() else { return nil }
 
+        debugLog("getCurrentScreenAndSpace(): screenIndex: \(screenIndex), spaceNumber: \(spaceNumber)")
+
         return (screenIndex, spaceNumber)
     }
 
     static func getCurrentSpaceNumber() -> Int? {
-        let activeSpaceID = CGSGetActiveSpace(_CGSDefaultConnection())
-        guard activeSpaceID > 0 else { return nil }
+        let connection = CGSMainConnectionID()
+        let activeSpaceID = CGSGetActiveSpace(connection)
 
-        return Int(activeSpaceID)
+        guard let managedSpaces = CGSCopyManagedDisplaySpaces(connection)?.takeRetainedValue() as? [[String: Any]] else {
+            return nil
+        }
+
+        for display in managedSpaces {
+            if let spaces = display["Spaces"] as? [[String: Any]] {
+                for (index, space) in spaces.enumerated() {
+                    if let spaceID = space["ManagedSpaceID"] as? UInt64,
+                    spaceID == activeSpaceID {
+                        return index + 1
+                    }
+                }
+            }
+
+            if let currentSpaces = display["Current Space"] as? [String: Any],
+            let spaceID = currentSpaces["ManagedSpaceID"] as? UInt64,
+            spaceID == activeSpaceID {
+
+                if let spaces = display["Spaces"] as? [[String: Any]] {
+                    for (index, space) in spaces.enumerated() {
+                        if let sid = space["ManagedSpaceID"] as? UInt64,
+                        sid == activeSpaceID {
+                            return index + 1
+                        }
+                    }
+                }
+            }
+        }
+
+        return nil
     }
 
     override func save() {
