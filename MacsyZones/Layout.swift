@@ -1184,15 +1184,24 @@ class LayoutWindow: ObservableObject {
     }
     
     func handleMouseMoved(event: NSEvent) {
-        guard appSettings.showSnapResizersOnHover else { return }
-        guard !isFitting else { return }
-        guard !isEditing else { return }
-        guard appSettings.snapResize else { return }
-        guard userLayouts.currentLayout.layoutWindow === self else { return }
+        guard appSettings.showSnapResizersOnHover,
+              appSettings.snapResize,
+              !isFitting, !isEditing,
+              userLayouts.currentLayout.layoutWindow === self
+        else { return }
+
+        debugLog("LayoutWindow.handleMouseMoved(): currentLayout: \(userLayouts.currentLayout.name), timestamp: \(event.timestamp)")
         
         let mouseLocation = NSEvent.mouseLocation
         let resizerRectsWithInfo = calculateSnapResizerRectsWithInfo()
-        let proximityRects = resizerRectsWithInfo.filter { $0.rect.insetBy(dx: -snapResizerProximityThreshold, dy: -snapResizerProximityThreshold).contains(mouseLocation) && hasVisibleSnappedWindow(in: $0.relatedSections) }
+
+        debugLog("resizerRectsWithInfo: \(resizerRectsWithInfo.map { rectKey($0.rect) })")
+
+        let proximityRects = resizerRectsWithInfo.filter {
+            $0.rect.insetBy(dx: -snapResizerProximityThreshold,
+                            dy: -snapResizerProximityThreshold)
+                .contains(mouseLocation) && hasVisibleSnappedWindow(in: $0.relatedSections)
+        }
         var newActiveKeys: Set<String> = []
         
         for info in proximityRects {
@@ -1210,6 +1219,7 @@ class LayoutWindow: ObservableObject {
                 snapResizer.setFrame(info.rect, display: true, animate: false)
                 snapResizer.alphaValue = 0
                 snapResizer.orderFront(nil)
+
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.35
                     snapResizer.animator().alphaValue = 1
@@ -1249,6 +1259,8 @@ class LayoutWindow: ObservableObject {
             }
             return ids
         }()
+
+        debugLog("onScreenWindowIDs: \(onScreenWindowIDs)")
 
         let sectionNumbers = Set(relatedSections.map { $0.sectionWindow.number })
 
@@ -1858,7 +1870,9 @@ class SnapResizer: NSWindow {
         draggedOnce = true
         
         guard let focusedScreen = getFocusedScreen() else { return }
-        let focusedScreenNumber = NSScreen.screens.firstIndex(of: focusedScreen)
+        let focusedScreenNumber = getScreenNumber(screen: focusedScreen)
+        
+        debugLog("SnapResizer.mouseDragged(): focusedScreen: \(focusedScreen), number: \(getScreenNumber(screen: focusedScreen) ?? -1)")
         
         resizerX += event.deltaX
         resizerY -= event.deltaY
@@ -1915,10 +1929,12 @@ class SnapResizer: NSWindow {
                     if PlacedWindows.layouts[windowId] != relatedSection.sectionWindow.layoutWindow.name { continue }
                     
                     guard let screenNumber = PlacedWindows.screens[windowId] else { continue }
-                    if NSScreen.screens.count <= screenNumber { continue }
+
+                    debugLog("resizerTask: screenNumber: \(screenNumber), focusedScreenNumber: \(focusedScreenNumber ?? -1)")
                     
                     if focusedScreenNumber != screenNumber {
-                        let screen = NSScreen.screens[screenNumber]
+                        guard let screen = resolveScreen(screenNumber: screenNumber) else { continue }
+                        
                         let sectionConfig = sectionWindow.sectionConfig.getUpdated(for: sectionWindow.window,
                                                                                    on: focusedScreen)
                         

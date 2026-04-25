@@ -20,6 +20,28 @@ func getFocusedScreen() -> NSScreen? {
     return lastFocusedScreen
 }
 
+func getScreenNumber(screen: NSScreen) -> Int? {
+    var screenIndex: Int?
+
+    if #available(macOS 26.0, *) {
+        if let displayId = screen.cgDirectDisplayID {
+            screenIndex = Int(displayId)
+        }
+    } else {
+        screenIndex = NSScreen.screens.firstIndex(of: screen)
+    }
+
+    return screenIndex
+}
+
+func resolveScreen(screenNumber: Int) -> NSScreen? {
+    if let screen = NSScreen.screens.first(where: { getScreenNumber(screen: $0) == screenNumber }) {
+        return screen
+    }
+
+    return nil
+}
+
 func centerWindowOnFocusedScreen(_ window: NSWindow) {
     guard let screen = getFocusedScreen() else {
         window.center()

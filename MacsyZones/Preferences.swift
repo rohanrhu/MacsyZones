@@ -68,15 +68,7 @@ class SpaceLayoutPreferences: UserData {
     static func getCurrentScreenAndSpace() -> (Int, Int)? {
         guard let focusedScreen = getFocusedScreen() else { return nil }
 
-        var screenIndex: Int?
-
-        if #available(macOS 26.0, *) {
-            if let displayId = focusedScreen.cgDirectDisplayID {
-                screenIndex = Int(displayId)
-            }
-        } else {
-            screenIndex = NSScreen.screens.firstIndex(of: focusedScreen)
-        }
+        let screenIndex = getScreenNumber(screen: focusedScreen)
 
         guard let screenIndex else { return nil }
         guard let spaceNumber = getCurrentSpaceNumber() else { return nil }
