@@ -30,6 +30,8 @@ struct AppSettingsData: Codable {
     var cycleWindowsForwardShortcut: String?
     var cycleWindowsBackwardShortcut: String?
     var snapHighlightStrategy: SnapHighlightStrategy?
+    var automaticallyCheckForUpdates: Bool?
+    var automaticallyInstallUpdates: Bool?
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -51,6 +53,8 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultCycleWindowsForwardShortcut: String = "Command+]"
     private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
     private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    private static let defaultAutomaticallyCheckForUpdates: Bool = true
+    private static let defaultAutomaticallyInstallUpdates: Bool = false
     
     @Published var modifierKey: String = defaultModifierKey
     @Published var snapKey: String = defaultSnapKey
@@ -69,6 +73,8 @@ class AppSettings: UserData, ObservableObject {
     @Published var cycleWindowsForwardShortcut: String = defaultCycleWindowsForwardShortcut
     @Published var cycleWindowsBackwardShortcut: String = defaultCycleWindowsBackwardShortcut
     @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
+    @Published var automaticallyCheckForUpdates: Bool = defaultAutomaticallyCheckForUpdates
+    @Published var automaticallyInstallUpdates: Bool = defaultAutomaticallyInstallUpdates
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -99,6 +105,8 @@ class AppSettings: UserData, ObservableObject {
             self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut ?? cycleWindowsForwardShortcut
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut ?? cycleWindowsBackwardShortcut
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
+            self.automaticallyCheckForUpdates = settings.automaticallyCheckForUpdates ?? automaticallyCheckForUpdates
+            self.automaticallyInstallUpdates = settings.automaticallyInstallUpdates ?? automaticallyInstallUpdates
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -123,7 +131,9 @@ class AppSettings: UserData, ObservableObject {
                 showSnapResizersOnHover: showSnapResizersOnHover,
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
-                snapHighlightStrategy: snapHighlightStrategy
+                snapHighlightStrategy: snapHighlightStrategy,
+                automaticallyCheckForUpdates: automaticallyCheckForUpdates,
+                automaticallyInstallUpdates: automaticallyInstallUpdates
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -155,6 +165,8 @@ class AppSettings: UserData, ObservableObject {
         cycleWindowsForwardShortcut = Self.defaultCycleWindowsForwardShortcut
         cycleWindowsBackwardShortcut = Self.defaultCycleWindowsBackwardShortcut
         snapHighlightStrategy = Self.defaultSnapHighlightStrategy
+        automaticallyCheckForUpdates = Self.defaultAutomaticallyCheckForUpdates
+        automaticallyInstallUpdates = Self.defaultAutomaticallyInstallUpdates
         
         if #available(macOS 12.0, *) {
             quickSnapper.toggleHotkey?.register(for: quickSnapShortcut)

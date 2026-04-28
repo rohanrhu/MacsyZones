@@ -10,7 +10,18 @@
 // See LICENSE file.
 //
 
+import AppKit
 import Foundation
+import Security
+
+private let expectedUpdaterBundleIdentifier = "MeowingCat.MacsyZones"
+private let expectedUpdaterTeamIdentifier = "59CP56H446"
+
+struct GitHubRelease {
+    let version: String
+    let releaseURL: URL
+    let downloadURL: URL?
+}
 
 class AppUpdater: ObservableObject {
     @Published var isChecking = false
@@ -18,6 +29,7 @@ class AppUpdater: ObservableObject {
     @Published var isDownloading = false
     
     @Published var latestVersion: String?
+    @Published var latestReleaseURL: URL?
     
     let updater = GitHubUpdater()
     
@@ -26,11 +38,13 @@ class AppUpdater: ObservableObject {
             self.isChecking = true
         }
         
-        updater.checkForUpdates { version in
-            guard let version = version else {
+        updater.checkForUpdates(download: download) { release in
+            guard let release = release else {
                 Task { @MainActor in
                     self.isChecking = false
                     self.isDownloading = false
+                    self.latestVersion = nil
+                    self.latestReleaseURL = nil
                     self.isUpdatable = false
                 }
                 
@@ -38,10 +52,11 @@ class AppUpdater: ObservableObject {
             }
             
             Task { @MainActor in
-                self.latestVersion = version
+                self.latestVersion = release.version
+                self.latestReleaseURL = release.releaseURL
                 self.isChecking = false
                 self.isUpdatable = true
-                self.isDownloading = true
+                self.isDownloading = download
             }
         } onDownloaded: { success in
             Task { @MainActor in
@@ -88,7 +103,7 @@ func getApplicationsPath() -> URL {
 class GitHubAPI {
     let session = URLSession.shared
 
-    func checkLatestRelease(onChecked: @escaping ((version: String, url: URL)?) -> Void) {
+    func checkLatestRelease(onChecked: @escaping (GitHubRelease?) -> Void) {
         let urlString = "https://api.github.com/repos/rohanrhu/MacsyZones/releases/latest"
         guard let url = URL(string: urlString) else {
             onChecked(nil)
@@ -104,14 +119,23 @@ class GitHubAPI {
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let tagName = json["tag_name"] as? String,
-                   let assets = json["assets"] as? [[String: Any]],
-                   let downloadUrl = assets.first?["browser_download_url"] as? String
+                   let releaseURLString = json["html_url"] as? String
                 {
                     let version = tagName.replacingOccurrences(of: "v", with: "")
-                    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String
+                    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
                     let isGreater = isVersionGreater(version, than: appVersion)
-                    
-                    onChecked(isGreater ? (version: version, url: URL(string: downloadUrl)!): nil)
+                    let downloadURLString = ((json["assets"] as? [[String: Any]])?.first?["browser_download_url"] as? String)
+
+                    guard isGreater, let releaseURL = URL(string: releaseURLString) else {
+                        onChecked(nil)
+                        return
+                    }
+
+                    onChecked(GitHubRelease(
+                        version: version,
+                        releaseURL: releaseURL,
+                        downloadURL: downloadURLString.flatMap(URL.init(string:))
+                    ))
                 } else {
                     onChecked(nil)
                 }
@@ -132,16 +156,26 @@ class GitHubUpdater {
     let applicationsDirectory = NSSearchPathForDirectoriesInDomains(.applicationDirectory, .userDomainMask, true).first!
     let appName = "MacsyZones"
     
-    func checkForUpdates(onChecked: ((String?) -> Void)? = nil, onDownloaded: ((Bool) -> Void)? = nil) {
+    func checkForUpdates(download: Bool = false, onChecked: ((GitHubRelease?) -> Void)? = nil, onDownloaded: ((Bool) -> Void)? = nil) {
         githubAPI.checkLatestRelease { [self] latestRelease in
             guard let latestRelease else {
                 onChecked?(nil)
                 return
             }
+
+            onChecked?(latestRelease)
+
+            guard download else {
+                return
+            }
+
+            guard let downloadURL = latestRelease.downloadURL else {
+                debugLog("Error: Latest release does not include a downloadable app asset.")
+                onDownloaded?(false)
+                return
+            }
             
-            onChecked?(latestRelease.version)
-            
-            self.downloadZip(from: latestRelease.url, version: latestRelease.version) { success in
+            self.downloadZip(from: downloadURL, version: latestRelease.version) { success in
                 onDownloaded?(success)
             }
         }
@@ -159,11 +193,11 @@ class GitHubUpdater {
             
             onCompleted?(true)
             
-            self.extractZip(from: tmpPath)
+            self.extractZip(from: tmpPath, version: version)
         }
     }
     
-    private func extractZip(from zipURL: URL) {
+    private func extractZip(from zipURL: URL, version: String) {
         let fileManager = FileManager.default
         let destinationFolder = getApplicationsPath()
         let destinationApp = destinationFolder.appendingPathComponent("MacsyZones.app")
@@ -193,16 +227,40 @@ class GitHubUpdater {
                 try? fileManager.removeItem(at: tempDirectory)
                 return
             }
-            
+
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-            
+            let targetBundleIdentifier = extractedPlist["CFBundleIdentifier"] as? String
+
+            guard targetBundleIdentifier == expectedUpdaterBundleIdentifier else {
+                debugLog("Error: Extracted app bundle identifier does not match MacsyZones.")
+                try? fileManager.removeItem(at: tempDirectory)
+                return
+            }
+
+            guard targetVersion == version else {
+                debugLog("Error: Extracted app version does not match the GitHub release version.")
+                try? fileManager.removeItem(at: tempDirectory)
+                return
+            }
+
+            guard isVersionGreater(targetVersion, than: currentVersion) else {
+                debugLog("Error: Extracted app is not newer than the current app.")
+                try? fileManager.removeItem(at: tempDirectory)
+                return
+            }
+
+            guard hasValidCodeSignature(at: extractedAppURL) else {
+                try? fileManager.removeItem(at: tempDirectory)
+                return
+            }
+
             updateState.setUpdateAttempt(currentVersion: currentVersion, targetVersion: targetVersion)
             
             let scriptURL = tempDirectory.appendingPathComponent("update.sh")
             let script = """
             #!/bin/bash
             sleep 2
-            
+
             # Remove quarantine from extracted app (prevents GateKeeper issues)
             xattr -r -d com.apple.quarantine "\(extractedAppURL.path)" 2>/dev/null || true
             
@@ -211,7 +269,7 @@ class GitHubUpdater {
             
             # Use ditto to preserve extended attributes during move
             ditto "\(extractedAppURL.path)" "\(destinationApp.path)"
-            
+
             # Final quarantine cleanup on installed app
             xattr -r -d com.apple.quarantine "\(destinationApp.path)" 2>/dev/null || true
             
@@ -254,6 +312,41 @@ class GitHubUpdater {
             debugLog("Update error: \(error.localizedDescription)")
             try? fileManager.removeItem(at: tempDirectory)
         }
+    }
+
+    private func hasValidCodeSignature(at appURL: URL) -> Bool {
+        var staticCode: SecStaticCode?
+        let createStatus = SecStaticCodeCreateWithPath(appURL as CFURL, SecCSFlags(), &staticCode)
+
+        guard createStatus == errSecSuccess, let staticCode = staticCode else {
+            debugLog("Error: Could not read update code signature. OSStatus: \(createStatus)")
+            return false
+        }
+
+        let validationFlags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
+        let validationStatus = SecStaticCodeCheckValidity(staticCode, validationFlags, nil)
+
+        guard validationStatus == errSecSuccess else {
+            debugLog("Error: Update code signature is invalid. OSStatus: \(validationStatus)")
+            return false
+        }
+
+        var signingInfo: CFDictionary?
+        let infoStatus = SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &signingInfo)
+
+        guard infoStatus == errSecSuccess,
+              let info = signingInfo as? [String: Any],
+              let teamIdentifier = info[kSecCodeInfoTeamIdentifier as String] as? String else {
+            debugLog("Error: Could not read update signing team. OSStatus: \(infoStatus)")
+            return false
+        }
+
+        guard teamIdentifier == expectedUpdaterTeamIdentifier else {
+            debugLog("Error: Update signing team does not match MacsyZones.")
+            return false
+        }
+
+        return true
     }
 }
 
