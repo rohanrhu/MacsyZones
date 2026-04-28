@@ -215,15 +215,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     func checkUpdateState() {
         let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         
-        if updateState.hasFailedUpdate(currentVersion: currentVersion) {
-            showUpdateFailedDialog()
-        } else {
-            if let targetVersion = updateState.targetVersion {
-                if currentVersion == targetVersion || isVersionGreater(currentVersion, than: targetVersion) {
-                    updateState.clearUpdateAttempt()
-                }
+        if let targetVersion = updateState.targetVersion {
+            if currentVersion == targetVersion || isVersionGreater(currentVersion, than: targetVersion) {
+                updateState.clearUpdateAttempt()
             }
-            
+        }
+
+        if appSettings.automaticallyCheckForUpdates {
             appUpdater.checkForUpdates()
         }
     }

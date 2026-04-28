@@ -639,6 +639,15 @@ struct Main: View {
                             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                                 updateStartAtLoginState()
                             }
+
+                        Toggle("Check for updates automatically", isOn: $settings.automaticallyCheckForUpdates)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.automaticallyCheckForUpdates) { enabled in
+                                appSettings.save()
+                                if enabled {
+                                    updater.checkForUpdates()
+                                }
+                            }
                     }
                 }
                 .fixedSize()
@@ -668,24 +677,27 @@ struct Main: View {
             #endif
             
             HStack {
-                Button(action: { updater.checkForUpdates() }) {
+                Button(action: {
+                    if updater.isUpdatable == true, let releaseURL = updater.latestReleaseURL {
+                        NSWorkspace.shared.open(releaseURL)
+                    } else {
+                        updater.checkForUpdates()
+                    }
+                }) {
                     HStack {
                         if updater.isChecking {
                             Image(systemName: "arrow.clockwise.circle")
                             Text("Checking...")
-                        } else if updater.isDownloading {
-                            ProgressView().font(.system(size: 12))
-                            Text("Downloading...")
                         } else if let isUpdatable = updater.isUpdatable, let latestVersion = updater.latestVersion, isUpdatable {
-                            Image(systemName: "arrow.down.circle.fill")
-                            Text("Update to \(latestVersion)")
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open \(latestVersion) Release")
                         } else {
                             Image(systemName: "arrow.clockwise.circle")
                             Text("Check for Updates")
                         }
                     }
                 }
-                .disabled(updater.isChecking || updater.isDownloading)
+                .disabled(updater.isChecking)
                 
                 Button(action: {
                     showResetToDefaultsDialog = true

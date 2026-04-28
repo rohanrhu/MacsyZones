@@ -12,41 +12,39 @@
 
 import Foundation
 
+struct GitHubRelease {
+    let version: String
+    let releaseURL: URL
+}
+
 class AppUpdater: ObservableObject {
     @Published var isChecking = false
     @Published var isUpdatable: Bool?
-    @Published var isDownloading = false
     
     @Published var latestVersion: String?
+    @Published var latestReleaseURL: URL?
     
     let updater = GitHubUpdater()
     
-    func checkForUpdates(download: Bool = false) {
+    func checkForUpdates() {
         Task { @MainActor in
             self.isChecking = true
         }
         
-        updater.checkForUpdates { version in
-            guard let version = version else {
-                Task { @MainActor in
-                    self.isChecking = false
-                    self.isDownloading = false
+        updater.checkForUpdates { release in
+            Task { @MainActor in
+                self.isChecking = false
+
+                guard let release else {
+                    self.latestVersion = nil
+                    self.latestReleaseURL = nil
                     self.isUpdatable = false
+                    return
                 }
                 
-                return
-            }
-            
-            Task { @MainActor in
-                self.latestVersion = version
-                self.isChecking = false
+                self.latestVersion = release.version
+                self.latestReleaseURL = release.releaseURL
                 self.isUpdatable = true
-                self.isDownloading = true
-            }
-        } onDownloaded: { success in
-            Task { @MainActor in
-                self.isChecking = false
-                self.isDownloading = false
             }
         }
     }
@@ -81,14 +79,10 @@ func isVersionGreater(_ version: String, than otherVersion: String) -> Bool {
     return versionComponents.count > otherVersionComponents.count
 }
 
-func getApplicationsPath() -> URL {
-    return Bundle.main.bundleURL.deletingLastPathComponent()
-}
-
 class GitHubAPI {
     let session = URLSession.shared
 
-    func checkLatestRelease(onChecked: @escaping ((version: String, url: URL)?) -> Void) {
+    func checkLatestRelease(onChecked: @escaping (GitHubRelease?) -> Void) {
         let urlString = "https://api.github.com/repos/rohanrhu/MacsyZones/releases/latest"
         guard let url = URL(string: urlString) else {
             onChecked(nil)
@@ -104,14 +98,18 @@ class GitHubAPI {
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let tagName = json["tag_name"] as? String,
-                   let assets = json["assets"] as? [[String: Any]],
-                   let downloadUrl = assets.first?["browser_download_url"] as? String
+                   let releaseURLString = json["html_url"] as? String
                 {
-                    let version = tagName.replacingOccurrences(of: "v", with: "")
-                    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String
+                    let version = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
+                    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
                     let isGreater = isVersionGreater(version, than: appVersion)
-                    
-                    onChecked(isGreater ? (version: version, url: URL(string: downloadUrl)!): nil)
+
+                    guard isGreater, let releaseURL = URL(string: releaseURLString) else {
+                        onChecked(nil)
+                        return
+                    }
+
+                    onChecked(GitHubRelease(version: version, releaseURL: releaseURL))
                 } else {
                     onChecked(nil)
                 }
@@ -128,143 +126,10 @@ class GitHubAPI {
 
 class GitHubUpdater {
     let githubAPI = GitHubAPI()
-    let fileManager = FileManager.default
-    let applicationsDirectory = NSSearchPathForDirectoriesInDomains(.applicationDirectory, .userDomainMask, true).first!
-    let appName = "MacsyZones"
     
-    func checkForUpdates(onChecked: ((String?) -> Void)? = nil, onDownloaded: ((Bool) -> Void)? = nil) {
-        githubAPI.checkLatestRelease { [self] latestRelease in
-            guard let latestRelease else {
-                onChecked?(nil)
-                return
-            }
-            
-            onChecked?(latestRelease.version)
-            
-            self.downloadZip(from: latestRelease.url, version: latestRelease.version) { success in
-                onDownloaded?(success)
-            }
+    func checkForUpdates(onChecked: ((GitHubRelease?) -> Void)? = nil) {
+        githubAPI.checkLatestRelease { latestRelease in
+            onChecked?(latestRelease)
         }
     }
-    
-    private func downloadZip(from url: URL, version: String, onCompleted: ((Bool) -> Void)? = nil) {
-        let destination = URL(fileURLWithPath: "\(NSTemporaryDirectory())\(appName).zip")
-        
-        downloadFile(from: url, to: destination) { [self] tmpPath in
-            guard let tmpPath = tmpPath else {
-                debugLog("Error downloading update!")
-                onCompleted?(false)
-                return
-            }
-            
-            onCompleted?(true)
-            
-            self.extractZip(from: tmpPath)
-        }
-    }
-    
-    private func extractZip(from zipURL: URL) {
-        let fileManager = FileManager.default
-        let destinationFolder = getApplicationsPath()
-        let destinationApp = destinationFolder.appendingPathComponent("MacsyZones.app")
-        let tempDirectory = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        
-        do {
-            try fileManager.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-            
-            let extractProcess = Process()
-            extractProcess.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            extractProcess.arguments = ["-xk", "--extattr", zipURL.path, tempDirectory.path]
-            try extractProcess.run()
-            extractProcess.waitUntilExit()
-            
-            let extractedAppURL = tempDirectory.appendingPathComponent("MacsyZones.app")
-            guard fileManager.fileExists(atPath: extractedAppURL.path) else {
-                debugLog("Error: Extracted app not found.")
-                try? fileManager.removeItem(at: tempDirectory)
-                return
-            }
-            
-            let extractedInfoPlist = extractedAppURL.appendingPathComponent("Contents/Info.plist")
-            guard let extractedPlistData = try? Data(contentsOf: extractedInfoPlist),
-                  let extractedPlist = try? PropertyListSerialization.propertyList(from: extractedPlistData, options: [], format: nil) as? [String: Any],
-                  let targetVersion = extractedPlist["CFBundleShortVersionString"] as? String else {
-                debugLog("Error: Could not read target version from extracted app.")
-                try? fileManager.removeItem(at: tempDirectory)
-                return
-            }
-            
-            let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-            
-            updateState.setUpdateAttempt(currentVersion: currentVersion, targetVersion: targetVersion)
-            
-            let scriptURL = tempDirectory.appendingPathComponent("update.sh")
-            let script = """
-            #!/bin/bash
-            sleep 2
-            
-            # Remove quarantine from extracted app (prevents GateKeeper issues)
-            xattr -r -d com.apple.quarantine "\(extractedAppURL.path)" 2>/dev/null || true
-            
-            # Remove old app
-            rm -rf "\(destinationApp.path)"
-            
-            # Use ditto to preserve extended attributes during move
-            ditto "\(extractedAppURL.path)" "\(destinationApp.path)"
-            
-            # Final quarantine cleanup on installed app
-            xattr -r -d com.apple.quarantine "\(destinationApp.path)" 2>/dev/null || true
-            
-            # Give filesystem time to settle
-            sleep 1
-            
-            open "\(destinationApp.path)"
-            rm -rf "\(tempDirectory.path)"
-            exit 0
-            """
-            
-            try script.write(to: scriptURL, atomically: true, encoding: .utf8)
-            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
-            
-            let updateProcess = Process()
-            updateProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
-            updateProcess.arguments = ["-c", "nohup \"\(scriptURL.path)\" > /dev/null 2>&1 &"]
-            try updateProcess.run()
-            
-            DispatchQueue.main.async {
-                let alert = NSAlert()
-                alert.window.level = .floating
-                alert.alertStyle = .informational
-                alert.messageText = "MacsyZones"
-                alert.informativeText = "An update will now start. The app will restart automatically."
-                alert.addButton(withTitle: "OK")
-                
-                alert.window.makeKeyAndOrderFront(nil)
-                NSApplication.shared.activate(ignoringOtherApps: true)
-                
-                alert.runModal()
-                
-                restartApp()
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    NSApp.terminate(nil)
-                }
-            }
-        } catch {
-            debugLog("Update error: \(error.localizedDescription)")
-            try? fileManager.removeItem(at: tempDirectory)
-        }
-    }
-}
-
-func downloadFile(from url: URL, to destination: URL, onComplete: @escaping (URL?) -> Void) {
-    let task = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
-        guard let tempURL = tempURL, error == nil else {
-            onComplete(nil)
-            return
-        }
-        
-        onComplete(tempURL)
-    }
-    task.resume()
 }
