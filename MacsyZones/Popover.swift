@@ -640,6 +640,27 @@ struct Main: View {
                                 updateStartAtLoginState()
                             }
                     }
+
+                    Divider().padding(.vertical, 2)
+
+                    Toggle("Check for updates automatically", isOn: $settings.automaticallyCheckForUpdates)
+                        .toggleStyle(.checkbox)
+                        .onChange(of: settings.automaticallyCheckForUpdates) { enabled in
+                            if !enabled {
+                                settings.automaticallyInstallUpdates = false
+                            }
+
+                            appSettings.save()
+
+                            if enabled {
+                                updater.checkForUpdates(download: settings.automaticallyInstallUpdates)
+                            }
+                        }
+
+                    Toggle("Install verified updates automatically", isOn: $settings.automaticallyInstallUpdates)
+                        .toggleStyle(.checkbox)
+                        .disabled(!settings.automaticallyCheckForUpdates)
+                        .onChange(of: settings.automaticallyInstallUpdates) { _ in appSettings.save() }
                 }
                 .fixedSize()
             }
@@ -668,7 +689,21 @@ struct Main: View {
             #endif
             
             HStack {
-                Button(action: { updater.checkForUpdates() }) {
+                Button(action: {
+                    if updater.updateErrorMessage != nil, let releaseURL = updater.latestReleaseURL {
+                        NSWorkspace.shared.open(releaseURL)
+                    } else if updater.isUpdatable == true {
+                        if settings.automaticallyInstallUpdates {
+                            updater.checkForUpdates(download: true)
+                        } else if let releaseURL = updater.latestReleaseURL {
+                            NSWorkspace.shared.open(releaseURL)
+                        } else {
+                            updater.checkForUpdates()
+                        }
+                    } else {
+                        updater.checkForUpdates(download: settings.automaticallyInstallUpdates)
+                    }
+                }) {
                     HStack {
                         if updater.isChecking {
                             Image(systemName: "arrow.clockwise.circle")
@@ -676,9 +711,17 @@ struct Main: View {
                         } else if updater.isDownloading {
                             ProgressView().font(.system(size: 12))
                             Text("Downloading...")
+                        } else if updater.updateErrorMessage != nil, let latestVersion = updater.latestVersion {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open \(latestVersion) Release")
                         } else if let isUpdatable = updater.isUpdatable, let latestVersion = updater.latestVersion, isUpdatable {
-                            Image(systemName: "arrow.down.circle.fill")
-                            Text("Update to \(latestVersion)")
+                            if settings.automaticallyInstallUpdates {
+                                Image(systemName: "arrow.down.circle.fill")
+                                Text("Install \(latestVersion)")
+                            } else {
+                                Image(systemName: "arrow.up.right.square")
+                                Text("Open \(latestVersion) Release")
+                            }
                         } else {
                             Image(systemName: "arrow.clockwise.circle")
                             Text("Check for Updates")
@@ -713,6 +756,13 @@ struct Main: View {
             }
             .fixedSize()
             .padding(.top, 5)
+
+            if let updateErrorMessage = updater.updateErrorMessage {
+                Text(updateErrorMessage)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(minWidth: 400)
         .fixedSize()
