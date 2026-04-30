@@ -690,7 +690,9 @@ struct Main: View {
             
             HStack {
                 Button(action: {
-                    if updater.isUpdatable == true {
+                    if updater.updateErrorMessage != nil, let releaseURL = updater.latestReleaseURL {
+                        NSWorkspace.shared.open(releaseURL)
+                    } else if updater.isUpdatable == true {
                         if settings.automaticallyInstallUpdates {
                             updater.checkForUpdates(download: true)
                         } else if let releaseURL = updater.latestReleaseURL {
@@ -709,6 +711,9 @@ struct Main: View {
                         } else if updater.isDownloading {
                             ProgressView().font(.system(size: 12))
                             Text("Downloading...")
+                        } else if updater.updateErrorMessage != nil, let latestVersion = updater.latestVersion {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open \(latestVersion) Release")
                         } else if let isUpdatable = updater.isUpdatable, let latestVersion = updater.latestVersion, isUpdatable {
                             if settings.automaticallyInstallUpdates {
                                 Image(systemName: "arrow.down.circle.fill")
@@ -751,6 +756,13 @@ struct Main: View {
             }
             .fixedSize()
             .padding(.top, 5)
+
+            if let updateErrorMessage = updater.updateErrorMessage {
+                Text(updateErrorMessage)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(minWidth: 400)
         .fixedSize()

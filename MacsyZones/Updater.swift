@@ -30,12 +30,14 @@ class AppUpdater: ObservableObject {
     
     @Published var latestVersion: String?
     @Published var latestReleaseURL: URL?
+    @Published var updateErrorMessage: String?
     
     let updater = GitHubUpdater()
     
     func checkForUpdates(download: Bool = false) {
         Task { @MainActor in
             self.isChecking = true
+            self.updateErrorMessage = nil
         }
         
         updater.checkForUpdates(download: download) { release in
@@ -62,6 +64,10 @@ class AppUpdater: ObservableObject {
             Task { @MainActor in
                 self.isChecking = false
                 self.isDownloading = false
+
+                if !success {
+                    self.updateErrorMessage = "Update install failed. Open the release manually."
+                }
             }
         }
     }
@@ -191,13 +197,12 @@ class GitHubUpdater {
                 return
             }
             
-            onCompleted?(true)
-            
-            self.extractZip(from: tmpPath, version: version)
+            let success = self.extractZip(from: tmpPath, version: version)
+            onCompleted?(success)
         }
     }
     
-    private func extractZip(from zipURL: URL, version: String) {
+    private func extractZip(from zipURL: URL, version: String) -> Bool {
         let fileManager = FileManager.default
         let destinationFolder = getApplicationsPath()
         let destinationApp = destinationFolder.appendingPathComponent("MacsyZones.app")
@@ -216,7 +221,7 @@ class GitHubUpdater {
             guard fileManager.fileExists(atPath: extractedAppURL.path) else {
                 debugLog("Error: Extracted app not found.")
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
             
             let extractedInfoPlist = extractedAppURL.appendingPathComponent("Contents/Info.plist")
@@ -225,7 +230,7 @@ class GitHubUpdater {
                   let targetVersion = extractedPlist["CFBundleShortVersionString"] as? String else {
                 debugLog("Error: Could not read target version from extracted app.")
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
 
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
@@ -234,24 +239,24 @@ class GitHubUpdater {
             guard targetBundleIdentifier == expectedUpdaterBundleIdentifier else {
                 debugLog("Error: Extracted app bundle identifier does not match MacsyZones.")
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
 
             guard targetVersion == version else {
                 debugLog("Error: Extracted app version does not match the GitHub release version.")
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
 
             guard isVersionGreater(targetVersion, than: currentVersion) else {
                 debugLog("Error: Extracted app is not newer than the current app.")
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
 
             guard hasValidCodeSignature(at: extractedAppURL) else {
                 try? fileManager.removeItem(at: tempDirectory)
-                return
+                return false
             }
 
             updateState.setUpdateAttempt(currentVersion: currentVersion, targetVersion: targetVersion)
@@ -308,9 +313,12 @@ class GitHubUpdater {
                     NSApp.terminate(nil)
                 }
             }
+
+            return true
         } catch {
             debugLog("Update error: \(error.localizedDescription)")
             try? fileManager.removeItem(at: tempDirectory)
+            return false
         }
     }
 
