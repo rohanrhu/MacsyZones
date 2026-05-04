@@ -785,7 +785,7 @@ extension NSScreen {
     }
 }
 
-func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScreen: NSScreen? = nil, sectionConfig: SectionConfig? = nil) {
+func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScreen: NSScreen? = nil, sectionConfig: SectionConfig? = nil, retries: Int = 10) {
     guard let position = getAXPosition(for: targetWindow) else { return }
     
     var newPosition: CGPoint = position
@@ -800,7 +800,7 @@ func moveWindowToMatch(element: AXUIElement, targetWindow: NSWindow, targetScree
     resizeAndMoveWindow(element: element,
                         newPosition: newPosition,
                         newSize: newSize,
-                        retries: 10)
+                        retries: retries)
 }
 
 func resizeWindow(element: AXUIElement, newSize: CGSize) {

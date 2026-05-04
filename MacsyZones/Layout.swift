@@ -1784,6 +1784,11 @@ class SnapResizer: NSWindow {
     var resizeTask: DispatchWorkItem? = nil
     
     var isMouseOverResizer = false
+
+    typealias MouseUpTaskParam = [(element: AXUIElement, window: NSWindow, screen: NSScreen, sectionConfig: SectionConfig)]
+
+    var mouseUpTask: DispatchWorkItem?
+    var mouseUpTaskParam: MouseUpTaskParam?
     
     init(width: CGFloat, height: CGFloat, relatedSections: [RelatedSection], mode: SnapResizerMode, isMouseOverResizer: Bool = false) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -1857,6 +1862,13 @@ class SnapResizer: NSWindow {
         }
         
         userLayouts.save()
+
+        for param in mouseUpTaskParam ?? [] {
+            moveWindowToMatch(element: param.element,
+                              targetWindow: param.window,
+                              targetScreen: param.screen,
+                              sectionConfig: param.sectionConfig)
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -1906,12 +1918,13 @@ class SnapResizer: NSWindow {
             }
             
             relatedSection.sectionWindow.window.setFrame(sectionFrame, display: true, animate: false)
-            
         }
         
         resizeTask?.cancel()
         
         resizeTask = DispatchWorkItem {
+            var mouseUpTaskParam: MouseUpTaskParam = []
+
             for relatedSection in self.relatedSections {
                 for (windowId, sectionNumber) in PlacedWindows.windows {
                     guard let element = PlacedWindows.elements[windowId] else { continue }
@@ -1928,16 +1941,18 @@ class SnapResizer: NSWindow {
                     if focusedScreenNumber != screenNumber {
                         guard let screen = resolveScreen(screenNumber: screenNumber) else { continue }
                         
-                        let sectionConfig = sectionWindow.sectionConfig.getUpdated(for: sectionWindow.window,
-                                                                                   on: focusedScreen)
+                        let sectionConfig = sectionWindow.sectionConfig.getUpdated(for: sectionWindow.window, on: focusedScreen)
                         
                         moveWindowToMatch(element: element,
                                           targetWindow: sectionWindow.window,
                                           targetScreen: screen,
-                                          sectionConfig: sectionConfig)
+                                          sectionConfig: sectionConfig,
+                                          retries: 1)
+                        
+                        mouseUpTaskParam.append((element: element, window: sectionWindow.window, screen: screen, sectionConfig: sectionConfig))
                     } else {
-                        moveWindowToMatch(element: element,
-                                          targetWindow: sectionWindow.window)
+                        moveWindowToMatch(element: element, targetWindow: sectionWindow.window, retries: 1)
+                        mouseUpTaskParam.append((element: element, window: sectionWindow.window, screen: focusedScreen, sectionConfig: sectionWindow.sectionConfig))
                     }
                 }
             }
