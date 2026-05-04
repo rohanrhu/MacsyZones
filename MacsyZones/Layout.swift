@@ -16,9 +16,10 @@ import AppKit
 
 struct SectionView: View {
     @ObservedObject var sectionWindow: SectionWindow
+    @Environment(\.colorScheme) var colorScheme
     
     var backgroundColor: Color {
-        sectionWindow.isHovered ? Color.accentColor.opacity(0.1) : Color.white.opacity(0.1)
+        sectionWindow.isHovered ? Color.accentColor.opacity(0.1) : Color.black.opacity(0.1)
     }
     
     var borderColor: Color {
@@ -26,29 +27,14 @@ struct SectionView: View {
     }
     
     var centerCircleBckground: AnyView {
-        if hasLiquidGlass {
-            return AnyView(
-                Circle()
-                    .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05))
-                    .background(Circle()
-                    .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 2))
-            )
-        } else {
-            if #available(macOS 14.0, *) {
-                return hasLiquidGlass ? AnyView(Circle()
-                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.25 : 0.05))
-                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : 0.1), lineWidth: 4))
-                    : AnyView(Circle()
-                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.2 : 0.1))
-                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.5 : 0.25), lineWidth: 4)
-                        .shadow(color: (sectionWindow.isHovered ? Color.accentColor : Color.black).opacity(sectionWindow.isHovered ? 0.5 : 0.5), radius: 2, x: 0, y: 0))
-            } else {
-                return AnyView(
+        AnyView(
+            Circle()
+                .fill((sectionWindow.isHovered ? Color.accentColor : Color.black).opacity(sectionWindow.isHovered ? 0.15 : 0.075))
+                .background(
                     Circle()
-                        .fill((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.1 : 0.05))
+                        .stroke((sectionWindow.isHovered ? Color.accentColor : Color.white).opacity(sectionWindow.isHovered ? 0.6 : (colorScheme == .light ? 0.4 : 0.2)), lineWidth: 2)
                 )
-            }
-        }
+        )
     }
     
     var body: some View {
@@ -666,6 +652,7 @@ class SectionWindow: Hashable, ObservableObject {
     @Published var number: Int = 0
     @Published var isHovered: Bool = false
     @Published var windowSize: CGSize = .zero
+    
     var editorWindow: NSWindow!
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
@@ -1190,7 +1177,7 @@ class LayoutWindow: ObservableObject {
               userLayouts.currentLayout.layoutWindow === self
         else { return }
 
-        debugLog("LayoutWindow.handleMouseMoved(): currentLayout: \(userLayouts.currentLayout.name), timestamp: \(event.timestamp)")
+        debugLog("LayoutWindow.handleMouseMoved(): currentLayout: \(userLayouts.currentLayout.name)")
         
         let mouseLocation = NSEvent.mouseLocation
         let resizerRectsWithInfo = calculateSnapResizerRectsWithInfo()
@@ -1475,6 +1462,11 @@ class LayoutWindow: ObservableObject {
     func show(showLayouts: Bool = true, showSnapResizers: Bool = false) {
         let wasShwon = isShown
         isShown = true
+
+        if appSettings.enableLayoutSwitcher && showLayouts,
+           let snapScreen = getFocusedScreen() {
+            layoutSwitcherPanel.show(on: snapScreen)
+        }
         
         if !wasShwon {
             window.alphaValue = 0
@@ -1635,6 +1627,7 @@ class LayoutWindow: ObservableObject {
 
     func hide() {
         isShown = false
+        layoutSwitcherPanel.hide()
         
         for sectionResizer in sectionResizers {
             NSAnimationContext.runAnimationGroup({ context in
@@ -2131,6 +2124,10 @@ class GridLayoutWindow {
 
         if let focusedScreen = getFocusedScreen() {
             window.setFrame(focusedScreen.visibleFrame, display: true, animate: false)
+
+            if appSettings.enableLayoutSwitcher {
+                layoutSwitcherPanel.show(on: focusedScreen)
+            }
         }
 
         selectionState.reset()
@@ -2152,6 +2149,7 @@ class GridLayoutWindow {
 
     func hide() {
         isShown = false
+        layoutSwitcherPanel.hide()
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.35

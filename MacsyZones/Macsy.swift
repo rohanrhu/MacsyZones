@@ -17,6 +17,7 @@ import Accessibility
 import CoreGraphics
 
 var userLayouts: UserLayouts = .init()
+var layoutSwitcherPanel: LayoutSwitcherPanel = .init()
 var updateState: UpdateState = .init()
 var toLeaveElement: AXUIElement?
 var toLeaveSectionWindow: SectionWindow?
@@ -26,6 +27,7 @@ var isFitting = false
 var isEditing = false
 var isQuickSnapping = false
 var isSnapResizing = false
+var isSwitcherUsed = false
 
 var movingWindowInfo: (element: AXUIElement, windowId: UInt32)?
 var isMovingAWindow = false
@@ -34,6 +36,10 @@ var draggedWindowInitialPosition: CGPoint?
 
 var windowMovingOnScreen: NSScreen? = nil
 var placedWindowMoveStartPosition: CGPoint?
+
+func setIsFitting(_ fitting: Bool) {
+    isFitting = fitting
+}
 
 func isSnapKeyPressed() -> Bool {
     guard appSettings.snapKey != "None" else { return false }
@@ -64,7 +70,7 @@ func checkSnapKeyOnWindowMoveStart() {
             }
         }
 
-        isFitting = true
+        setIsFitting(true)
 
         let currentLayout = userLayouts.currentLayout
 
@@ -128,20 +134,20 @@ func onMouseDown(event: NSEvent) {
 }
 
 func startEditing() {
-    isFitting = false
+    setIsFitting(false)
     isEditing = true
     userLayouts.currentLayout.layoutWindow.startEditing()
 }
 
 func stopEditing() {
-    isFitting = false
+    setIsFitting(false)
     isEditing = false
     userLayouts.currentLayout.layoutWindow.stopEditing()
 }
 
 @discardableResult
 func toggleEditing() -> Bool {
-    isFitting = false
+    setIsFitting(false)
     isEditing = !isEditing
     if isEditing {
         userLayouts.currentLayout.layoutWindow.startEditing()
@@ -257,6 +263,7 @@ var shakeMagnitudeCount: CGFloat = 0
 var justDidMouseUp = false
 
 func getHoveredSectionWindow() -> SectionWindow? {
+    print("getHoveredSectionWindow(): isFitting = \(isFitting)")
     var hoveredSectionWindow: SectionWindow?
     
     guard let focusedScreen = getFocusedScreen() else {
@@ -353,9 +360,13 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             windowMovingOnScreen = screen
             
             for layout in userLayouts.layouts.values {
-                for sectionWindow in layout.layoutWindow.sectionWindows {
-                    sectionWindow.isHovered = false
-                    sectionWindow.window.orderOut(nil)
+                if layout.layoutType == .zone {
+                    for sectionWindow in layout.layoutWindow.sectionWindows {
+                        sectionWindow.isHovered = false
+                        sectionWindow.window.orderOut(nil)
+                    }
+                } else {
+                    layout.gridLayoutWindow?.hide()
                 }
             }
             
@@ -368,12 +379,13 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             if isFitting {
                 let currentLayout = userLayouts.currentLayout
                 switch currentLayout.layoutType {
-                case .zone:
-                    currentLayout.layoutWindow.show()
-                case .grid:
-                    currentLayout.gridLayoutWindow?.show()
-                    currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
-                }
+                    case .zone:
+                        currentLayout.layoutWindow.show()
+                    case .grid:
+                        isFitting = false
+                    }
+            } else if appSettings.enableLayoutSwitcher {
+                layoutSwitcherPanel.move(to: screen)
             }
 
             toLeaveElement = nil
@@ -386,7 +398,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     
     windowMovingOnScreen = getFocusedScreen()
     
-    if appSettings.shakeToSnap {
+    if appSettings.shakeToSnap && !isSwitcherUsed {
         let currentTime = Date().timeIntervalSince1970
         
         if lastShakeClearTime + shakeClearInterval >= currentTime {
@@ -422,6 +434,11 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     if NSEvent.pressedMouseButtons & 1 != 0 {
         isMovingAWindow = true
         checkSnapKeyOnWindowMoveStart()
+        
+        if appSettings.enableLayoutSwitcher && !isFitting,
+           let screen = getFocusedScreen() {
+            layoutSwitcherPanel.showActualMode(on: screen)
+        }
     }
 
     let currentLayout = userLayouts.currentLayout
@@ -496,22 +513,8 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
         return
     }
     
-    if appSettings.shakeToSnap {
-        var isSnapKeyPressed = NSEvent.modifierFlags.contains(.shift)
-
-        if appSettings.snapKey != "None" {
-            var snapKey: NSEvent.ModifierFlags = .shift
-            
-            if appSettings.snapKey == "Control" {
-                snapKey = .control
-            } else if appSettings.snapKey == "Command" {
-                snapKey = .command
-            } else if appSettings.snapKey == "Option" {
-                snapKey = .option
-            }
-            
-            isSnapKeyPressed = NSEvent.modifierFlags.contains(snapKey)
-        }
+    if appSettings.shakeToSnap && !isSwitcherUsed {
+        let isSnapKeyPressed = isSnapKeyPressed()
 
         guard !isSnapKeyPressed else { return }
         
@@ -939,6 +942,9 @@ func onMouseDragged(event: NSEvent) {
 func onMouseUp(event: NSEvent) {
     guard macsyReady.isReady else { return }
 
+    // Hide the layout switcher regardless of mode (actualMode or directMode).
+    layoutSwitcherPanel.hide()
+
     movingWindowInfo = nil
     isMovingAWindow = false
     placedWindowMoveStartPosition = nil
@@ -952,7 +958,7 @@ func onMouseUp(event: NSEvent) {
     else { return }
 
     if isEditing || isSnapResizing || isQuickSnapping {
-        isFitting = false
+        setIsFitting(false)
     }
 
     let currentLayout = userLayouts.currentLayout
@@ -973,15 +979,19 @@ private func handleZoneMouseUp() {
         toLeaveSectionWindow = hoveredSectionWindow
     }
 
+    // Mirror handleGridMouseUp: resolve the element from multiple fallback sources
+    // so snap still works even if onWindowMoved didn't set toLeaveElement.
+    toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
+
     guard let window = toLeaveElement else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
@@ -1006,10 +1016,10 @@ private func handleZoneMouseUp() {
             justDidMouseUp = true
         }
 
-        isFitting = false
+        setIsFitting(false)
         userLayouts.currentLayout.layoutWindow.hide()
     } else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
         userLayouts.currentLayout.layoutWindow.hide()
@@ -1024,21 +1034,21 @@ private func handleGridMouseUp() {
     toLeaveGridRect = gridLayoutWindow?.getSelectionAXRect()
 
     guard let window = toLeaveElement else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveGridRect = nil
         gridLayoutWindow?.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveGridRect = nil
         gridLayoutWindow?.hide()
         return
     }
     guard let snapRect = toLeaveGridRect else {
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveGridRect = nil
         gridLayoutWindow?.hide()
@@ -1067,7 +1077,7 @@ private func handleGridMouseUp() {
         justDidMouseUp = true
     }
 
-    isFitting = false
+    setIsFitting(false)
     toLeaveElement = nil
     toLeaveGridRect = nil
     gridLayoutWindow?.hide()

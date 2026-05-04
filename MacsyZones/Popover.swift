@@ -195,6 +195,7 @@ struct Main: View {
     @State var showWindowCyclingHelpDialog = false
     @State var showSnapHighlightStrategyHelpDialog = false
     @State var showPerDesktopLayoutsHelpDialog = false
+    @State var showLayoutSwitcherHelpDialog = false
     
     func resetDialogs() {
         showDialog = false
@@ -206,6 +207,7 @@ struct Main: View {
         showWindowCyclingHelpDialog = false
         showSnapHighlightStrategyHelpDialog = false
         showPerDesktopLayoutsHelpDialog = false
+        showLayoutSwitcherHelpDialog = false
     }
     
     func sensitivityLabel(for threshold: CGFloat) -> String {
@@ -309,6 +311,7 @@ struct Main: View {
                                 Text(name)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onAppear {
@@ -317,6 +320,8 @@ struct Main: View {
                             }
                         }
                         .onChange(of: layouts.currentLayoutName) { _ in
+                            guard !isFitting else { return }
+
                             let wasEditing = isEditing
                             stopEditing()
                             userLayouts.selectLayout(layouts.currentLayoutName)
@@ -376,6 +381,25 @@ struct Main: View {
                             .padding(.top, 2)
                         }
                     }
+
+                    Divider().padding(.vertical, 2)
+
+                    HStack {
+                        Toggle("Layout Switcher & Snap w/ Ease", isOn: $settings.enableLayoutSwitcher)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.enableLayoutSwitcher) { _ in appSettings.save() }
+                        
+                        Button(action: {
+                            resetDialogs()
+                            showDialog = true
+                            showLayoutSwitcherHelpDialog = true
+                        }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 13))
+                                .imageScale(.small)
+                        }
+                        .buttonStyle(BorderlessButtonStyle())
+                    }
                     
                     Divider().padding(.vertical, 2)
                     
@@ -401,6 +425,7 @@ struct Main: View {
                             Text("Option").tag("Option")
                             Text("Control").tag("Control")
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onChange(of: settings.snapKey) { _ in appSettings.save() }
@@ -434,6 +459,7 @@ struct Main: View {
                             Text("Option").tag("Option")
                             Text("Control").tag("Control")
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
                         .onChange(of: settings.modifierKey) { _ in appSettings.save() }
@@ -491,6 +517,7 @@ struct Main: View {
                         }
                     }
                 }
+                .frame(minWidth: 220)
                 .fixedSize()
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -841,6 +868,18 @@ struct Main: View {
                     title: Text("Per-desktop layouts"),
                     message: Text("""
                         If you enable this option, MacsyZones will remember your preffered/selected layout for each macOS workspace (virtual desktop) / screen pair.
+                    
+                        Enjoy! 🥳
+                    """),
+                    dismissButton: .default(Text("OK"))
+                )
+            } else if showLayoutSwitcherHelpDialog {
+                return Alert(
+                    title: Text("Layout Switcher & Snap w/ Ease"),
+                    message: Text("""
+                        Layout Switcher is a feature that allows you to switch and start snapping on a layout while you move a window.
+                        
+                        Without Snap Key or Right-click to Snap, you can hold your mouse pointer on a layout and leave your window on a zone to snap with ease.
                     
                         Enjoy! 🥳
                     """),

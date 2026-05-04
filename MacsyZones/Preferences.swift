@@ -158,7 +158,7 @@ class SpaceLayoutPreferences: UserData {
             queue: nil,
             using: { notification in
                 stopEditing()
-                isFitting = false
+                setIsFitting(false)
                 userLayouts.hideAllSectionWindows()
                 if #available(macOS 12.0, *) { quickSnapper.close() }
                 

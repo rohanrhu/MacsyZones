@@ -434,13 +434,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 
                 if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
                     snapKeyUsed = true
-                    isFitting = true
+                    setIsFitting(true)
                     userLayouts.currentLayout.show()
                     if userLayouts.currentLayout.layoutType == .grid {
                         userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
                     }
-                } else if isFitting {
-                    isFitting = false
+                } else if isFitting && snapKeyUsed {
+                    snapKeyUsed = false
+                    setIsFitting(false)
                     if !isQuickSnapping {
                         userLayouts.currentLayout.hide()
                     }
@@ -472,7 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                             }
                         }
                         
-                        isFitting = true
+                        setIsFitting(true)
                         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: modifierKeyTask!)
                     }
                 } else {
@@ -480,7 +481,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     modifierKeyTask = nil
                     
                     if isFitting {
-                        isFitting = false
+                        setIsFitting(false)
                         if !isQuickSnapping {
                             userLayouts.currentLayout.hide()
                         }
@@ -511,10 +512,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 if userLayouts.currentLayout.layoutType == .grid {
                     userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
                 }
-                isFitting = true
+                setIsFitting(true)
             } else {
                 userLayouts.currentLayout.hide()
-                isFitting = false
+                setIsFitting(false)
             }
         }
     }

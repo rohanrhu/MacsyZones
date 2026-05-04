@@ -232,6 +232,7 @@ class UserLayout {
 
     func hideAllWindows() {
         for sectionWindow in layoutWindow.sectionWindows {
+            sectionWindow.isHovered = false
             sectionWindow.window.orderOut(nil)
             sectionWindow.editorWindow.orderOut(nil)
         }

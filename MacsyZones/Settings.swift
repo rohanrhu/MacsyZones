@@ -30,6 +30,7 @@ struct AppSettingsData: Codable {
     var cycleWindowsForwardShortcut: String?
     var cycleWindowsBackwardShortcut: String?
     var snapHighlightStrategy: SnapHighlightStrategy?
+    var enableLayoutSwitcher: Bool?
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -51,6 +52,7 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultCycleWindowsForwardShortcut: String = "Command+]"
     private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
     private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    private static let defaultEnableLayoutSwitcher: Bool = true
     
     @Published var modifierKey: String = defaultModifierKey
     @Published var snapKey: String = defaultSnapKey
@@ -69,6 +71,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var cycleWindowsForwardShortcut: String = defaultCycleWindowsForwardShortcut
     @Published var cycleWindowsBackwardShortcut: String = defaultCycleWindowsBackwardShortcut
     @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
+    @Published var enableLayoutSwitcher: Bool = defaultEnableLayoutSwitcher
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -123,7 +126,8 @@ class AppSettings: UserData, ObservableObject {
                 showSnapResizersOnHover: showSnapResizersOnHover,
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
-                snapHighlightStrategy: snapHighlightStrategy
+                snapHighlightStrategy: snapHighlightStrategy,
+                enableLayoutSwitcher: enableLayoutSwitcher
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -155,6 +159,7 @@ class AppSettings: UserData, ObservableObject {
         cycleWindowsForwardShortcut = Self.defaultCycleWindowsForwardShortcut
         cycleWindowsBackwardShortcut = Self.defaultCycleWindowsBackwardShortcut
         snapHighlightStrategy = Self.defaultSnapHighlightStrategy
+        enableLayoutSwitcher = Self.defaultEnableLayoutSwitcher
         
         if #available(macOS 12.0, *) {
             quickSnapper.toggleHotkey?.register(for: quickSnapShortcut)
