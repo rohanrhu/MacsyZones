@@ -32,6 +32,7 @@ struct AppSettingsData: Codable {
     var snapHighlightStrategy: SnapHighlightStrategy?
     var automaticallyCheckForUpdates: Bool?
     var automaticallyInstallUpdates: Bool?
+    var enableLayoutSwitcher: Bool?
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -55,6 +56,7 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
     private static let defaultAutomaticallyCheckForUpdates: Bool = true
     private static let defaultAutomaticallyInstallUpdates: Bool = false
+    private static let defaultEnableLayoutSwitcher: Bool = true
     
     @Published var modifierKey: String = defaultModifierKey
     @Published var snapKey: String = defaultSnapKey
@@ -75,6 +77,7 @@ class AppSettings: UserData, ObservableObject {
     @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
     @Published var automaticallyCheckForUpdates: Bool = defaultAutomaticallyCheckForUpdates
     @Published var automaticallyInstallUpdates: Bool = defaultAutomaticallyInstallUpdates
+    @Published var enableLayoutSwitcher: Bool = defaultEnableLayoutSwitcher
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -107,6 +110,7 @@ class AppSettings: UserData, ObservableObject {
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
             self.automaticallyCheckForUpdates = settings.automaticallyCheckForUpdates ?? automaticallyCheckForUpdates
             self.automaticallyInstallUpdates = settings.automaticallyInstallUpdates ?? automaticallyInstallUpdates
+            self.enableLayoutSwitcher = settings.enableLayoutSwitcher ?? enableLayoutSwitcher
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -133,7 +137,8 @@ class AppSettings: UserData, ObservableObject {
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
                 snapHighlightStrategy: snapHighlightStrategy,
                 automaticallyCheckForUpdates: automaticallyCheckForUpdates,
-                automaticallyInstallUpdates: automaticallyInstallUpdates
+                automaticallyInstallUpdates: automaticallyInstallUpdates,
+                enableLayoutSwitcher: enableLayoutSwitcher
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -167,6 +172,7 @@ class AppSettings: UserData, ObservableObject {
         snapHighlightStrategy = Self.defaultSnapHighlightStrategy
         automaticallyCheckForUpdates = Self.defaultAutomaticallyCheckForUpdates
         automaticallyInstallUpdates = Self.defaultAutomaticallyInstallUpdates
+        enableLayoutSwitcher = Self.defaultEnableLayoutSwitcher
         
         if #available(macOS 12.0, *) {
             quickSnapper.toggleHotkey?.register(for: quickSnapShortcut)

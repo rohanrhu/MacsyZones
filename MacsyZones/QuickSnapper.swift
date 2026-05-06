@@ -406,7 +406,7 @@ class QuickSnapper: ObservableObject {
             self.panel.orderOut(nil)
         })
         
-        isFitting = false
+        setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
         userLayouts.currentLayout.hide()
