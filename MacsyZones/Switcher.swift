@@ -60,11 +60,11 @@ struct LayoutSwitcher: View {
     var mode: LayoutSwitcherMode = .direct
     var onHoldSelect: ((String) -> Void)? = nil
     
-    @State private var internalMouseX: CGFloat = -10_000
     @State private var isMouseInside: Bool = false
     @State private var eventMonitor: Any? = nil
     @State private var itemRects: [String: CGRect] = [:]
     @State private var isVisible: Bool = false
+    @State private var isExpanded: Bool = true
 
     private final class DwellState {
         var workItem: DispatchWorkItem?
@@ -123,9 +123,9 @@ struct LayoutSwitcher: View {
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
             } else {
-                HStack(alignment: .bottom, spacing: mouseState.isExpanded ? 10 : 6) {
+                HStack(alignment: .bottom, spacing: isExpanded ? 10 : 6) {
                     ForEach(layouts, id: \.name) { layout in
-                        let compact = !mouseState.isExpanded
+                        let compact = !isExpanded
                         let scale = compact ? 1.0 : magnification(for: layout.name)
                         DockItem(
                             layout: layout,
@@ -155,8 +155,9 @@ struct LayoutSwitcher: View {
                         )
                     }
                 }
-                .padding(.horizontal, mouseState.isExpanded ? 32 : 16)
-                .padding(.vertical, mouseState.isExpanded ? 24 : 12)
+                .padding(.horizontal, isExpanded ? 32 : 16)
+                .padding(.vertical, isExpanded ? 24 : 12)
+                .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isExpanded)
                 .onPreferenceChange(DockCentersKey.self) { rects in
                     itemRects = rects
                 }
@@ -215,6 +216,12 @@ struct LayoutSwitcher: View {
             }
         }
         .onAppear {
+            var t = Transaction(animation: nil)
+            t.disablesAnimations = true
+            withTransaction(t) {
+                isExpanded = mouseState.isExpanded
+            }
+
             withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
                 isVisible = true
             }
@@ -227,6 +234,11 @@ struct LayoutSwitcher: View {
                 }
 
                 return event
+            }
+        }
+        .onChange(of: mouseState.isExpanded) { newValue in
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
+                isExpanded = newValue
             }
         }
         .onDisappear {
@@ -475,12 +487,16 @@ class LayoutSwitcherPanel {
                 }
         }
         
-        panel.contentView = NSHostingView(rootView: LayoutSwitcherPanelView(
+        let hostingView = NSHostingView(rootView: LayoutSwitcherPanelView(
             appLayouts: userLayouts,
             mouseState: mouseState,
             mode: mode,
             onHoldSelect: onHold
         ))
+        if #available(macOS 13.0, *) {
+            hostingView.sizingOptions = []
+        }
+        panel.contentView = hostingView
     }
 
     private func computeFrame(for screen: NSScreen) -> NSRect {
@@ -498,12 +514,15 @@ class LayoutSwitcherPanel {
         guard !isSuppressed else { return }
 
         let frame = computeFrame(for: screen)
+        let needsRebuild = !isShown || mode != .direct
 
         mode = .direct
         mouseState.isExpanded = true
         mouseState.hostWindowFrame = frame
 
-        rebuildContent(mode: .direct, frame: frame)
+        if needsRebuild {
+            rebuildContent(mode: .direct, frame: frame)
+        }
 
         panel.setFrame(frame, display: true, animate: false)
 
@@ -557,14 +576,14 @@ class LayoutSwitcherPanel {
             guard let self else { return }
 
             let loc = NSEvent.mouseLocation
-            self.mouseState.position = loc
-            
+            if loc != self.mouseState.position {
+                self.mouseState.position = loc
+            }
+
             if self.mode == .actual {
                 let isOver = self.panel.frame.contains(loc)
                 if self.mouseState.isExpanded != isOver {
-                    withAnimation(.bouncy(duration: 0.25)) {
-                        self.mouseState.isExpanded = isOver
-                    }
+                    self.mouseState.isExpanded = isOver
                 }
             }
         }
@@ -596,7 +615,9 @@ class LayoutSwitcherPanel {
             self.panel.animator().alphaValue = 0
         }, completionHandler: {
             self.panel.orderOut(nil)
-            self.mouseState.isExpanded = true
+            if !self.isShown {
+                self.mouseState.isExpanded = true
+            }
         })
     }
 }
