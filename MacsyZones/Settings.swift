@@ -111,6 +111,10 @@ class AppSettings: UserData, ObservableObject {
             self.automaticallyCheckForUpdates = settings.automaticallyCheckForUpdates ?? automaticallyCheckForUpdates
             self.automaticallyInstallUpdates = settings.automaticallyInstallUpdates ?? automaticallyInstallUpdates
             self.enableLayoutSwitcher = settings.enableLayoutSwitcher ?? enableLayoutSwitcher
+
+            if !automaticallyCheckForUpdates {
+                automaticallyInstallUpdates = false
+            }
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }

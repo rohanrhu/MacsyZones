@@ -127,10 +127,11 @@ class GitHubAPI {
                    let tagName = json["tag_name"] as? String,
                    let releaseURLString = json["html_url"] as? String
                 {
+                    let assets = json["assets"] as? [[String: Any]]
                     let version = tagName.replacingOccurrences(of: "v", with: "")
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
                     let isGreater = isVersionGreater(version, than: appVersion)
-                    let downloadURLString = ((json["assets"] as? [[String: Any]])?.first?["browser_download_url"] as? String)
+                    let downloadURLString = Self.selectDownloadURLString(from: assets)
 
                     guard isGreater, let releaseURL = URL(string: releaseURLString) else {
                         onChecked(nil)
@@ -153,6 +154,22 @@ class GitHubAPI {
         }
         
         task.resume()
+    }
+
+    private static func selectDownloadURLString(from assets: [[String: Any]]?) -> String? {
+        guard let assets = assets else {
+            return nil
+        }
+
+        let namedZip = assets.first { asset in
+            (asset["name"] as? String)?.caseInsensitiveCompare("MacsyZones.zip") == .orderedSame
+        }
+
+        let anyZip = assets.first { asset in
+            ((asset["name"] as? String)?.lowercased().hasSuffix(".zip") ?? false)
+        }
+
+        return (namedZip ?? anyZip ?? assets.first)?["browser_download_url"] as? String
     }
 }
 
