@@ -159,7 +159,9 @@ struct LayoutSwitcher: View {
                 .padding(.vertical, isExpanded ? 24 : 12)
                 .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isExpanded)
                 .onPreferenceChange(DockCentersKey.self) { rects in
-                    itemRects = rects
+                    DispatchQueue.main.async {
+                        itemRects = rects
+                    }
                 }
             }
         }
@@ -524,7 +526,7 @@ class LayoutSwitcherPanel {
             rebuildContent(mode: .direct, frame: frame)
         }
 
-        panel.setFrame(frame, display: true, animate: false)
+        panel.setFrame(frame, display: false, animate: false)
 
         if !isShown {
             panel.alphaValue = 0
@@ -554,7 +556,7 @@ class LayoutSwitcherPanel {
 
         rebuildContent(mode: .actual, frame: frame)
 
-        panel.setFrame(frame, display: true, animate: false)
+        panel.setFrame(frame, display: false, animate: false)
 
         panel.alphaValue = 0
 
@@ -595,7 +597,7 @@ class LayoutSwitcherPanel {
         let frame = computeFrame(for: screen)
 
         mouseState.hostWindowFrame = frame
-        panel.setFrame(frame, display: true, animate: false)
+        panel.setFrame(frame, display: false, animate: false)
         panel.orderFrontRegardless()
     }
 
