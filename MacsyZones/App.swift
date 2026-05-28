@@ -249,8 +249,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     updateState.clearUpdateAttempt()
                 }
             }
-            
-            appUpdater.checkForUpdates()
+
+            if appSettings.automaticallyCheckForUpdates {
+                appUpdater.checkForUpdates(download: appSettings.automaticallyInstallUpdates)
+            }
         }
     }
     

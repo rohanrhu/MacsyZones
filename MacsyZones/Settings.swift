@@ -30,6 +30,8 @@ struct AppSettingsData: Codable {
     var cycleWindowsForwardShortcut: String?
     var cycleWindowsBackwardShortcut: String?
     var snapHighlightStrategy: SnapHighlightStrategy?
+    var automaticallyCheckForUpdates: Bool?
+    var automaticallyInstallUpdates: Bool?
     var enableLayoutSwitcher: Bool?
 }
 
@@ -52,6 +54,8 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultCycleWindowsForwardShortcut: String = "Command+]"
     private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
     private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    private static let defaultAutomaticallyCheckForUpdates: Bool = true
+    private static let defaultAutomaticallyInstallUpdates: Bool = false
     private static let defaultEnableLayoutSwitcher: Bool = true
     
     @Published var modifierKey: String = defaultModifierKey
@@ -71,6 +75,8 @@ class AppSettings: UserData, ObservableObject {
     @Published var cycleWindowsForwardShortcut: String = defaultCycleWindowsForwardShortcut
     @Published var cycleWindowsBackwardShortcut: String = defaultCycleWindowsBackwardShortcut
     @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
+    @Published var automaticallyCheckForUpdates: Bool = defaultAutomaticallyCheckForUpdates
+    @Published var automaticallyInstallUpdates: Bool = defaultAutomaticallyInstallUpdates
     @Published var enableLayoutSwitcher: Bool = defaultEnableLayoutSwitcher
 
     init() {
@@ -102,6 +108,13 @@ class AppSettings: UserData, ObservableObject {
             self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut ?? cycleWindowsForwardShortcut
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut ?? cycleWindowsBackwardShortcut
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
+            self.automaticallyCheckForUpdates = settings.automaticallyCheckForUpdates ?? automaticallyCheckForUpdates
+            self.automaticallyInstallUpdates = settings.automaticallyInstallUpdates ?? automaticallyInstallUpdates
+            self.enableLayoutSwitcher = settings.enableLayoutSwitcher ?? enableLayoutSwitcher
+
+            if !automaticallyCheckForUpdates {
+                automaticallyInstallUpdates = false
+            }
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -127,6 +140,8 @@ class AppSettings: UserData, ObservableObject {
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
                 snapHighlightStrategy: snapHighlightStrategy,
+                automaticallyCheckForUpdates: automaticallyCheckForUpdates,
+                automaticallyInstallUpdates: automaticallyInstallUpdates,
                 enableLayoutSwitcher: enableLayoutSwitcher
             )
             
@@ -159,6 +174,8 @@ class AppSettings: UserData, ObservableObject {
         cycleWindowsForwardShortcut = Self.defaultCycleWindowsForwardShortcut
         cycleWindowsBackwardShortcut = Self.defaultCycleWindowsBackwardShortcut
         snapHighlightStrategy = Self.defaultSnapHighlightStrategy
+        automaticallyCheckForUpdates = Self.defaultAutomaticallyCheckForUpdates
+        automaticallyInstallUpdates = Self.defaultAutomaticallyInstallUpdates
         enableLayoutSwitcher = Self.defaultEnableLayoutSwitcher
         
         if #available(macOS 12.0, *) {
