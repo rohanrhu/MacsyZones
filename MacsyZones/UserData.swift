@@ -246,10 +246,10 @@ class UserLayout {
         gridLayoutWindow?.hide()
     }
 
-    func show(showLayouts: Bool = true, showSnapresizers: Bool = false) {
+    func show(showLayouts: Bool = true, showSnapresizers: Bool = false, showSwitcher: Bool = true) {
         switch layoutType {
         case .zone:
-            layoutWindow.show(showLayouts: showLayouts, showSnapResizers: showSnapresizers)
+            layoutWindow.show(showLayouts: showLayouts, showSnapResizers: showSnapresizers, showSwitcher: showSwitcher)
         case .grid:
             gridLayoutWindow?.show()
         }

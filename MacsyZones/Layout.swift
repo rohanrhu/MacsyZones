@@ -1459,11 +1459,11 @@ class LayoutWindow: ObservableObject {
         macsyStopEditing()
     }
     
-    func show(showLayouts: Bool = true, showSnapResizers: Bool = false) {
+    func show(showLayouts: Bool = true, showSnapResizers: Bool = false, showSwitcher: Bool = true) {
         let wasShwon = isShown
         isShown = true
 
-        if appSettings.enableLayoutSwitcher && showLayouts,
+        if appSettings.enableLayoutSwitcher && showLayouts && showSwitcher,
            let snapScreen = getFocusedScreen() {
             layoutSwitcherPanel.show(on: snapScreen)
         }
@@ -1826,7 +1826,7 @@ class SnapResizer: NSWindow {
         resizerY = frame.origin.y
         
         if isSnapResizing && isMouseOverResizer {
-            userLayouts.currentLayout.layoutWindow.show()
+            userLayouts.currentLayout.layoutWindow.show(showSwitcher: false)
         }
         
         for sectionWindow in (userLayouts.currentLayout.layoutWindow.sectionWindows.filter { sectionWindow in
@@ -1834,6 +1834,8 @@ class SnapResizer: NSWindow {
         }) {
             sectionWindow.window.orderOut(nil)
         }
+        
+        layoutSwitcherPanel.hide()
     }
     
     override func mouseUp(with event: NSEvent) {
@@ -1989,7 +1991,7 @@ struct SnapResizerView: View {
                             if isHovering {
                                 NSCursor.resizeUpDown.push()
                                 if !isSnapResizing {
-                                    userLayouts.currentLayout.layoutWindow.show()
+                                    userLayouts.currentLayout.layoutWindow.show(showSwitcher: false)
                                     
                                     for sectionWindow in (userLayouts.currentLayout.layoutWindow.sectionWindows.filter { sectionWindow in
                                         !relatedSections.contains(where: { $0.sectionWindow === sectionWindow })

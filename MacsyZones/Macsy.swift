@@ -1009,7 +1009,7 @@ private func handleZoneMouseUp() {
                                     screenNumber: screenNumber,
                                     workspaceNumber: workspaceNumber,
                                     layoutName: userLayouts.currentLayoutName,
-                                    sectionNumber: toLeaveSectionWindow!.number,
+                                    sectionNumber: sectionWindow.number,
                                     element: toLeaveElement!)
             }
 
