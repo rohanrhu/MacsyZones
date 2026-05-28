@@ -132,8 +132,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 if let userInfo = notification.userInfo,
                    let launchedApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
                     debugLog("Newly launched app is being observed: \(launchedApp)")
+
                     Task { @MainActor in
                         self.startObserving(pid: launchedApp.processIdentifier)
+                    }
+
+                    let pid = launchedApp.processIdentifier
+                    let element = AXUIElementCreateApplication(pid)
+                    
+                    var windowListRef: CFTypeRef?
+                    let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
+
+                    if result == .success,
+                       let windowList = windowListRef as? [AXUIElement]
+                    {
+                        for window in windowList {
+                            var titleValue: CFTypeRef?
+                            AXUIElementCopyAttributeValue(window,
+                                                        kAXTitleAttribute as CFString,
+                                                        &titleValue)
+                            
+                            if let title = titleValue as? String, !title.isEmpty {
+                                debugLog("Window is being observed: \(title)")
+                            }
+                            
+                            Task { @MainActor in
+                                self.startObserving(pid: pid, element: window)
+                            }
+                        }
                     }
                 }
             }
