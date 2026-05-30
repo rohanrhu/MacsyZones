@@ -137,27 +137,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                         self.startObserving(pid: launchedApp.processIdentifier)
                     }
 
-                    let pid = launchedApp.processIdentifier
-                    let element = AXUIElementCreateApplication(pid)
-                    
-                    var windowListRef: CFTypeRef?
-                    let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        let pid = launchedApp.processIdentifier
+                        let element = AXUIElementCreateApplication(pid)
+                        
+                        var windowListRef: CFTypeRef?
+                        let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
 
-                    if result == .success,
-                       let windowList = windowListRef as? [AXUIElement]
-                    {
-                        for window in windowList {
-                            var titleValue: CFTypeRef?
-                            AXUIElementCopyAttributeValue(window,
-                                                        kAXTitleAttribute as CFString,
-                                                        &titleValue)
-                            
-                            if let title = titleValue as? String, !title.isEmpty {
-                                debugLog("Window is being observed: \(title)")
-                            }
-                            
-                            Task { @MainActor in
-                                self.startObserving(pid: pid, element: window)
+                        if result == .success,
+                        let windowList = windowListRef as? [AXUIElement]
+                        {
+                            for window in windowList {
+                                var titleValue: CFTypeRef?
+                                AXUIElementCopyAttributeValue(window,
+                                                            kAXTitleAttribute as CFString,
+                                                            &titleValue)
+                                
+                                if let title = titleValue as? String, !title.isEmpty {
+                                    debugLog("Window is being observed: \(title)")
+                                }
+                                
+                                Task { @MainActor in
+                                    self.startObserving(pid: pid, element: window)
+                                }
                             }
                         }
                     }
