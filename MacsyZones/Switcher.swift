@@ -12,11 +12,12 @@
 
 import SwiftUI
 
-struct LayoutItem: Equatable {
+struct LayoutItem: Equatable, Identifiable {
     let name: String
     let layoutType: LayoutType
-    
     let sections: [SectionConfig]
+
+    var id: String { name }
 
     init(name: String, layoutType: LayoutType, sections: [SectionConfig] = []) {
         self.name = name
@@ -34,224 +35,111 @@ enum LayoutSwitcherMode {
     case actual
 }
 
-class LayoutDockMouseState: ObservableObject {
-    @Published var position: CGPoint = CGPoint(x: -10_000, y: -10_000)
+final class LayoutSwitcherViewModel: ObservableObject {
+    @Published var layouts: [LayoutItem] = []
+    @Published var selectedLayoutName: String = ""
+    @Published var mode: LayoutSwitcherMode = .direct
     @Published var isExpanded: Bool = true
-    @Published var hostWindowFrame: CGRect = .zero
+    @Published var isVisible: Bool = false
+    @Published var localMouse: CGPoint? = nil
+    @Published var dwellingName: String? = nil
+
+    var onItemRectsChanged: (([String: CGRect]) -> Void)?
+
+    var cachedItemRects: [String: CGRect] = [:]
+
+    func itemRect(for name: String) -> CGRect? { cachedItemRects[name] }
 }
 
-private struct DockCentersKey: PreferenceKey {
-    typealias Value = [String: CGRect]
-
-    static var defaultValue: Value = [:]
-
-    static func reduce(value: inout Value, nextValue: () -> Value) {
+private struct ItemRectsKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
         value.merge(nextValue()) { $1 }
     }
 }
 
 struct LayoutSwitcher: View {
-    @Binding var selectedLayoutName: String
+    @ObservedObject var model: LayoutSwitcherViewModel
 
-    let layouts: [LayoutItem]
-
-    @ObservedObject var mouseState: LayoutDockMouseState = LayoutDockMouseState()
-    
-    var mode: LayoutSwitcherMode = .direct
-    var onHoldSelect: ((String) -> Void)? = nil
-    
-    @State private var isMouseInside: Bool = false
-    @State private var eventMonitor: Any? = nil
-    @State private var itemRects: [String: CGRect] = [:]
-    @State private var isVisible: Bool = false
-    @State private var isExpanded: Bool = true
-
-    private final class DwellState {
-        var workItem: DispatchWorkItem?
-        var target: String?
-    }
-
-    @State private var dwell = DwellState()
-
-    private var resolvedMouse: CGPoint { mouseState.position }
-
-    private func ensureSelectionIsValid() {
-        guard !layouts.isEmpty else { return }
-
-        let existsInAllLayouts = userLayouts.layouts.keys.contains(selectedLayoutName)
-        if !existsInAllLayouts {
-            selectedLayoutName = layouts[0].name
-        }
-    }
-    
-    private func closestItem(at point: CGPoint) -> String? {
-        guard point.x > 0, !itemRects.isEmpty else { return nil }
-
-        for layout in layouts {
-            if let rect = itemRects[layout.name], rect.contains(point) {
-                return layout.name
-            }
-        }
-        
-        return nil
-    }
+    private static let coordinateSpace = "LayoutSwitcherSpace"
 
     private func magnification(for name: String) -> CGFloat {
-        guard let rect = itemRects[name] else { return 1.0 }
+        guard model.isExpanded, let mouse = model.localMouse else { return 1.0 }
+        guard let rect = model.itemRect(for: name) else { return 1.0 }
 
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let mouse = resolvedMouse
         let distance = hypot(mouse.x - center.x, mouse.y - center.y)
         let radius: CGFloat = 90
-
         guard distance < radius else { return 1.0 }
 
         let t = 1.0 - distance / radius
-
         return 1.0 + 0.45 * t * t
     }
 
     var body: some View {
-        Group {
-            if layouts.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.stack.3d.up.slash")
-                    Text("No layouts")
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-            } else {
-                HStack(alignment: .bottom, spacing: isExpanded ? 10 : 6) {
-                    ForEach(layouts, id: \.name) { layout in
-                        let compact = !isExpanded
-                        let scale = compact ? 1.0 : magnification(for: layout.name)
-                        DockItem(
-                            layout: layout,
-                            isSelected: mode == .direct && selectedLayoutName == layout.name,
-                            scale: scale,
-                            isDwelling: dwell.target == layout.name,
-                            isCompact: compact
-                        )
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: DockCentersKey.self,
-                                    value: {
-                                        let wf = mouseState.hostWindowFrame != .zero
-                                            ? mouseState.hostWindowFrame
-                                            : (NSApp.keyWindow?.frame ?? .zero)
-                                        let gf = geo.frame(in: .global)
-                                        return [layout.name: CGRect(
-                                            x: wf.origin.x + gf.minX,
-                                            y: wf.origin.y + wf.height - gf.maxY,
-                                            width: gf.width,
-                                            height: gf.height
-                                        )]
-                                    }()
-                                )
-                            }
-                        )
-                    }
-                }
-                .padding(.horizontal, isExpanded ? 32 : 16)
-                .padding(.vertical, isExpanded ? 24 : 12)
-                .animation(.spring(response: 0.25, dampingFraction: 0.82), value: isExpanded)
-                .onPreferenceChange(DockCentersKey.self) { rects in
-                    DispatchQueue.main.async {
-                        itemRects = rects
-                    }
+        ZStack {
+            panelContent
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .coordinateSpace(name: Self.coordinateSpace)
+        .onPreferenceChange(ItemRectsKey.self) { rects in
+            model.cachedItemRects = rects
+            model.onItemRectsChanged?(rects)
+        }
+    }
+
+    private var panelContent: some View {
+        content
+            .modifier {
+                if #available(macOS 26.0, *) {
+                    $0.glassEffect()
+                } else {
+                    $0.background(BlurredWindowBackground(material: .hudWindow,
+                                                          blendingMode: .behindWindow)
+                        .cornerRadius(16))
                 }
             }
-        }
-        .modifier {
-            if #available(macOS 26.0, *) {
-                $0.glassEffect()
-            } else {
-                $0.background(BlurredWindowBackground(material: .hudWindow,
-                                                      blendingMode: .behindWindow)
-                    .cornerRadius(16).padding(.horizontal, 10))
+            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .fixedSize()
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: model.isExpanded)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: model.layouts)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.layouts.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "square.stack.3d.up.slash")
+                Text("No layouts")
             }
-        }
-        .opacity(isVisible ? 1 : 0)
-        .scaleEffect(isVisible ? 1 : 0.85, anchor: .top)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-        .onChange(of: mouseState.position) { newPos in
-            guard let onHoldSelect = onHoldSelect else { return }
-            
-            guard mouseState.isExpanded else {
-                dwell.workItem?.cancel()
-                dwell.workItem = nil
-                dwell.target = nil
-                return
-            }
-
-            let target = closestItem(at: newPos)
-
-            guard target != dwell.target else { return }
-            
-            dwell.workItem?.cancel()
-            dwell.workItem = nil
-            dwell.target = target
-
-            if let name = target, mode == .actual || name != selectedLayoutName {
-                let work = DispatchWorkItem { [weak dwell = self.dwell] in
-                    dwell?.target = nil
-                    onHoldSelect(name)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+        } else {
+            HStack(alignment: .bottom, spacing: model.isExpanded ? 10 : 6) {
+                ForEach(model.layouts) { layout in
+                    let compact = !model.isExpanded
+                    let scale = compact ? 1.0 : magnification(for: layout.name)
+                    DockItem(
+                        layout: layout,
+                        isSelected: model.mode == .direct && model.selectedLayoutName == layout.name,
+                        scale: scale,
+                        isDwelling: model.dwellingName == layout.name,
+                        isCompact: compact
+                    )
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: ItemRectsKey.self,
+                                value: [layout.name: geometry.frame(in: .named(Self.coordinateSpace))]
+                            )
+                        }
+                    )
                 }
-
-                dwell.workItem = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
-            } else {
-                dwell.target = nil
             }
-        }
-        .onHover { hovering in
-            isMouseInside = hovering
-
-            if !hovering {
-                mouseState.position = CGPoint(x: -10_000, y: -10_000)
-                dwell.workItem?.cancel()
-                dwell.workItem = nil
-                dwell.target = nil
-            }
-        }
-        .onAppear {
-            var t = Transaction(animation: nil)
-            t.disablesAnimations = true
-            withTransaction(t) {
-                isExpanded = mouseState.isExpanded
-            }
-
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
-                isVisible = true
-            }
-
-            ensureSelectionIsValid()
-
-            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) { event in
-                if isMouseInside {
-                    mouseState.position = NSEvent.mouseLocation
-                }
-
-                return event
-            }
-        }
-        .onChange(of: mouseState.isExpanded) { newValue in
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
-                isExpanded = newValue
-            }
-        }
-        .onDisappear {
-            dwell.workItem?.cancel()
-            dwell.workItem = nil
-            dwell.target = nil
-
-            if let m = eventMonitor {
-                NSEvent.removeMonitor(m)
-                eventMonitor = nil
-            }
+            .padding(.horizontal, model.isExpanded ? 32 : 16)
+            .padding(.vertical, model.isExpanded ? 24 : 12)
         }
     }
 }
@@ -280,7 +168,6 @@ struct LayoutPreviewIcon: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-
             RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
                 .fill(tileBg)
             if isSelected {
@@ -288,11 +175,11 @@ struct LayoutPreviewIcon: View {
                     .strokeBorder(Color.accentColor.opacity(0.8), lineWidth: max(1, size * 0.035))
             }
 
-            GeometryReader { geo in
-                let pad = geo.size.width * 0.10
-                let iw = geo.size.width - pad * 2
-                let ih = geo.size.height - pad * 2
-                let gap = max(1.0, geo.size.width * 0.04)
+            GeometryReader { geometry in
+                let pad = geometry.size.width * 0.10
+                let iw = geometry.size.width - pad * 2
+                let ih = geometry.size.height - pad * 2
+                let gap = max(1.0, geometry.size.width * 0.04)
 
                 ZStack(alignment: .topLeading) {
                     ForEach(0..<sections.count, id: \.self) { i in
@@ -316,7 +203,7 @@ struct LayoutPreviewIcon: View {
                             .offset(x: x, y: y)
                     }
                 }
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             }
         }
         .frame(width: size, height: size)
@@ -331,7 +218,6 @@ private struct DockItem: View {
     var isDwelling: Bool = false
     var isCompact: Bool = false
 
-    @State private var isHovered: Bool = false
     @State private var flashOpacity: Double = 1.0
 
     var body: some View {
@@ -353,11 +239,6 @@ private struct DockItem: View {
                 }
             }
         }
-        .onHover { hovering in
-            isHovered = hovering
-            
-            
-        }
         .help(layout.name)
         .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isCompact)
     }
@@ -366,7 +247,7 @@ private struct DockItem: View {
 
     private var itemIcon: some View {
         LayoutPreviewIcon(sections: layout.sections,
-                          isSelected: isSelected || isHovered,
+                          isSelected: isSelected,
                           size: iconSize)
             .scaleEffect(scale, anchor: .bottom)
     }
@@ -381,44 +262,23 @@ private struct DockItem: View {
     }
 }
 
-private struct LayoutSwitcherPanelView: View {
-    @ObservedObject var appLayouts: UserLayouts
-    @ObservedObject var mouseState: LayoutDockMouseState
-
-    var mode: LayoutSwitcherMode = .direct
-    var onHoldSelect: ((String) -> Void)? = nil
-
-    var body: some View {
-        VStack(spacing: 0) {
-            LayoutSwitcher(
-                selectedLayoutName: $appLayouts.currentLayoutName,
-                layouts: Array(appLayouts.layouts.values)
-                    .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                    .compactMap { layout -> LayoutItem? in
-                        guard layout.layoutType == .zone else { return nil }
-                        let sections = Array(layout.sectionConfigs.values)
-                            .sorted { ($0.number ?? 0) < ($1.number ?? 0) }
-                        return LayoutItem(name: layout.name, layoutType: .zone, sections: sections)
-                    },
-                mouseState: mouseState,
-                mode: mode,
-                onHoldSelect: onHoldSelect
-            )
-            
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    }
-}
-
-class LayoutSwitcherPanel {
+final class LayoutSwitcherPanel {
     private let panel: NSPanel
-    private let mouseState = LayoutDockMouseState()
-    private var pollingTimer: Timer?
+    private let hostingView: NSHostingView<LayoutSwitcher>
+    private let model = LayoutSwitcherViewModel()
+
     private var isShown = false
     private var mode: LayoutSwitcherMode = .direct
-    
     private var isSuppressed = false
+
+    private var itemRects: [String: CGRect] = [:]
+
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
+
+    private let dwellInterval: TimeInterval = 0.5
+    private var dwellTarget: String?
+    private var dwellGeneration: UInt64 = 0
 
     init() {
         panel = NSPanel(
@@ -430,23 +290,40 @@ class LayoutSwitcherPanel {
         panel.level = .statusBar + 2
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.ignoresMouseEvents = false
+        panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.alphaValue = 0
         panel.hasShadow = false
+
+        hostingView = NSHostingView(rootView: LayoutSwitcher(model: model))
+        if #available(macOS 13.0, *) {
+            hostingView.sizingOptions = [.intrinsicContentSize]
+        }
+        panel.contentView = hostingView
+
+        model.onItemRectsChanged = { [weak self] rects in
+            self?.itemRects = rects
+        }
+    }
+
+    deinit {
+        let g = globalMonitor
+        let l = localMonitor
+        if let g { NSEvent.removeMonitor(g) }
+        if let l { NSEvent.removeMonitor(l) }
     }
 
     func switchLayout(to name: String) {
         isSwitcherUsed = true
 
         let isSameLayout = (name == userLayouts.currentLayoutName)
-
         guard !isSameLayout || mode == .actual else { return }
 
         isSuppressed = true
+        defer { isSuppressed = false }
 
         let old = userLayouts.currentLayout
-        
+
         if !isSameLayout {
             old.layoutWindow.hide()
             userLayouts.currentLayoutName = name
@@ -455,7 +332,6 @@ class LayoutSwitcherPanel {
         let new = userLayouts.currentLayout
 
         stopEditing()
-
         userLayouts.selectLayout(userLayouts.currentLayoutName)
 
         setIsFitting(true)
@@ -466,69 +342,69 @@ class LayoutSwitcherPanel {
             spaceLayoutPreferences.save()
         }
 
-        isSuppressed = false
-
         if let screen = getFocusedScreen() {
-            show(on: screen)
+            present(on: screen, mode: .direct)
         }
     }
 
-    private func rebuildContent(mode: LayoutSwitcherMode, frame: NSRect) {
-        let onHold: ((String) -> Void)?
-
-        switch mode {
-            case .direct:
-                onHold = { [weak self] name in
-                    guard NSEvent.pressedMouseButtons & 1 != 0 else { return }
-                    self?.switchLayout(to: name)
-                }
-            case .actual:
-                onHold = { [weak self] name in
-                    guard NSEvent.pressedMouseButtons & 1 != 0, let self else { return }
-                    self.switchLayout(to: name)
-                }
-        }
-        
-        let hostingView = NSHostingView(rootView: LayoutSwitcherPanelView(
-            appLayouts: userLayouts,
-            mouseState: mouseState,
-            mode: mode,
-            onHoldSelect: onHold
-        ))
-        if #available(macOS 13.0, *) {
-            hostingView.sizingOptions = []
-        }
-        panel.contentView = hostingView
-    }
-
-    private func computeFrame(for screen: NSScreen) -> NSRect {
-        let screenFrame = screen.visibleFrame
-        let panelHeight: CGFloat = 110
-        let itemCount = max(userLayouts.layouts.count, 1)
-        let panelWidth = min(screenFrame.width - 40, CGFloat(itemCount) * 74 + 48)
-        let x = screenFrame.midX - panelWidth / 2
-        let y = screenFrame.maxY - panelHeight - 8
-
-        return NSRect(x: x, y: y, width: panelWidth, height: panelHeight)
-    }
-    
     func show(on screen: NSScreen) {
         guard !isSuppressed else { return }
+        present(on: screen, mode: .direct)
+    }
+
+    func showActualMode(on screen: NSScreen) {
+        guard !isSuppressed, !isShown else { return }
+        present(on: screen, mode: .actual)
+    }
+
+    func move(to screen: NSScreen) {
+        guard isShown, !isSuppressed else { return }
+        let frame = computeFrame(for: screen)
+        panel.setFrame(frame, display: false, animate: false)
+        panel.orderFrontRegardless()
+    }
+
+    func hide() {
+        guard isShown else { return }
+
+        isSwitcherUsed = false
+        isShown = false
+        mode = .direct
+
+        stopTracking()
+        cancelDwell()
+
+        model.localMouse = nil
+        model.dwellingName = nil
+
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.25
+            self.panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self else { return }
+            if !self.isShown {
+                self.panel.orderOut(nil)
+                self.model.isVisible = false
+                self.model.isExpanded = true
+            }
+        })
+    }
+
+    private func present(on screen: NSScreen, mode newMode: LayoutSwitcherMode) {
+        mode = newMode
+        refreshLayouts()
+
+        model.mode = newMode
+        model.isExpanded = (newMode == .direct)
 
         let frame = computeFrame(for: screen)
-        let needsRebuild = !isShown || mode != .direct
-
-        mode = .direct
-        mouseState.isExpanded = true
-        mouseState.hostWindowFrame = frame
-
-        if needsRebuild {
-            rebuildContent(mode: .direct, frame: frame)
-        }
-
         panel.setFrame(frame, display: false, animate: false)
 
         if !isShown {
+            model.isVisible = false
+            model.localMouse = nil
+            model.dwellingName = nil
+
             panel.alphaValue = 0
             panel.orderFrontRegardless()
 
@@ -538,103 +414,180 @@ class LayoutSwitcherPanel {
             }
 
             isShown = true
+            model.isVisible = true
+            startTracking()
         } else {
             panel.orderFrontRegardless()
         }
 
-        startPollingTimer()
-    }
-    
-    func showActualMode(on screen: NSScreen) {
-        guard !isSuppressed, !isShown else { return }
-        
-        let frame = computeFrame(for: screen)
-
-        mode = .actual
-        mouseState.isExpanded = false  
-        mouseState.hostWindowFrame = frame
-
-        rebuildContent(mode: .actual, frame: frame)
-
-        panel.setFrame(frame, display: false, animate: false)
-
-        panel.alphaValue = 0
-
-        panel.orderFrontRegardless()
-        
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            self.panel.animator().alphaValue = 1
-        }
-
-        startPollingTimer()
-
-        isShown = true
+        handleMouse(globalLocation: NSEvent.mouseLocation)
     }
 
-    private func startPollingTimer() {
-        pollingTimer?.invalidate()
-        pollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-
-            let loc = NSEvent.mouseLocation
-            if loc != self.mouseState.position {
-                self.mouseState.position = loc
+    private func refreshLayouts() {
+        let items = userLayouts.layouts.values
+            .filter { $0.layoutType == .zone }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .map { layout -> LayoutItem in
+                let sections = layout.sectionConfigs.values
+                    .sorted { ($0.number ?? 0) < ($1.number ?? 0) }
+                return LayoutItem(name: layout.name, layoutType: .zone, sections: Array(sections))
             }
 
-            if self.mode == .actual {
-                let isOver = self.panel.frame.contains(loc)
-                if self.mouseState.isExpanded != isOver {
-                    self.mouseState.isExpanded = isOver
+        model.layouts = items
+        model.selectedLayoutName = userLayouts.currentLayoutName
+    }
+
+    private func computeFrame(for screen: NSScreen) -> NSRect {
+        let screenFrame = screen.visibleFrame
+
+        let panelHeight: CGFloat = 150
+        let itemCount = max(model.layouts.count, userLayouts.layouts.count, 1)
+        let desiredWidth = CGFloat(itemCount) * 80 + 96
+        let panelWidth = min(screenFrame.width - 40, max(desiredWidth, 240))
+
+        let x = screenFrame.midX - panelWidth / 2
+        let y = screenFrame.maxY - panelHeight
+        
+        return NSRect(x: x, y: y, width: panelWidth, height: panelHeight)
+    }
+
+    private func contentBounds() -> CGRect? {
+        let rects = itemRects.values
+        guard let first = rects.first else { return nil }
+        var box = first
+        for r in rects.dropFirst() { box = box.union(r) }
+        return box.insetBy(dx: -16, dy: -16)
+    }
+
+    private func startTracking() {
+        stopTracking()
+
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
+            self?.handleMouse(globalLocation: NSEvent.mouseLocation)
+        }
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
+            self?.handleMouse(globalLocation: NSEvent.mouseLocation)
+            return event
+        }
+    }
+
+    private func stopTracking() {
+        if let g = globalMonitor {
+            NSEvent.removeMonitor(g)
+            globalMonitor = nil
+        }
+        if let l = localMonitor {
+            NSEvent.removeMonitor(l)
+            localMonitor = nil
+        }
+    }
+
+    private func handleMouse(globalLocation: CGPoint) {
+        guard isShown else { return }
+
+        let frame = panel.frame
+
+        let local = CGPoint(
+            x: globalLocation.x - frame.origin.x,
+            y: frame.maxY - globalLocation.y
+        )
+
+        let isInside: Bool
+        if let bounds = contentBounds() {
+            isInside = bounds.contains(local)
+        } else {
+            isInside = frame.contains(globalLocation)
+        }
+
+        if mode == .actual {
+            let shouldExpand = isInside
+            if model.isExpanded != shouldExpand {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    model.isExpanded = shouldExpand
                 }
             }
         }
+
+        guard isInside else {
+            if model.localMouse != nil { model.localMouse = nil }
+            cancelDwell()
+            return
+        }
+
+        model.localMouse = local
+        updateDwell(at: local)
     }
 
-    func move(to screen: NSScreen) {
-        guard isShown, !isSuppressed else { return }
-
-        let frame = computeFrame(for: screen)
-
-        mouseState.hostWindowFrame = frame
-        panel.setFrame(frame, display: false, animate: false)
-        panel.orderFrontRegardless()
-    }
-
-    func hide() {
-        guard isShown, !isSuppressed else { return }
-
-        isSwitcherUsed = false
-
-        isShown = false
-        mode = .direct
-        pollingTimer?.invalidate()
-        pollingTimer = nil
-        mouseState.position = CGPoint(x: -10_000, y: -10_000)
-
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.25
-            self.panel.animator().alphaValue = 0
-        }, completionHandler: {
-            self.panel.orderOut(nil)
-            if !self.isShown {
-                self.mouseState.isExpanded = true
+    private func itemName(at localPoint: CGPoint) -> String? {
+        for layout in model.layouts {
+            if let rect = itemRects[layout.name], rect.contains(localPoint) {
+                return layout.name
             }
-        })
+        }
+        return nil
+    }
+
+    private func updateDwell(at localPoint: CGPoint) {
+        guard model.isExpanded else { cancelDwell(); return }
+
+        let target = itemName(at: localPoint)
+        guard target != dwellTarget else { return }
+
+        cancelDwell()
+
+        dwellTarget = target
+
+        guard let name = target else { return }
+
+        if mode == .direct && name == userLayouts.currentLayoutName {
+            model.dwellingName = nil
+            return
+        }
+
+        model.dwellingName = name
+
+        dwellGeneration &+= 1
+        let generation = dwellGeneration
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + dwellInterval) { [weak self] in
+            guard let self else { return }
+            guard self.dwellGeneration == generation else { return }
+            guard self.isShown else { return }
+            guard self.dwellTarget == name else { return }
+            guard NSEvent.pressedMouseButtons & 0x1 != 0 else {
+                self.cancelDwell()
+                return
+            }
+
+            self.model.dwellingName = nil
+            self.dwellTarget = nil
+            self.switchLayout(to: name)
+        }
+    }
+
+    private func cancelDwell() {
+        dwellGeneration &+= 1
+        dwellTarget = nil
+        if model.dwellingName != nil {
+            model.dwellingName = nil
+        }
     }
 }
 
 #Preview {
-    LayoutSwitcher(
-        selectedLayoutName: .constant("Split Screen"),
-        layouts: [
-            LayoutItem(name: "Split Screen", layoutType: .zone),
-            LayoutItem(name: "Productivity", layoutType: .zone),
-            LayoutItem(name: "Quarters", layoutType: .zone),
-        ]
-    )
-    .padding()
-    .frame(width: 600)
+    let vm = LayoutSwitcherViewModel()
+
+    vm.layouts = [
+        LayoutItem(name: "Split Screen", layoutType: .zone),
+        LayoutItem(name: "Productivity", layoutType: .zone),
+        LayoutItem(name: "Quarters", layoutType: .zone),
+    ]
+
+    vm.selectedLayoutName = "Split Screen"
+    vm.isVisible = true
+    
+    return LayoutSwitcher(model: vm)
+        .padding()
+        .frame(width: 600)
 }
-
-
