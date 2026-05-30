@@ -92,7 +92,7 @@ struct LayoutSwitcher: View {
         content
             .modifier {
                 if #available(macOS 26.0, *) {
-                    $0.glassEffect()
+                    $0.glassEffect(.clear)
                 } else {
                     $0.background(BlurredWindowBackground(material: .hudWindow,
                                                           blendingMode: .behindWindow)
