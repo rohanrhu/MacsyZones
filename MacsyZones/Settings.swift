@@ -102,6 +102,7 @@ class AppSettings: UserData, ObservableObject {
             self.cycleWindowsForwardShortcut = settings.cycleWindowsForwardShortcut ?? cycleWindowsForwardShortcut
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut ?? cycleWindowsBackwardShortcut
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
+            self.enableLayoutSwitcher = settings.enableLayoutSwitcher ?? enableLayoutSwitcher
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
