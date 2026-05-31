@@ -415,6 +415,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         result = AXObserverAddNotification(observer, toObserveElement, kAXUIElementDestroyedNotification as CFString, nil)
         guard result == .success else { return }
         
+        if element == nil {
+            result = AXObserverAddNotification(observer, toObserveElement, kAXWindowCreatedNotification as CFString, nil)
+            guard result == .success else { return }
+        }
+        
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
     

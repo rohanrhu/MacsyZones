@@ -240,6 +240,14 @@ func onObserverNotification(observer: AXObserver, element: AXUIElement, notifica
         onWindowMoved(observer: observer, element: element, notification: notification, title: title as! String, position: position)
         
         break
+    case kAXWindowCreatedNotification:
+        debugLog("New window created, starting to observe it.")
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success else { break }
+        Task { @MainActor in
+            (NSApp.delegate as? AppDelegate)?.startObserving(pid: pid, element: element)
+        }
+        break
     case kAXUIElementDestroyedNotification:
         debugLog("App exited: \(title as! String)")
         break
