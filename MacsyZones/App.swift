@@ -54,6 +54,128 @@ var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
 }
 
+@MainActor
+final class WindowObserverManager {
+    static let shared = WindowObserverManager()
+
+    private struct AppEntry {
+        let observer: AXObserver
+        let appElement: AXUIElement
+        var observedWindowIDs: Set<UInt32> = []
+    }
+
+    private var entries: [pid_t: AppEntry] = [:]
+
+    private let observerRunLoop: CFRunLoop
+
+    private final class RunLoopBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: CFRunLoop?
+
+        func set(_ runLoop: CFRunLoop) {
+            lock.lock(); value = runLoop; lock.unlock()
+        }
+
+        func get() -> CFRunLoop? {
+            lock.lock(); defer { lock.unlock() }
+            return value
+        }
+    }
+
+    private init() {
+        let readySemaphore = DispatchSemaphore(value: 0)
+        let box = RunLoopBox()
+
+        let thread = Thread {
+            let runLoop: CFRunLoop = CFRunLoopGetCurrent()
+            box.set(runLoop)
+
+            var ctx = CFRunLoopSourceContext()
+            if let source = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &ctx) {
+                CFRunLoopAddSource(runLoop, source, .commonModes)
+            }
+
+            readySemaphore.signal()
+
+            while !Thread.current.isCancelled {
+                CFRunLoopRunInMode(.defaultMode, 0.25, true)
+            }
+        }
+        thread.name = "com.macsyzones.ax-observer"
+        thread.qualityOfService = QualityOfService.userInteractive
+        thread.start()
+
+        readySemaphore.wait()
+        observerRunLoop = box.get()!
+    }
+
+    @discardableResult
+    func observeApp(pid: pid_t) -> Bool {
+        guard pid > 0 else { return false }
+
+        if entries[pid] != nil { return true }
+
+        let appElement = AXUIElementCreateApplication(pid)
+
+        let observerPtr = UnsafeMutablePointer<AXObserver?>.allocate(capacity: 1)
+        defer { observerPtr.deallocate() }
+
+        guard AXObserverCreate(pid, onObserverNotification, observerPtr) == .success,
+              let observer = observerPtr.pointee
+        else {
+            debugLog("Failed to create observer for pid \(pid)")
+            return false
+        }
+
+        AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, nil)
+        CFRunLoopAddSource(observerRunLoop, AXObserverGetRunLoopSource(observer), .defaultMode)
+
+        entries[pid] = AppEntry(observer: observer, appElement: appElement)
+
+        return true
+    }
+
+    func observeWindow(pid: pid_t, element: AXUIElement) {
+        guard pid > 0 else { return }
+
+        guard isStandardWindow(element) else { return }
+
+        guard observeApp(pid: pid), var entry = entries[pid] else { return }
+
+        if let windowID = getWindowID(from: element) {
+            if entry.observedWindowIDs.contains(windowID) { return }
+            entry.observedWindowIDs.insert(windowID)
+            entries[pid] = entry
+        }
+
+        AXObserverAddNotification(entry.observer, element, kAXWindowMovedNotification as CFString, nil)
+        AXObserverAddNotification(entry.observer, element, kAXUIElementDestroyedNotification as CFString, nil)
+    }
+
+    func forgetWindow(pid: pid_t, windowID: UInt32) {
+        guard var entry = entries[pid] else { return }
+        entry.observedWindowIDs.remove(windowID)
+        entries[pid] = entry
+    }
+
+    func removeApp(pid: pid_t) {
+        guard let entry = entries.removeValue(forKey: pid) else { return }
+        CFRunLoopRemoveSource(observerRunLoop, AXObserverGetRunLoopSource(entry.observer), .defaultMode)
+    }
+
+    private func isStandardWindow(_ element: AXUIElement) -> Bool {
+        var roleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+        guard (roleRef as? String) == kAXWindowRole else { return false }
+
+        var subroleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef)
+        guard (subroleRef as? String) == kAXStandardWindowSubrole else { return false }
+
+        return true
+    }
+}
+
 @main
 struct MacsyZonesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -95,14 +217,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                 let pid = app.processIdentifier
                 let element = AXUIElementCreateApplication(pid)
                 
-                var windowList: CFArray
                 var windowListRef: CFTypeRef?
                 let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
                 if result != .success { continue }
-                windowList = windowListRef as! CFArray
-                
-                if result == .success,
-                   let windowList = windowList as? [AXUIElement]
+
+                if let windowList = windowListRef as? [AXUIElement]
                 {
                     Task { @MainActor in
                         startObserving(pid: pid)
@@ -362,6 +481,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             name: NSWindow.didBecomeKeyNotification,
             object: nil
         )
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAppTermination(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
+    }
+
+    @objc func handleAppTermination(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        else { return }
+
+        let pid = app.processIdentifier
+        Task { @MainActor in
+            WindowObserverManager.shared.removeApp(pid: pid)
+        }
     }
 
     @objc func handleAppActivation(_ notification: Notification) {
@@ -386,41 +522,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         spaceLayoutPreferences.switchToCurrent()
     }
     
+    @MainActor
     func startObserving(pid: pid_t, element: AXUIElement? = nil) {
-        var result: AXError
-        let toObserveElement: AXUIElement
-        
-        if element == nil {
-            toObserveElement = AXUIElementCreateApplication(pid)
+        if let element = element {
+            WindowObserverManager.shared.observeWindow(pid: pid, element: element)
         } else {
-            toObserveElement = element!
+            WindowObserverManager.shared.observeApp(pid: pid)
         }
-        
-        let observerPtr: UnsafeMutablePointer<AXObserver?> = UnsafeMutablePointer<AXObserver?>.allocate(capacity: 1)
-        defer { observerPtr.deallocate() }
-        
-        result = AXObserverCreate(pid, onObserverNotification, observerPtr)
-        guard result == .success else {
-            debugLog("Failed to create observer: \(result)")
-            return
-        }
-        
-        let observer = observerPtr.pointee!
-        
-        result = AXObserverAddNotification(observer, toObserveElement, kAXWindowMovedNotification as CFString, nil)
-        guard result == .success else {
-            return
-        }
-        
-        result = AXObserverAddNotification(observer, toObserveElement, kAXUIElementDestroyedNotification as CFString, nil)
-        guard result == .success else { return }
-        
-        if element == nil {
-            result = AXObserverAddNotification(observer, toObserveElement, kAXWindowCreatedNotification as CFString, nil)
-            guard result == .success else { return }
-        }
-        
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
     
     func monitorShortcuts() {

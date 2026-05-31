@@ -202,55 +202,61 @@ func getWindowID(from axElement: AXUIElement) -> UInt32? {
     }
 }
 
+private var lastWindowMoveProcessTime: TimeInterval = 0
+private let activeWindowMoveThrottle: TimeInterval = 1.0 / 120.0
+private let idleWindowMoveThrottle: TimeInterval = 0.1
+
+var shouldThrottleWindowMove: Bool {
+    let now = ProcessInfo.processInfo.systemUptime
+    let isDragging = CGEventSource.buttonState(.hidSystemState, button: .left)
+    let minInterval = isDragging ? activeWindowMoveThrottle : idleWindowMoveThrottle
+
+    if now - lastWindowMoveProcessTime < minInterval {
+        return true
+    }
+
+    lastWindowMoveProcessTime = now
+    return false
+}
+
 func onObserverNotification(observer: AXObserver, element: AXUIElement, notification: CFString, refcon: UnsafeMutableRawPointer?) {
-    if isEditing { return }
-    if isSnapResizing { return }
-    
-    var result: AXError
-    
-    var roleRef: CFTypeRef?
-    result = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
-    let role = roleRef as? String ?? "Unknown"
-    
-    if role != kAXWindowRole {
-        return
-    }
-    
-    var app: CFTypeRef?
-    result = AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &app)
-    guard result == .success else {
-        return
-    }
-    
-    var title: CFTypeRef?
-    result = AXUIElementCopyAttributeValue(app as! AXUIElement, kAXTitleAttribute as CFString, &title)
-    if result != .success {
-        title = "" as CFTypeRef
-    }
- 
     switch notification as String {
     case kAXWindowMovedNotification:
+        if isEditing || isSnapResizing { return }
+        if shouldThrottleWindowMove { return }
+
         var position: CGPoint = .zero
         var positionRef: CFTypeRef?
-        result = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
-        if result == .success {
-            AXValueGetValue(positionRef as! AXValue, AXValueType.cgPoint, &position)
+        if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success,
+           let positionValue = positionRef {
+            AXValueGetValue(positionValue as! AXValue, AXValueType.cgPoint, &position)
         }
-        
-        onWindowMoved(observer: observer, element: element, notification: notification, title: title as! String, position: position)
-        
-        break
+
+        Task { @MainActor in
+            onWindowMoved(observer: observer,
+                          element: element,
+                          notification: notification,
+                          title: "",
+                          position: position)
+        }
+
     case kAXWindowCreatedNotification:
         debugLog("New window created, starting to observe it.")
         var pid: pid_t = 0
-        guard AXUIElementGetPid(element, &pid) == .success else { break }
+        guard AXUIElementGetPid(element, &pid) == .success else { return }
         Task { @MainActor in
-            (NSApp.delegate as? AppDelegate)?.startObserving(pid: pid, element: element)
+            WindowObserverManager.shared.observeWindow(pid: pid, element: element)
         }
-        break
+
     case kAXUIElementDestroyedNotification:
-        debugLog("App exited: \(title as! String)")
-        break
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success,
+              let windowID = getWindowID(from: element)
+        else { return }
+        Task { @MainActor in
+            WindowObserverManager.shared.forgetWindow(pid: pid, windowID: windowID)
+        }
+
     default:
         break
     }
@@ -271,7 +277,7 @@ var shakeMagnitudeCount: CGFloat = 0
 var justDidMouseUp = false
 
 func getHoveredSectionWindow() -> SectionWindow? {
-    print("getHoveredSectionWindow(): isFitting = \(isFitting)")
+    debugLog("getHoveredSectionWindow(): isFitting = \(isFitting)")
     var hoveredSectionWindow: SectionWindow?
     
     guard let focusedScreen = getFocusedScreen() else {
