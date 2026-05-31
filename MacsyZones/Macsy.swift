@@ -354,14 +354,21 @@ func getHoveredSectionWindow() -> SectionWindow? {
         }
     }
 
-    for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-        sectionWindow.isHovered = (sectionWindow === hoveredSectionWindow)
+    let currentSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows
+    let hovered = hoveredSectionWindow
+    DispatchQueue.main.async {
+        for sectionWindow in currentSectionWindows {
+            let shouldBeHovered = (sectionWindow === hovered)
+            if sectionWindow.isHovered != shouldBeHovered {
+                sectionWindow.isHovered = shouldBeHovered
+            }
+        }
     }
-    
+
     if let hoveredSectionWindow = hoveredSectionWindow {
         hoveredSectionWindow.window.orderFront(nil)
     }
-    
+
     return hoveredSectionWindow
 }
 

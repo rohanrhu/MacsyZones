@@ -550,8 +550,12 @@ class ScreenChangeWarningDialog {
                 self.dismiss()
             }
         )
-        panel.contentView = NSHostingView(rootView: view)
-        
+        let warningHostingView = NSHostingView(rootView: view)
+        if #available(macOS 13.0, *) {
+            warningHostingView.sizingOptions = []
+        }
+        panel.contentView = warningHostingView
+
         panel.level = .statusBar + 1
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -633,12 +637,17 @@ class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
     
     func windowDidResize(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
-        sectionWindow?.windowSize = window.frame.size
-        sectionWindow?.layoutWindow?.refreshEditorBarState()
+        let newSize = window.frame.size
+        DispatchQueue.main.async { [weak self] in
+            self?.sectionWindow?.windowSize = newSize
+            self?.sectionWindow?.layoutWindow?.refreshEditorBarState()
+        }
     }
-    
+
     func windowDidMove(_ notification: Notification) {
-        sectionWindow?.layoutWindow?.refreshEditorBarState()
+        DispatchQueue.main.async { [weak self] in
+            self?.sectionWindow?.layoutWindow?.refreshEditorBarState()
+        }
     }
 }
 
@@ -679,7 +688,11 @@ class SectionWindow: Hashable, ObservableObject {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.title = "Macsy Section"
-        window.contentView = NSHostingView(rootView: SectionView(sectionWindow: self))
+        let sectionHostingView = NSHostingView(rootView: SectionView(sectionWindow: self))
+        if #available(macOS 13.0, *) {
+            sectionHostingView.sizingOptions = []
+        }
+        window.contentView = sectionHostingView
         window.hasShadow = false
         window.ignoresMouseEvents = true
         window.level = .statusBar - 2
@@ -717,8 +730,12 @@ class SectionWindow: Hashable, ObservableObject {
             sectionWindow: self,
             number: number
         )
-        editorWindow.contentView = NSHostingView(rootView: editorSectionView)
-        
+        let editorHostingView = NSHostingView(rootView: editorSectionView)
+        if #available(macOS 13.0, *) {
+            editorHostingView.sizingOptions = []
+        }
+        editorWindow.contentView = editorHostingView
+
         editorWindowDelegate = EditorSectionWindowDelegate(sectionWindow: self)
         editorWindow.delegate = editorWindowDelegate
         
@@ -967,14 +984,17 @@ class LayoutWindow: ObservableObject {
         editorBarWindow.isMovableByWindowBackground = true
         
         let hostingView = NSHostingView(rootView: EditorBarView(
-            layoutWindow: self, 
-            onNewSection: onNewSection, 
+            layoutWindow: self,
+            onNewSection: onNewSection,
             onSmartPadding: { [weak self] in
                 self?.applySmartPadding()
             },
-            onSave: onSave, 
+            onSave: onSave,
             onCancel: onCancel
         ))
+        if #available(macOS 13.0, *) {
+            hostingView.sizingOptions = []
+        }
         editorBarWindow.contentView = hostingView
         editorBarHostingView = hostingView
         
@@ -1808,8 +1828,12 @@ class SnapResizer: NSWindow {
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = false
 
-        contentView = NSHostingView(rootView: SnapResizerView(relatedSections: relatedSections,
-                                                              isMouseOverResizer: isMouseOverResizer))
+        let resizerHostingView = NSHostingView(rootView: SnapResizerView(relatedSections: relatedSections,
+                                                                       isMouseOverResizer: isMouseOverResizer))
+        if #available(macOS 13.0, *) {
+            resizerHostingView.sizingOptions = []
+        }
+        contentView = resizerHostingView
         
         self.relatedSections = relatedSections
     }
@@ -2132,7 +2156,11 @@ class GridLayoutWindow {
                                                     rows: gridConfig.rows,
                                                     columns: gridConfig.columns,
                                                     selectionState: selectionState)
-        window.contentView = NSHostingView(rootView: view)
+        let hostingView = NSHostingView(rootView: view)
+        if #available(macOS 13.0, *) {
+            hostingView.sizingOptions = []
+        }
+        window.contentView = hostingView
     }
 
     func show() {
