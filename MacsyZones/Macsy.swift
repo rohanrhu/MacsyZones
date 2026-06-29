@@ -31,6 +31,9 @@ var isSwitcherUsed = false
 
 var movingWindowInfo: (element: AXUIElement, windowId: UInt32)?
 var isMovingAWindow = false
+// Set when the user cancels snapping mid-drag (e.g. right-click) so auto-snap
+// does not re-activate on subsequent mouse movement. Reset at drag start/end.
+var snapSuppressedForDrag = false
 var draggedWindowElement: AXUIElement?
 var draggedWindowInitialPosition: CGPoint?
 
@@ -39,6 +42,7 @@ var placedWindowMoveStartPosition: CGPoint?
 
 func setIsFitting(_ fitting: Bool) {
     isFitting = fitting
+    if !fitting { clearZoneSpan() }
 }
 
 func isSnapKeyPressed() -> Bool {
@@ -60,10 +64,67 @@ func isSnapKeyPressed() -> Bool {
     }
 }
 
+// Sections accumulated while the span key is held during a drag (zone layouts only).
+// On mouse up the window snaps to the bounding box (union) of these sections.
+var spannedSectionWindows: [SectionWindow] = []
+
+func isSpanKeyPressed() -> Bool {
+    guard appSettings.enableZoneSpanning else { return false }
+
+    let currentFlags = NSEvent.modifierFlags
+
+    switch appSettings.spanKey {
+    case "Shift":
+        return currentFlags.contains(.shift)
+    case "Control":
+        return currentFlags.contains(.control)
+    case "Command":
+        return currentFlags.contains(.command)
+    case "Option":
+        return currentFlags.contains(.option)
+    default:
+        return false
+    }
+}
+
+func clearZoneSpan() {
+    spannedSectionWindows.removeAll()
+}
+
+/// AX-coordinate rect (top-left origin) of a section's preview window.
+func getAXRect(for window: NSWindow) -> NSRect? {
+    guard let origin = getAXPosition(for: window) else { return nil }
+    return NSRect(origin: origin, size: window.frame.size)
+}
+
+/// Bounding box of all spanned sections in AX coordinates, or nil if fewer than two.
+func spannedAXRect() -> NSRect? {
+    guard spannedSectionWindows.count > 1 else { return nil }
+    let rects = spannedSectionWindows.compactMap { getAXRect(for: $0.window) }
+    guard let first = rects.first else { return nil }
+    return rects.dropFirst().reduce(first) { $0.union($1) }
+}
+
+/// Re-applies hover highlight across the whole spanned set (getHoveredSectionWindow only marks one).
+func applyZoneSpanHighlight() {
+    guard !spannedSectionWindows.isEmpty else { return }
+    for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
+        sectionWindow.isHovered = spannedSectionWindows.contains { $0 === sectionWindow }
+    }
+    for sectionWindow in spannedSectionWindows {
+        sectionWindow.window.orderFront(nil)
+    }
+}
+
 func checkSnapKeyOnWindowMoveStart() {
     if !macsyReady.isReady { return }
 
-    if isSnapKeyPressed() && !isFitting {
+    // Auto-snap while dragging: in auto mode the layout activates on drag start
+    // without any key, and holding the snap key temporarily suppresses it.
+    // In classic mode the snap key must be held to activate.
+    let shouldActivate = appSettings.snapWhileDragging ? !isSnapKeyPressed() : isSnapKeyPressed()
+
+    if shouldActivate && !isFitting && !snapSuppressedForDrag {
         if appSettings.selectPerDesktopLayout {
             if let layoutName = spaceLayoutPreferences.getCurrent() {
                 userLayouts.setCurrentLayout(name: layoutName)
@@ -127,6 +188,7 @@ func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
 func onMouseDown(event: NSEvent) {
     draggedWindowElement = nil
     draggedWindowInitialPosition = nil
+    snapSuppressedForDrag = false
 
     if let preferredLayoutName = spaceLayoutPreferences.getCurrent() {
         userLayouts.currentLayoutName = preferredLayoutName
@@ -405,11 +467,12 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             toLeaveElement = nil
             toLeaveSectionWindow = nil
             toLeaveGridRect = nil
+            clearZoneSpan()
 
             return
         }
     }
-    
+
     windowMovingOnScreen = getFocusedScreen()
     
     if appSettings.shakeToSnap && !isSwitcherUsed {
@@ -462,6 +525,16 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             if let hoveredSectionWindow = getHoveredSectionWindow() {
                 toLeaveElement = element
                 toLeaveSectionWindow = hoveredSectionWindow
+
+                if isFitting && isSpanKeyPressed() {
+                    // Accumulate hovered sections so the window can span their union.
+                    if !spannedSectionWindows.contains(where: { $0 === hoveredSectionWindow }) {
+                        spannedSectionWindows.append(hoveredSectionWindow)
+                    }
+                    applyZoneSpanHighlight()
+                } else {
+                    clearZoneSpan()
+                }
             }
         case .grid:
             if isFitting {
@@ -961,6 +1034,7 @@ func onMouseUp(event: NSEvent) {
 
     movingWindowInfo = nil
     isMovingAWindow = false
+    snapSuppressedForDrag = false
     placedWindowMoveStartPosition = nil
     previousPosition = nil
     previousVelocity = nil
@@ -1008,6 +1082,30 @@ private func handleZoneMouseUp() {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
+        userLayouts.currentLayout.layoutWindow.hide()
+        return
+    }
+
+    // Span across multiple zones: snap to the bounding box of the accumulated sections.
+    if isFitting, let unionRect = spannedAXRect() {
+        OriginalWindowProperties.update(windowID: windowId)
+
+        resizeAndMoveWindow(element: window,
+                            newPosition: unionRect.origin,
+                            newSize: unionRect.size,
+                            retries: 10)
+
+        if let (screenNumber, workspaceNumber) = SpaceLayoutPreferences.getCurrentScreenAndSpace() {
+            PlacedWindows.place(windowId: windowId,
+                                screenNumber: screenNumber,
+                                workspaceNumber: workspaceNumber,
+                                layoutName: userLayouts.currentLayoutName,
+                                sectionNumber: spannedSectionWindows.first?.number ?? -1,
+                                element: window)
+        }
+
+        justDidMouseUp = true
+        setIsFitting(false)
         userLayouts.currentLayout.layoutWindow.hide()
         return
     }
