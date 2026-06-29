@@ -208,14 +208,16 @@ class UserLayout {
     func reArrange() {
         guard layoutType == .zone else { return }
 
-        let sectionConfigs = self.sectionConfigs.values.sorted { $0.number! < $1.number! }
+        let sectionConfigs = self.sectionConfigs.values.sorted {
+            ($0.number ?? Int.max) < ($1.number ?? Int.max)
+        }
 
         var newSectionConfigs: [Int:SectionConfig] = [:]
 
         var numberI = 1
 
         for sectionConfig in sectionConfigs {
-            let sectionWindow = layoutWindow.sectionWindows.first(where: { $0.number == sectionConfig.number })!
+            guard let sectionWindow = layoutWindow.sectionWindows.first(where: { $0.number == sectionConfig.number }) else { continue }
 
             var newSectionConfig = sectionConfig
             newSectionConfig.number = numberI
