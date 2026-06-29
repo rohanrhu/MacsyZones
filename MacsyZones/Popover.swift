@@ -434,6 +434,41 @@ struct Main: View {
                             .toggleStyle(.checkbox)
                             .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
                             .padding(.top, 4)
+
+                        Toggle("Snap while dragging (no key)", isOn: $settings.snapWhileDragging)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.snapWhileDragging) { _ in appSettings.save() }
+                            .padding(.top, 4)
+
+                        if settings.snapWhileDragging {
+                            Text("Layout shows automatically while dragging. Hold the Snap Key to temporarily disable.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Toggle("Span zones (hold span key)", isOn: $settings.enableZoneSpanning)
+                            .toggleStyle(.checkbox)
+                            .onChange(of: settings.enableZoneSpanning) { _ in appSettings.save() }
+                            .padding(.top, 4)
+
+                        if settings.enableZoneSpanning {
+                            Text("Hold this key while dragging over multiple zones to span the window across them.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Picker("Span Key", selection: $settings.spanKey) {
+                                Text("Shift").tag("Shift")
+                                Text("Command").tag("Command")
+                                Text("Option").tag("Option")
+                                Text("Control").tag("Control")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .labelsHidden()
+                            .pickerStyle(MenuPickerStyle())
+                            .onChange(of: settings.spanKey) { _ in appSettings.save() }
+                        }
                     }
                     
                     Divider().padding(.vertical, 2)

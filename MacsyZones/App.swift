@@ -573,27 +573,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     }
                 }
                 
-                if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
-                    snapKeyUsed = true
-                    setIsFitting(true)
-                    userLayouts.currentLayout.show()
-                    if userLayouts.currentLayout.layoutType == .grid {
-                        userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                if appSettings.snapWhileDragging {
+                    // Auto-snap mode: holding the snap key temporarily SUPPRESSES snapping
+                    // while dragging; releasing it re-activates the layout.
+                    if isMovingAWindow {
+                        if event.modifierFlags.contains(snapKey) {
+                            if isFitting {
+                                setIsFitting(false)
+                                if !isQuickSnapping {
+                                    userLayouts.currentLayout.hide()
+                                }
+                            }
+                        } else if !isFitting && !snapSuppressedForDrag {
+                            setIsFitting(true)
+                            userLayouts.currentLayout.show()
+                            if userLayouts.currentLayout.layoutType == .grid {
+                                userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                            }
+                        }
                     }
-                } else if isFitting && snapKeyUsed {
-                    snapKeyUsed = false
-                    setIsFitting(false)
-                    if !isQuickSnapping {
-                        userLayouts.currentLayout.hide()
+                } else {
+                    if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
+                        snapKeyUsed = true
+                        setIsFitting(true)
+                        userLayouts.currentLayout.show()
+                        if userLayouts.currentLayout.layoutType == .grid {
+                            userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                        }
+                    } else if isFitting && snapKeyUsed {
+                        snapKeyUsed = false
+                        setIsFitting(false)
+                        if !isQuickSnapping {
+                            userLayouts.currentLayout.hide()
+                        }
                     }
-                }
-                
-                if !event.modifierFlags.contains(snapKey) {
-                    snapKeyUsed = false
+
+                    if !event.modifierFlags.contains(snapKey) {
+                        snapKeyUsed = false
+                    }
                 }
             }
             
-            if !snapKeyUsed && appSettings.modifierKey != "None" && event.type == .flagsChanged {
+            if !snapKeyUsed && !appSettings.snapWhileDragging && appSettings.modifierKey != "None" && event.type == .flagsChanged {
                 if appSettings.selectPerDesktopLayout {
                     if let layoutName = spaceLayoutPreferences.getCurrent() {
                         userLayouts.setCurrentLayout(name: layoutName)
@@ -654,9 +675,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
                     userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
                 }
                 setIsFitting(true)
+                snapSuppressedForDrag = false
             } else {
                 userLayouts.currentLayout.hide()
                 setIsFitting(false)
+                // Keep snapping off for the rest of this drag so it doesn't
+                // re-activate on the next mouse movement.
+                snapSuppressedForDrag = true
             }
         }
     }
