@@ -169,6 +169,61 @@ enum PositioningPreset: Hashable {
     }
 }
 
+/// Alignment-only presets: keep the section's current size and only
+/// reposition it relative to the screen (left/center/right, top/middle/bottom).
+enum AlignmentPreset: Hashable, CaseIterable {
+    case left, centerHorizontal, right
+    case top, middle, bottom
+
+    var iconName: String {
+        switch self {
+        case .left: return "align.horizontal.left.fill"
+        case .centerHorizontal: return "align.horizontal.center.fill"
+        case .right: return "align.horizontal.right.fill"
+        case .top: return "align.vertical.top.fill"
+        case .middle: return "align.vertical.center.fill"
+        case .bottom: return "align.vertical.bottom.fill"
+        }
+    }
+
+    var tooltip: String {
+        switch self {
+        case .left: return "Align Left"
+        case .centerHorizontal: return "Align Center (Horizontal)"
+        case .right: return "Align Right"
+        case .top: return "Align Top"
+        case .middle: return "Align Middle (Vertical)"
+        case .bottom: return "Align Bottom"
+        }
+    }
+
+    /// Keeps `currentFrame`'s size, only moves its origin to align within `screenFrame`.
+    /// Matches PositioningPreset's coordinate convention (y increases upward).
+    func calculateFrame(currentFrame: NSRect, screenFrame: NSRect) -> NSRect {
+        let w = currentFrame.width
+        let h = currentFrame.height
+        var x = currentFrame.origin.x
+        var y = currentFrame.origin.y
+
+        switch self {
+        case .left:
+            x = screenFrame.origin.x
+        case .centerHorizontal:
+            x = screenFrame.origin.x + (screenFrame.width - w) / 2
+        case .right:
+            x = screenFrame.origin.x + screenFrame.width - w
+        case .top:
+            y = screenFrame.origin.y + screenFrame.height - h
+        case .middle:
+            y = screenFrame.origin.y + (screenFrame.height - h) / 2
+        case .bottom:
+            y = screenFrame.origin.y
+        }
+
+        return NSRect(x: x, y: y, width: w, height: h)
+    }
+}
+
 struct ViewSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
@@ -185,6 +240,9 @@ struct EditorSectionView: View {
         [.leftHalf, .rightHalf, .topHalf, .bottomHalf, .topLeft, .topRight, .bottomLeft, .bottomRight],
         [.leftThird, .centerThirdVertical, .rightThird, .topThird, .centerThirdHorizontal, .bottomThird, .center, .fullScreen]
     ]
+
+    // Alignment-only: keep current size, just align position to the screen.
+    private let alignmentPresets: [AlignmentPreset] = [.left, .centerHorizontal, .right, .top, .middle, .bottom]
     
     private let baseButtonSize: CGFloat = 32
     private let baseSpacing: CGFloat = 6
@@ -300,6 +358,19 @@ struct EditorSectionView: View {
                                         .frame(height: max(1, groupSpacing - rowSpacing))
                                 }
                             }
+
+                            Divider()
+                                .frame(width: buttonSize * 4)
+                                .padding(.vertical, max(1, groupSpacing - rowSpacing))
+
+                            HStack(spacing: spacing) {
+                                ForEach(alignmentPresets, id: \.self) { preset in
+                                    AlignmentButton(preset: preset) {
+                                        applyAlignmentPreset(preset)
+                                    }
+                                    .frame(width: buttonSize, height: buttonSize)
+                                }
+                            }
                         }
                         .padding(padding)
                         .background(
@@ -351,7 +422,17 @@ struct EditorSectionView: View {
         sectionWindow.editorWindow.setFrame(newFrame, display: true, animate: true)
         sectionWindow.window.setFrame(newFrame, display: true, animate: true)
     }
-    
+
+    private func applyAlignmentPreset(_ preset: AlignmentPreset) {
+        let screenFrame = sectionWindow.layoutWindow.window.frame
+        let currentFrame = sectionWindow.editorWindow.frame
+
+        let newFrame = preset.calculateFrame(currentFrame: currentFrame, screenFrame: screenFrame)
+
+        sectionWindow.editorWindow.setFrame(newFrame, display: true, animate: true)
+        sectionWindow.window.setFrame(newFrame, display: true, animate: true)
+    }
+
     private func setCursorInBackground() {
         let cursorInBg = CFStringCreateWithCString(kCFAllocatorDefault, "SetsCursorInBackground", 0)
         if let cursorInBg = cursorInBg {
@@ -375,6 +456,34 @@ struct PositioningButton: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.accentColor.opacity(isHovered ? 0.5 : 0.35))
+        )
+        .help(preset.tooltip)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+}
+
+struct AlignmentButton: View {
+    let preset: AlignmentPreset
+    let action: () -> Void
+
+    @State private var isHovered: Bool = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: preset.iconName)
+                .resizable()
+                .renderingMode(.template)
+                .aspectRatio(contentMode: .fit)
+                .foregroundColor(.white)
+                .padding(6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(PlainButtonStyle())
         .background(
