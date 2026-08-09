@@ -12,6 +12,7 @@
 
 import Foundation
 import SwiftUI
+import CoreGraphics
 
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
 let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
@@ -49,6 +50,9 @@ var updateFailedDialog: UpdateFailedDialog?
 var mouseUpMonitor: Any?
 var mouseDownMonitor: Any?
 var mouseDragMonitor: Any?
+
+var rightClickEventTap: CFMachPort?
+var rightClickRunLoopSource: CFRunLoopSource?
 
 var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -633,39 +637,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
     
     private func monitorRightClick() {
-        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { event in
-            if !macsyReady.isReady { return }
-            if event.buttonNumber != 1 { return }
-            if !appSettings.snapWithRightClick { return }
-            if isEditing { return }
-            if isQuickSnapping { return }
-            if isSnapResizing { return }
-            if !isMovingAWindow { return }
-            
-            if !isFitting {
-                if appSettings.selectPerDesktopLayout,
-                   let layoutName = spaceLayoutPreferences.getCurrent()
-                {
-                    userLayouts.currentLayoutName = layoutName
-                }
+        let eventMask = CGEventMask(1 << CGEventType.rightMouseDown.rawValue) |
+                        CGEventMask(1 << CGEventType.rightMouseUp.rawValue)
 
-                userLayouts.currentLayout.show()
-                if userLayouts.currentLayout.layoutType == .grid {
-                    userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
-                }
-                setIsFitting(true)
-            } else {
-                userLayouts.currentLayout.hide()
-                setIsFitting(false)
-            }
+        guard let eventTap = CGEvent.tapCreate(tap: .cghidEventTap,
+                                                place: .headInsertEventTap,
+                                                options: .defaultTap,
+                                                eventsOfInterest: eventMask,
+                                                callback: rightClickEventTapCallback,
+                                                userInfo: nil)
+        else {
+            debugLog("Failed to create right-click event tap (check Accessibility permission); snap-with-right-click will be unavailable.")
+            return
         }
+
+        rightClickEventTap = eventTap
+        rightClickRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), rightClickRunLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
     }
     
     func applicationWillTerminate(_ notification: Notification) {
         if let mouseUpMonitor = mouseUpMonitor {
             NSEvent.removeMonitor(mouseUpMonitor)
         }
+        
+        if let rightClickEventTap {
+            CGEvent.tapEnable(tap: rightClickEventTap, enable: false)
+            if let rightClickRunLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), rightClickRunLoopSource, .commonModes)
+            }
+            CFMachPortInvalidate(rightClickEventTap)
+        }
     }
+}
+
+private func shouldInterceptRightClickForSnap() -> Bool {
+    guard macsyReady.isReady,
+          appSettings.snapWithRightClick,
+          !isEditing,
+          !isQuickSnapping,
+          !isSnapResizing
+    else { return false }
+
+    return isMovingAWindow
+}
+
+func rightClickEventTapCallback(proxy: CGEventTapProxy,
+                                type: CGEventType,
+                                event: CGEvent,
+                                refcon: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+        if let rightClickEventTap {
+            CGEvent.tapEnable(tap: rightClickEventTap, enable: true)
+        }
+        return Unmanaged.passRetained(event)
+    }
+
+    guard type == .rightMouseDown || type == .rightMouseUp,
+          event.getIntegerValueField(.mouseEventButtonNumber) == 1,
+          shouldInterceptRightClickForSnap()
+    else {
+        return Unmanaged.passRetained(event)
+    }
+
+    if type == .rightMouseDown {
+        engageManualDragTakeoverIfNeeded()
+
+        if !isFitting {
+            if appSettings.selectPerDesktopLayout,
+               let layoutName = spaceLayoutPreferences.getCurrent()
+            {
+                userLayouts.currentLayoutName = layoutName
+            }
+
+            userLayouts.currentLayout.show()
+            if userLayouts.currentLayout.layoutType == .grid {
+                userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+            }
+            setIsFitting(true)
+        } else {
+            userLayouts.currentLayout.hide()
+            setIsFitting(false)
+        }
+    }
+
+    return nil
 }
 
 func restartApp() {
