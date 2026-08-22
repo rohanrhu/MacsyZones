@@ -683,6 +683,7 @@ class SectionWindow: Hashable, ObservableObject {
         window.hasShadow = false
         window.ignoresMouseEvents = true
         window.level = .statusBar - 2
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         layoutWindow.window.addChildWindow(window, ordered: .above)
         
@@ -955,6 +956,7 @@ class LayoutWindow: ObservableObject {
         window.backgroundColor = .clear
         window.ignoresMouseEvents = true
         window.isMovableByWindowBackground = false
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         
         editorBarWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 100),
                                          styleMask: [.resizable, .fullSizeContentView],
@@ -1807,6 +1809,7 @@ class SnapResizer: NSWindow {
         level = .statusBar + 1
         titlebarAppearsTransparent = true
         isMovableByWindowBackground = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         contentView = NSHostingView(rootView: SnapResizerView(relatedSections: relatedSections,
                                                               isMouseOverResizer: isMouseOverResizer))
@@ -2119,7 +2122,7 @@ class GridLayoutWindow {
         window.backgroundColor = .clear
         window.ignoresMouseEvents = true
         window.isMovableByWindowBackground = false
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.hasShadow = false
 
         updateView()
@@ -2227,4 +2230,3 @@ class GridLayoutWindow {
 
 #Preview {
 }
-
