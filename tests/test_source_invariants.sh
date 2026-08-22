@@ -3,12 +3,23 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
+source_contains() {
+    local pattern="$1"
+    local file="$2"
+
+    if command -v rg >/dev/null 2>&1; then
+        rg -F -q "$pattern" "$file"
+    else
+        grep -F -q -- "$pattern" "$file"
+    fi
+}
+
 require_source() {
     local pattern="$1"
     local file="$2"
     local description="$3"
 
-    if ! rg -F -q "$pattern" "$repo_root/$file"; then
+    if ! source_contains "$pattern" "$repo_root/$file"; then
         echo "FAIL: $description" >&2
         exit 1
     fi
@@ -19,7 +30,7 @@ reject_source() {
     local file="$2"
     local description="$3"
 
-    if rg -F -q "$pattern" "$repo_root/$file"; then
+    if source_contains "$pattern" "$repo_root/$file"; then
         echo "FAIL: $description" >&2
         exit 1
     fi
