@@ -200,7 +200,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         checkIfRunning()
         createTrayIcon()
         setupPopover()
-        userLayouts.load()
         checkAccessibilityPermission()
         requestAccessibilityPermissions()
         monitorActivations()
