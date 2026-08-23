@@ -230,7 +230,7 @@ private struct DockItem: View {
         .opacity(isDwelling ? flashOpacity : 1.0)
         .onChange(of: isDwelling) { dwelling in
             if dwelling {
-                withAnimation(.easeInOut(duration: 0.18).repeatForever(autoreverses: true)) {
+                withAnimation(.easeInOut(duration: 0.18).repeatCount(2, autoreverses: true)) {
                     flashOpacity = 0.35
                 }
             } else {
