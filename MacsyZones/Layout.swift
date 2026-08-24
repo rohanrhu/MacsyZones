@@ -1177,7 +1177,7 @@ class LayoutWindow: ObservableObject {
     func handleMouseMoved(event: NSEvent) {
         guard appSettings.showSnapResizersOnHover,
               appSettings.snapResize,
-              !isFitting, !isEditing,
+              isShown, !isFitting, !isEditing,
               userLayouts.currentLayout.layoutWindow === self
         else { return }
 
