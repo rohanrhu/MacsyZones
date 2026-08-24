@@ -398,6 +398,8 @@ class QuickSnapper: ObservableObject {
         unregisterHotkeys()
         
         isOpen = false
+        windows.removeAll()
+        panel.contentView = nil
         
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.5
