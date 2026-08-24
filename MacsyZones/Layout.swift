@@ -1178,7 +1178,7 @@ class LayoutWindow: ObservableObject {
         guard appSettings.showSnapResizersOnHover,
               appSettings.snapResize,
               isShown, !isFitting, !isEditing,
-              userLayouts.currentLayout.layoutWindow === self
+              userLayouts.currentLayout.materializedLayoutWindow === self
         else { return }
 
         debugLog("LayoutWindow.handleMouseMoved(): currentLayout: \(userLayouts.currentLayout.name)")

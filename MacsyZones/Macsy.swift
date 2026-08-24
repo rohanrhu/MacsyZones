@@ -375,6 +375,8 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             
             for layout in userLayouts.layouts.values {
                 if layout.layoutType == .zone {
+                    layout.materializedLayoutWindow?.isShown = false
+
                     for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                         sectionWindow.isHovered = false
                         sectionWindow.window.orderOut(nil)
@@ -1001,14 +1003,14 @@ private func handleZoneMouseUp() {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
         return
     }
 
@@ -1031,12 +1033,12 @@ private func handleZoneMouseUp() {
         }
 
         setIsFitting(false)
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
     } else {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
     }
 }
 

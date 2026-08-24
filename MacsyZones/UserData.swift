@@ -263,6 +263,8 @@ class UserLayout {
 
     func hideAllWindows() {
         if let layoutWindow = materializedLayoutWindow {
+            layoutWindow.isShown = false
+
             for sectionWindow in layoutWindow.sectionWindows {
                 sectionWindow.isHovered = false
                 sectionWindow.window.orderOut(nil)
@@ -562,6 +564,8 @@ class UserLayouts: UserData, ObservableObject {
     
     func hideAllSectionWindows() {
         for layout in layouts.values {
+            layout.materializedLayoutWindow?.isShown = false
+
             for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                 sectionWindow.window.orderOut(nil)
             }
