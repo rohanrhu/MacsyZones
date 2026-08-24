@@ -282,7 +282,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
     
     guard let focusedScreen = getFocusedScreen() else {
         for layout in userLayouts.layouts.values {
-            for sectionWindow in layout.layoutWindow.sectionWindows {
+            for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                 sectionWindow.isHovered = false
             }
         }
@@ -375,12 +375,12 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             
             for layout in userLayouts.layouts.values {
                 if layout.layoutType == .zone {
-                    for sectionWindow in layout.layoutWindow.sectionWindows {
+                    for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                         sectionWindow.isHovered = false
                         sectionWindow.window.orderOut(nil)
                     }
                 } else {
-                    layout.gridLayoutWindow?.hide()
+                    layout.materializedGridLayoutWindow?.hide()
                 }
             }
             
