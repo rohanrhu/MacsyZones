@@ -142,7 +142,7 @@ func startEditing() {
 func stopEditing() {
     setIsFitting(false)
     isEditing = false
-    userLayouts.currentLayout.layoutWindow.stopEditing()
+    userLayouts.currentLayout.materializedLayoutWindow?.stopEditing()
 }
 
 @discardableResult
@@ -152,7 +152,7 @@ func toggleEditing() -> Bool {
     if isEditing {
         userLayouts.currentLayout.layoutWindow.startEditing()
     } else {
-        userLayouts.currentLayout.layoutWindow.stopEditing()
+        userLayouts.currentLayout.materializedLayoutWindow?.stopEditing()
     }
     return isEditing
 }
