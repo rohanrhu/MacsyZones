@@ -14,9 +14,11 @@ func freshScenario() {
     NSAnimationContext.completions.removeAll()
     DispatchQueue.main.pending.removeAll()
     quickSnapper = QuickSnapper()
-    userLayouts.currentLayout.showCalls = 0
-    userLayouts.currentLayout.hideCalls = 0
     userLayouts.currentLayoutName = "Default"
+    for layout in userLayouts.layouts.values {
+        layout.showCalls = 0
+        layout.hideCalls = 0
+    }
     spaceLayoutPreferences.preferredName = nil
     appSettings.selectPerDesktopLayout = false
     NSApp.activations = 0
@@ -130,14 +132,15 @@ expect(quickSnapper.panel.contentView == nil, "normal close releases content")
 
 // Execute queued layout-hotkey task bodies after close: stale Left/Right must
 // not reveal hidden layouts or mutate the saved per-desktop preference.
+// "GridOnly" sorts between "Default" and "Second" and must be skipped entirely.
 freshScenario()
 quickSnapper.open()
 NSAnimationContext.completeAll()
 DispatchQueue.main.completeAll()
 quickSnapper.deliverNextLayout()
-expect(userLayouts.currentLayoutName == "Second" && spaceLayoutPreferences.preferredName == "Second", "current next-layout task selects and persists next layout")
+expect(userLayouts.currentLayoutName == "Second" && spaceLayoutPreferences.preferredName == "Second", "current next-layout task skips grid layouts and selects next zone layout")
 quickSnapper.deliverPreviousLayout()
-expect(userLayouts.currentLayoutName == "Default", "current previous-layout task wraps and selects")
+expect(userLayouts.currentLayoutName == "Default", "current previous-layout task skips grid layouts and wraps to previous zone layout")
 quickSnapper.close()
 let layoutShowsAfterClose = userLayouts.currentLayout.showCalls
 let layoutHidesAfterClose = userLayouts.currentLayout.hideCalls

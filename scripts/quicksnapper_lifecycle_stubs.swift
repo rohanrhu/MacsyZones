@@ -64,17 +64,27 @@ final class FakePreferences {
     func setCurrent(layoutName: String) { preferredName = layoutName }
 }
 let spaceLayoutPreferences = FakePreferences()
+enum LayoutType: Equatable { case zone, grid }
 final class FakeLayout {
+    var layoutType: LayoutType
     var showCalls = 0
     var hideCalls = 0
+    init(layoutType: LayoutType = .zone) { self.layoutType = layoutType }
     func show() { showCalls += 1 }
     func hide() { hideCalls += 1 }
     func hideAllWindows() { hideCalls += 1 }
 }
 final class FakeLayouts {
-    let currentLayout = FakeLayout()
+    var sharedLayout = FakeLayout()
     var currentLayoutName = "Default"
-    var layouts: [String: FakeLayout] { ["Default": currentLayout, "Second": currentLayout] }
+    var layouts: [String: FakeLayout] = [
+        "Default": FakeLayout(),
+        "Second": FakeLayout(),
+        "GridOnly": FakeLayout(layoutType: .grid)
+    ]
+    var currentLayout: FakeLayout {
+        layouts[currentLayoutName] ?? sharedLayout
+    }
 }
 let userLayouts = FakeLayouts()
 var isQuickSnapping = false
