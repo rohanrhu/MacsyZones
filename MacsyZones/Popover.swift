@@ -674,16 +674,6 @@ struct Main: View {
             #if !APPSTORE
             if !proLock.isPro {
                 Divider().padding(.vertical, 2)
-
-                Toggle("Show occasional support reminders", isOn: $settings.automaticDonationReminders)
-                    .toggleStyle(.checkbox)
-                    .onChange(of: settings.automaticDonationReminders) { enabled in
-                        appSettings.save()
-                        if !enabled {
-                            donationReminder.hide()
-                        }
-                    }
-
                 Button(action: { page = "unlock" }) {
                     HStack {
                         Image(systemName: "heart.fill").foregroundColor(.red)

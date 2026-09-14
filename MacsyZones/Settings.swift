@@ -31,7 +31,6 @@ struct AppSettingsData: Codable {
     var cycleWindowsBackwardShortcut: String?
     var snapHighlightStrategy: SnapHighlightStrategy?
     var enableLayoutSwitcher: Bool?
-    var automaticDonationReminders: Bool?
 }
 
 class AppSettings: UserData, ObservableObject {
@@ -54,7 +53,6 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
     private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
     private static let defaultEnableLayoutSwitcher: Bool = true
-    private static let defaultAutomaticDonationReminders: Bool = true
     
     @Published var modifierKey: String = defaultModifierKey
     @Published var snapKey: String = defaultSnapKey
@@ -74,7 +72,6 @@ class AppSettings: UserData, ObservableObject {
     @Published var cycleWindowsBackwardShortcut: String = defaultCycleWindowsBackwardShortcut
     @Published var snapHighlightStrategy: SnapHighlightStrategy = defaultSnapHighlightStrategy
     @Published var enableLayoutSwitcher: Bool = defaultEnableLayoutSwitcher
-    @Published var automaticDonationReminders: Bool = defaultAutomaticDonationReminders
 
     init() {
         super.init(name: "AppSettings", data: "{}", fileName: "AppSettings.json")
@@ -106,7 +103,6 @@ class AppSettings: UserData, ObservableObject {
             self.cycleWindowsBackwardShortcut = settings.cycleWindowsBackwardShortcut ?? cycleWindowsBackwardShortcut
             self.snapHighlightStrategy = settings.snapHighlightStrategy ?? snapHighlightStrategy
             self.enableLayoutSwitcher = settings.enableLayoutSwitcher ?? enableLayoutSwitcher
-            self.automaticDonationReminders = settings.automaticDonationReminders ?? automaticDonationReminders
         } catch {
             debugLog("Error parsing settings JSON: \(error)")
         }
@@ -132,8 +128,7 @@ class AppSettings: UserData, ObservableObject {
                 cycleWindowsForwardShortcut: cycleWindowsForwardShortcut,
                 cycleWindowsBackwardShortcut: cycleWindowsBackwardShortcut,
                 snapHighlightStrategy: snapHighlightStrategy,
-                enableLayoutSwitcher: enableLayoutSwitcher,
-                automaticDonationReminders: automaticDonationReminders
+                enableLayoutSwitcher: enableLayoutSwitcher
             )
             
             let jsonData = try JSONEncoder().encode(settings)
@@ -166,7 +161,6 @@ class AppSettings: UserData, ObservableObject {
         cycleWindowsBackwardShortcut = Self.defaultCycleWindowsBackwardShortcut
         snapHighlightStrategy = Self.defaultSnapHighlightStrategy
         enableLayoutSwitcher = Self.defaultEnableLayoutSwitcher
-        automaticDonationReminders = Self.defaultAutomaticDonationReminders
         
         if #available(macOS 12.0, *) {
             quickSnapper.toggleHotkey?.register(for: quickSnapShortcut)
