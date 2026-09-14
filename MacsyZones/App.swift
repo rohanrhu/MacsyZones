@@ -49,6 +49,8 @@ var updateFailedDialog: UpdateFailedDialog?
 var mouseUpMonitor: Any?
 var mouseDownMonitor: Any?
 var mouseDragMonitor: Any?
+var rightMouseMonitor: Any?
+var shortcutMonitor: Any?
 
 var isPreview: Bool {
     return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -58,10 +60,17 @@ var isPreview: Bool {
 final class WindowObserverManager {
     static let shared = WindowObserverManager()
 
+    private struct WindowEntry {
+        let element: AXUIElement
+        let notifications: [CFString]
+    }
+
     private struct AppEntry {
         let observer: AXObserver
         let appElement: AXUIElement
-        var observedWindowIDs: Set<UInt32> = []
+        var observesWindowCreation: Bool
+        var shouldRetryWindowCreation: Bool
+        var windows: [UInt32: WindowEntry] = [:]
     }
 
     private var entries: [pid_t: AppEntry] = [:]
@@ -113,7 +122,18 @@ final class WindowObserverManager {
     func observeApp(pid: pid_t) -> Bool {
         guard pid > 0 else { return false }
 
-        if entries[pid] != nil { return true }
+        if var entry = entries[pid] {
+            if entry.shouldRetryWindowCreation {
+                let result = AXObserverAddNotification(entry.observer,
+                                                       entry.appElement,
+                                                       kAXWindowCreatedNotification as CFString,
+                                                       nil)
+                entry.observesWindowCreation = notificationWasRegistered(result)
+                entry.shouldRetryWindowCreation = !entry.observesWindowCreation && result != .notificationUnsupported
+                entries[pid] = entry
+            }
+            return true
+        }
 
         let appElement = AXUIElementCreateApplication(pid)
 
@@ -127,40 +147,168 @@ final class WindowObserverManager {
             return false
         }
 
-        AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, nil)
-        CFRunLoopAddSource(observerRunLoop, AXObserverGetRunLoopSource(observer), .defaultMode)
+        AXUIElementSetMessagingTimeout(appElement, 0.75)
 
-        entries[pid] = AppEntry(observer: observer, appElement: appElement)
+        let createdResult = AXObserverAddNotification(observer,
+                                                      appElement,
+                                                      kAXWindowCreatedNotification as CFString,
+                                                      nil)
+        let observesWindowCreation = notificationWasRegistered(createdResult)
+        if !observesWindowCreation {
+            debugLog("Failed to observe window creation for pid \(pid): \(createdResult.rawValue)")
+        }
+
+        addRunLoopSource(for: observer)
+
+        entries[pid] = AppEntry(
+            observer: observer,
+            appElement: appElement,
+            observesWindowCreation: observesWindowCreation,
+            shouldRetryWindowCreation: !observesWindowCreation && createdResult != .notificationUnsupported
+        )
+        debugLog("AX app observer ready: pid=\(pid), observesWindowCreation=\(observesWindowCreation)")
 
         return true
     }
 
-    func observeWindow(pid: pid_t, element: AXUIElement) {
-        guard pid > 0 else { return }
+    @discardableResult
+    func observeWindow(pid: pid_t, element: AXUIElement) -> Bool {
+        guard pid > 0 else { return false }
 
-        guard isStandardWindow(element) else { return }
+        guard isStandardWindow(element) else { return false }
 
-        guard observeApp(pid: pid), var entry = entries[pid] else { return }
-
-        if let windowID = getWindowID(from: element) {
-            if entry.observedWindowIDs.contains(windowID) { return }
-            entry.observedWindowIDs.insert(windowID)
-            entries[pid] = entry
+        guard observeApp(pid: pid), var entry = entries[pid] else { return false }
+        guard let windowID = getWindowID(from: element), windowID != 0 else {
+            debugLog("Refusing to tag an AX window without a valid window ID: pid=\(pid)")
+            return false
         }
 
-        AXObserverAddNotification(entry.observer, element, kAXWindowMovedNotification as CFString, nil)
-        AXObserverAddNotification(entry.observer, element, kAXUIElementDestroyedNotification as CFString, nil)
+        if let existing = entry.windows[windowID] {
+            if CFEqual(existing.element, element) {
+                return true
+            }
+            removeNotifications(existing.notifications,
+                                observer: entry.observer,
+                                element: existing.element)
+            entry.windows.removeValue(forKey: windowID)
+        }
+
+        AXUIElementSetMessagingTimeout(element, 0.75)
+
+        var registeredNotifications: [CFString] = []
+        let movedNotifications: [CFString] = [
+            kAXMovedNotification as CFString,
+            kAXWindowMovedNotification as CFString
+        ]
+
+        for notification in movedNotifications {
+            let result = AXObserverAddNotification(entry.observer, element, notification, nil)
+            if notificationWasRegistered(result) {
+                registeredNotifications.append(notification)
+            } else {
+                debugLog("AX movement registration failed: pid=\(pid), windowID=\(windowID), notification=\(notification), error=\(result.rawValue)")
+            }
+        }
+
+        guard !registeredNotifications.isEmpty else {
+            debugLog("Window remains retryable because no AX movement notification registered: pid=\(pid), windowID=\(windowID)")
+            return false
+        }
+
+        let destroyedNotification = kAXUIElementDestroyedNotification as CFString
+        let destroyedResult = AXObserverAddNotification(entry.observer,
+                                                        element,
+                                                        destroyedNotification,
+                                                        nil)
+        if notificationWasRegistered(destroyedResult) {
+            registeredNotifications.append(destroyedNotification)
+        } else {
+            // Movement observation is still useful. A stale record is replaced
+            // when the same window ID is discovered again, or removed when the
+            // owning application terminates.
+            debugLog("AX destruction registration unavailable: pid=\(pid), windowID=\(windowID), error=\(destroyedResult.rawValue)")
+        }
+
+        entry.windows[windowID] = WindowEntry(element: element,
+                                              notifications: registeredNotifications)
+        entries[pid] = entry
+        debugLog("AX window observer ready: pid=\(pid), windowID=\(windowID), notifications=\(registeredNotifications.count)")
+        return true
     }
 
     func forgetWindow(pid: pid_t, windowID: UInt32) {
         guard var entry = entries[pid] else { return }
-        entry.observedWindowIDs.remove(windowID)
+        guard let window = entry.windows.removeValue(forKey: windowID) else { return }
+        removeNotifications(window.notifications,
+                            observer: entry.observer,
+                            element: window.element)
         entries[pid] = entry
+    }
+
+    func forgetWindow(element: AXUIElement) {
+        for (pid, var entry) in entries {
+            guard let match = entry.windows.first(where: { CFEqual($0.value.element, element) }) else {
+                continue
+            }
+            removeNotifications(match.value.notifications,
+                                observer: entry.observer,
+                                element: match.value.element)
+            entry.windows.removeValue(forKey: match.key)
+            entries[pid] = entry
+            debugLog("Removed destroyed AX window: pid=\(pid), windowID=\(match.key)")
+            return
+        }
     }
 
     func removeApp(pid: pid_t) {
         guard let entry = entries.removeValue(forKey: pid) else { return }
-        CFRunLoopRemoveSource(observerRunLoop, AXObserverGetRunLoopSource(entry.observer), .defaultMode)
+        removeRunLoopSource(for: entry.observer)
+        debugLog("Removed AX app observer: pid=\(pid)")
+    }
+
+    func refreshApplication(pid: pid_t, retry: Int = 0) {
+        guard pid > 0, observeApp(pid: pid) else { return }
+
+        // AX calls can block while a Space transition is settling. Query each
+        // process away from the main thread, then update the registry on the
+        // main actor so switching Spaces never freezes the overlay UI.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let appElement = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(appElement, 0.75)
+
+            var windowListRef: CFTypeRef?
+            let result = AXUIElementCopyAttributeValue(appElement,
+                                                       kAXWindowsAttribute as CFString,
+                                                       &windowListRef)
+            let windows = windowListRef as? [AXUIElement]
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+
+                guard result == .success, let windows else {
+                    debugLog("AX window refresh failed: pid=\(pid), retry=\(retry), error=\(result.rawValue)")
+                    guard retry < 3 else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2 * Double(retry + 1)) { [weak self] in
+                        self?.refreshApplication(pid: pid, retry: retry + 1)
+                    }
+                    return
+                }
+
+                for window in windows {
+                    self.observeWindow(pid: pid, element: window)
+                }
+            }
+        }
+    }
+
+    func refreshAllRunningApplications() {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        for app in NSWorkspace.shared.runningApplications
+        where app.processIdentifier > 0 &&
+              app.processIdentifier != ownPID &&
+              app.activationPolicy == .regular {
+            refreshApplication(pid: app.processIdentifier)
+        }
     }
 
     private func isStandardWindow(_ element: AXUIElement) -> Bool {
@@ -173,6 +321,37 @@ final class WindowObserverManager {
         guard (subroleRef as? String) == kAXStandardWindowSubrole else { return false }
 
         return true
+    }
+
+    private func notificationWasRegistered(_ result: AXError) -> Bool {
+        result == .success || result == .notificationAlreadyRegistered
+    }
+
+    private func removeNotifications(_ notifications: [CFString],
+                                     observer: AXObserver,
+                                     element: AXUIElement) {
+        for notification in notifications {
+            let result = AXObserverRemoveNotification(observer, element, notification)
+            if result != .success && result != .notificationNotRegistered && result != .invalidUIElement {
+                debugLog("Failed to remove AX notification \(notification): \(result.rawValue)")
+            }
+        }
+    }
+
+    private func addRunLoopSource(for observer: AXObserver) {
+        let source = AXObserverGetRunLoopSource(observer)
+        CFRunLoopPerformBlock(observerRunLoop, CFRunLoopMode.defaultMode.rawValue) {
+            CFRunLoopAddSource(self.observerRunLoop, source, .defaultMode)
+        }
+        CFRunLoopWakeUp(observerRunLoop)
+    }
+
+    private func removeRunLoopSource(for observer: AXObserver) {
+        let source = AXObserverGetRunLoopSource(observer)
+        CFRunLoopPerformBlock(observerRunLoop, CFRunLoopMode.defaultMode.rawValue) {
+            CFRunLoopRemoveSource(self.observerRunLoop, source, .defaultMode)
+        }
+        CFRunLoopWakeUp(observerRunLoop)
     }
 }
 
@@ -211,11 +390,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         }
         
         Thread { [self] in
-            let apps = NSWorkspace.shared.runningApplications
+            let ownPID = ProcessInfo.processInfo.processIdentifier
+            let apps = NSWorkspace.shared.runningApplications.filter {
+                $0.processIdentifier != ownPID && $0.activationPolicy == .regular
+            }
             
             for app in apps {
                 let pid = app.processIdentifier
                 let element = AXUIElementCreateApplication(pid)
+
+                // Observe the application even when AXWindows is temporarily
+                // unavailable or empty. Otherwise its future windows can never
+                // emit AXWindowCreated to MacsyZones.
+                Task { @MainActor in
+                    startObserving(pid: pid)
+                }
                 
                 var windowListRef: CFTypeRef?
                 let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
@@ -223,10 +412,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
 
                 if let windowList = windowListRef as? [AXUIElement]
                 {
-                    Task { @MainActor in
-                        startObserving(pid: pid)
-                    }
-                    
                     for window in windowList {
                         var titleValue: CFTypeRef?
                         AXUIElementCopyAttributeValue(window,
@@ -245,45 +430,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             }
             
             debugLog("All apps are being observed for window movement.")
-            
-            NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
-                                                              object: nil, queue: nil) { notification in
-                if let userInfo = notification.userInfo,
-                   let launchedApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
-                    debugLog("Newly launched app is being observed: \(launchedApp)")
-
-                    Task { @MainActor in
-                        self.startObserving(pid: launchedApp.processIdentifier)
-                    }
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                        let pid = launchedApp.processIdentifier
-                        let element = AXUIElementCreateApplication(pid)
-                        
-                        var windowListRef: CFTypeRef?
-                        let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windowListRef)
-
-                        if result == .success,
-                        let windowList = windowListRef as? [AXUIElement]
-                        {
-                            for window in windowList {
-                                var titleValue: CFTypeRef?
-                                AXUIElementCopyAttributeValue(window,
-                                                            kAXTitleAttribute as CFString,
-                                                            &titleValue)
-                                
-                                if let title = titleValue as? String, !title.isEmpty {
-                                    debugLog("Window is being observed: \(title)")
-                                }
-                                
-                                Task { @MainActor in
-                                    self.startObserving(pid: pid, element: window)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             
             Task { @MainActor in
                 mouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { event in
@@ -470,6 +616,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     func monitorActivations() {
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
+            selector: #selector(handleAppLaunch(_:)),
+            name: NSWorkspace.didLaunchApplicationNotification,
+            object: nil
+        )
+
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
             selector: #selector(handleAppActivation(_:)),
             name: NSWorkspace.didActivateApplicationNotification,
             object: nil
@@ -490,6 +643,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         )
     }
 
+    @objc func handleAppLaunch(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        else { return }
+        guard app.processIdentifier > 0,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+              app.activationPolicy == .regular
+        else { return }
+
+        debugLog("Newly launched app is being observed: \(app)")
+        Task { @MainActor in
+            WindowObserverManager.shared.refreshApplication(pid: app.processIdentifier)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            WindowObserverManager.shared.refreshApplication(pid: app.processIdentifier)
+        }
+    }
+
     @objc func handleAppTermination(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
         else { return }
@@ -501,6 +672,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
 
     @objc func handleAppActivation(_ notification: Notification) {
+        if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
+            Task { @MainActor in
+                WindowObserverManager.shared.refreshApplication(pid: app.processIdentifier)
+            }
+        }
+
         guard appSettings.selectPerDesktopLayout,
               !isQuickSnapping,
               !isEditing,
@@ -533,98 +710,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     
     func monitorShortcuts() {
         var modifierKeyTask: DispatchWorkItem?
-        var snapKeyUsed = false
         var prevFlags = NSEvent.ModifierFlags()
         
-        NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
-            if !macsyReady.isReady { return }
-            var modifierKey: NSEvent.ModifierFlags = .control
-            
-            if appSettings.modifierKey == "Command" {
-                modifierKey = .command
-            } else if appSettings.modifierKey == "Option" {
-                modifierKey = .option
-            }
-            
-            modifierKeyTask?.cancel()
-            modifierKeyTask = nil
-            
-            let modifierKeyUsed = !prevFlags.contains(modifierKey) && event.modifierFlags.contains(modifierKey)
-            prevFlags = event.modifierFlags
-            
-            if isEditing || isQuickSnapping {
-                return
-            }
-            
-            if appSettings.snapKey != "None" {
-                var snapKey: NSEvent.ModifierFlags = .shift
-                
-                if appSettings.snapKey == "Control" {
-                    snapKey = .control
-                } else if appSettings.snapKey == "Command" {
-                    snapKey = .command
-                } else if appSettings.snapKey == "Option" {
-                    snapKey = .option
+        shortcutMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            DispatchQueue.main.async {
+                if !macsyReady.isReady { return }
+
+                let modifierKey = modifierFlags(for: appSettings.modifierKey) ?? .control
+
+                modifierKeyTask?.cancel()
+                modifierKeyTask = nil
+
+                let modifierKeyUsed = !prevFlags.contains(modifierKey) && event.modifierFlags.contains(modifierKey)
+                prevFlags = event.modifierFlags
+
+                if isEditing || isQuickSnapping {
+                    return
                 }
-                
-                if appSettings.selectPerDesktopLayout {
-                    if let layoutName = spaceLayoutPreferences.getCurrent() {
-                        userLayouts.setCurrentLayout(name: layoutName)
+
+                handleSnapKeyChanged(isPressed: isSnapKeyPressed(in: event.modifierFlags))
+
+                if !snapKeyFittingActive && appSettings.modifierKey != "None" && event.type == .flagsChanged {
+                    if appSettings.selectPerDesktopLayout {
+                        if let layoutName = spaceLayoutPreferences.getCurrent() {
+                            userLayouts.setCurrentLayout(name: layoutName)
+                        }
                     }
-                }
-                
-                if event.modifierFlags.contains(snapKey) && !isFitting && isMovingAWindow {
-                    snapKeyUsed = true
-                    setIsFitting(true)
-                    userLayouts.currentLayout.show()
-                    if userLayouts.currentLayout.layoutType == .grid {
-                        userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
-                    }
-                } else if isFitting && snapKeyUsed {
-                    snapKeyUsed = false
-                    setIsFitting(false)
-                    if !isQuickSnapping {
-                        userLayouts.currentLayout.hide()
-                    }
-                }
-                
-                if !event.modifierFlags.contains(snapKey) {
-                    snapKeyUsed = false
-                }
-            }
-            
-            if !snapKeyUsed && appSettings.modifierKey != "None" && event.type == .flagsChanged {
-                if appSettings.selectPerDesktopLayout {
-                    if let layoutName = spaceLayoutPreferences.getCurrent() {
-                        userLayouts.setCurrentLayout(name: layoutName)
-                    }
-                }
-                
-                let delay = Double(appSettings.modifierKeyDelay) / 1000.0
-                
-                if modifierKeyUsed {
-                    if !isFitting {
-                        modifierKeyTask = DispatchWorkItem {
-                            if isFitting {
-                                if userLayouts.currentLayout.layoutType == .zone {
-                                    userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
-                                } else {
-                                    userLayouts.currentLayout.show()
+
+                    let delay = Double(appSettings.modifierKeyDelay) / 1000.0
+
+                    if modifierKeyUsed {
+                        if !isFitting {
+                            modifierKeyTask = DispatchWorkItem {
+                                if isFitting {
+                                    if userLayouts.currentLayout.layoutType == .zone {
+                                        userLayouts.currentLayout.layoutWindow.show(showSnapResizers: true)
+                                    } else {
+                                        userLayouts.currentLayout.show()
+                                    }
                                 }
                             }
+
+                            setIsFitting(true)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: modifierKeyTask!)
                         }
-                        
-                        setIsFitting(true)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: modifierKeyTask!)
-                    }
-                } else {
-                    modifierKeyTask?.cancel()
-                    modifierKeyTask = nil
-                    
-                    if isFitting {
-                        setIsFitting(false)
-                        if !isQuickSnapping {
-                            userLayouts.currentLayout.hide()
+                    } else {
+                        modifierKeyTask?.cancel()
+                        modifierKeyTask = nil
+
+                        if isFitting {
+                            setIsFitting(false)
+                            if !isQuickSnapping {
+                                userLayouts.currentLayout.hide()
+                            }
                         }
                     }
                 }
@@ -633,37 +771,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
     
     private func monitorRightClick() {
-        mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { event in
-            if !macsyReady.isReady { return }
-            if event.buttonNumber != 1 { return }
-            if !appSettings.snapWithRightClick { return }
-            if isEditing { return }
-            if isQuickSnapping { return }
-            if isSnapResizing { return }
-            if !isMovingAWindow { return }
-            
-            if !isFitting {
-                if appSettings.selectPerDesktopLayout,
-                   let layoutName = spaceLayoutPreferences.getCurrent()
-                {
-                    userLayouts.currentLayoutName = layoutName
-                }
+        rightMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { event in
+            DispatchQueue.main.async {
+                if !macsyReady.isReady { return }
+                if event.buttonNumber != 1 { return }
+                if !appSettings.snapWithRightClick { return }
+                if isEditing { return }
+                if isQuickSnapping { return }
+                if isSnapResizing { return }
+                if !isMovingAWindow { return }
 
-                userLayouts.currentLayout.show()
-                if userLayouts.currentLayout.layoutType == .grid {
-                    userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                if !isFitting {
+                    if appSettings.selectPerDesktopLayout,
+                       let layoutName = spaceLayoutPreferences.getCurrent()
+                    {
+                        userLayouts.currentLayoutName = layoutName
+                    }
+
+                    userLayouts.currentLayout.show()
+                    if userLayouts.currentLayout.layoutType == .grid {
+                        userLayouts.currentLayout.gridLayoutWindow?.setAnchorAtMousePosition()
+                    }
+                    setIsFitting(true)
+                } else {
+                    userLayouts.currentLayout.hide()
+                    setIsFitting(false)
                 }
-                setIsFitting(true)
-            } else {
-                userLayouts.currentLayout.hide()
-                setIsFitting(false)
             }
         }
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        if let mouseUpMonitor = mouseUpMonitor {
-            NSEvent.removeMonitor(mouseUpMonitor)
+        for monitor in [mouseDownMonitor,
+                        mouseDragMonitor,
+                        mouseUpMonitor,
+                        rightMouseMonitor,
+                        shortcutMonitor].compactMap({ $0 }) {
+            NSEvent.removeMonitor(monitor)
         }
     }
 }

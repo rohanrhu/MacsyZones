@@ -21,6 +21,7 @@ struct ScreenSpacePair: Hashable, Codable {
 class SpaceLayoutPreferences: UserData {
     var spaces: [ScreenSpacePair: String] = [:]
     static let defaultConfigFileName = "SpaceLayoutPreferences.json"
+    private var spaceTransitionGeneration = 0
 
     override init(name: String = "SpaceLayoutPreferences", data: String = "{}", fileName: String = SpaceLayoutPreferences.defaultConfigFileName) {
         super.init(name: name, data: data, fileName: fileName)
@@ -71,47 +72,74 @@ class SpaceLayoutPreferences: UserData {
         let screenIndex = getScreenNumber(screen: focusedScreen)
 
         guard let screenIndex else { return nil }
-        guard let spaceNumber = getCurrentSpaceNumber() else { return nil }
+        guard let spaceNumber = getCurrentSpaceNumber(for: focusedScreen) else { return nil }
 
         debugLog("getCurrentScreenAndSpace(): screenIndex: \(screenIndex), spaceNumber: \(spaceNumber)")
 
         return (screenIndex, spaceNumber)
     }
 
-    static func getCurrentSpaceNumber() -> Int? {
+    static func getCurrentSpaceNumber(for screen: NSScreen? = nil) -> Int? {
         let connection = CGSMainConnectionID()
-        let activeSpaceID = CGSGetActiveSpace(connection)
 
         guard let managedSpaces = CGSCopyManagedDisplaySpaces(connection)?.takeRetainedValue() as? [[String: Any]] else {
             return nil
         }
 
+        // Each display has its own "Current Space" when macOS' separate-Spaces
+        // option is enabled. Match the NSScreen display UUID instead of using
+        // CGSGetActiveSpace alone, which can describe a different monitor.
+        let targetScreen = screen ?? getFocusedScreen()
+        if let targetScreen,
+           let displayIdentifier = displayIdentifier(for: targetScreen),
+           let display = managedSpaces.first(where: {
+               ($0["Display Identifier"] as? String)?.caseInsensitiveCompare(displayIdentifier) == .orderedSame
+           }),
+           let spaceNumber = currentSpaceNumber(in: display) {
+            return spaceNumber
+        }
+
+        // Preserve compatibility if macOS changes the private display
+        // identifier format: fall back to the globally active Space.
+        let activeSpaceID = UInt64(CGSGetActiveSpace(connection))
         for display in managedSpaces {
-            if let spaces = display["Spaces"] as? [[String: Any]] {
-                for (index, space) in spaces.enumerated() {
-                    if let spaceID = space["ManagedSpaceID"] as? UInt64,
-                    spaceID == activeSpaceID {
-                        return index + 1
-                    }
-                }
-            }
-
-            if let currentSpaces = display["Current Space"] as? [String: Any],
-            let spaceID = currentSpaces["ManagedSpaceID"] as? UInt64,
-            spaceID == activeSpaceID {
-
-                if let spaces = display["Spaces"] as? [[String: Any]] {
-                    for (index, space) in spaces.enumerated() {
-                        if let sid = space["ManagedSpaceID"] as? UInt64,
-                        sid == activeSpaceID {
-                            return index + 1
-                        }
-                    }
-                }
+            guard let spaces = display["Spaces"] as? [[String: Any]] else { continue }
+            if let index = spaces.firstIndex(where: {
+                managedSpaceID(in: $0) == activeSpaceID
+            }) {
+                debugLog("Falling back to global active Space resolution")
+                return index + 1
             }
         }
 
         return nil
+    }
+
+    private static func displayIdentifier(for screen: NSScreen) -> String? {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        guard let number = screen.deviceDescription[key] as? NSNumber else { return nil }
+        let displayID = CGDirectDisplayID(number.uint32Value)
+        let uuid = CGDisplayCreateUUIDFromDisplayID(displayID).takeRetainedValue()
+        return CFUUIDCreateString(nil, uuid) as String
+    }
+
+    private static func currentSpaceNumber(in display: [String: Any]) -> Int? {
+        guard let currentSpace = display["Current Space"] as? [String: Any],
+              let currentSpaceID = managedSpaceID(in: currentSpace),
+              let spaces = display["Spaces"] as? [[String: Any]],
+              let index = spaces.firstIndex(where: {
+                  managedSpaceID(in: $0) == currentSpaceID
+              })
+        else { return nil }
+
+        return index + 1
+    }
+
+    private static func managedSpaceID(in space: [String: Any]) -> UInt64? {
+        if let number = space["ManagedSpaceID"] as? NSNumber {
+            return number.uint64Value
+        }
+        return space["ManagedSpaceID"] as? UInt64
     }
 
     override func save() {
@@ -150,21 +178,64 @@ class SpaceLayoutPreferences: UserData {
             debugLog("Switched to layout: \(userLayouts.currentLayoutName) for current space")
         }
     }
+
+    @MainActor
+    private func reconcileSpaceTransition(generation: Int, attempt: Int = 0) {
+        guard generation == spaceTransitionGeneration else { return }
+
+        let layoutResolved: Bool
+        if appSettings.selectPerDesktopLayout {
+            if let layoutName = getCurrent() {
+                userLayouts.setCurrentLayout(name: layoutName)
+                layoutResolved = true
+                debugLog("Space transition resolved: layout=\(layoutName), attempt=\(attempt)")
+            } else {
+                layoutResolved = false
+                debugLog("Space transition layout unresolved, attempt=\(attempt)")
+            }
+        } else {
+            layoutResolved = true
+        }
+
+        // The AX manager performs its own per-process retries. Starting one
+        // reconciliation here discovers windows exposed by the newly active
+        // Space without blocking this transition on the main thread.
+        if attempt == 0 || layoutResolved {
+            WindowObserverManager.shared.refreshAllRunningApplications()
+        }
+
+        guard !layoutResolved, attempt < 3 else { return }
+        let delay = 0.15 * Double(attempt + 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.reconcileSpaceTransition(generation: generation, attempt: attempt + 1)
+        }
+    }
     
     func startObserving() {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil,
             queue: nil,
-            using: { notification in
-                stopEditing()
-                setIsFitting(false)
-                userLayouts.hideAllSectionWindows()
-                if #available(macOS 12.0, *) { quickSnapper.close() }
-                
-                if !appSettings.selectPerDesktopLayout { return }
-                
-                self.switchToCurrent()
+            using: { _ in
+                DispatchQueue.main.async {
+                    self.spaceTransitionGeneration += 1
+                    let generation = self.spaceTransitionGeneration
+
+                    stopEditing()
+                    setIsFitting(false)
+                    resetDragSession()
+                    for layout in userLayouts.layouts.values {
+                        layout.hideAllWindows()
+                    }
+                    if #available(macOS 12.0, *) { quickSnapper.close() }
+
+                    // Space resolution is asynchronous on macOS. A generation
+                    // token prevents a delayed attempt from applying the layout
+                    // of a Space the user has already left.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.reconcileSpaceTransition(generation: generation)
+                    }
+                }
             }
         )
         
@@ -173,15 +244,21 @@ class SpaceLayoutPreferences: UserData {
             object: nil,
             queue: nil,
             using: { _ in
-                if #available(macOS 12.0, *) { quickSnapper.close() }
-                if !appSettings.selectPerDesktopLayout { return }
-                
-                if let layoutName = self.getCurrent() {
-                    userLayouts.currentLayoutName = layoutName
-                    
-                    for (_, layout) in userLayouts.layouts {
+                DispatchQueue.main.async {
+                    if #available(macOS 12.0, *) { quickSnapper.close() }
+                    setIsFitting(false)
+                    resetDragSession()
+
+                    for layout in userLayouts.layouts.values {
                         layout.hideAllWindows()
                     }
+
+                    if appSettings.selectPerDesktopLayout,
+                       let layoutName = self.getCurrent() {
+                        userLayouts.currentLayoutName = layoutName
+                    }
+
+                    WindowObserverManager.shared.refreshAllRunningApplications()
                 }
             }
         )
