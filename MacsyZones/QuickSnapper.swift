@@ -186,11 +186,11 @@ struct QuickSnapperView: View {
                         }
                         .background(.clear)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .onChange(of: model.selectedIndex) { index in
+                        .onChange(of: model.selectedIndex) { _, index in
                             scrollViewProxy.scrollTo(index, anchor: .center)
                         }
                         .onAppear() { onSelect(index: model.selectedIndex) }
-                        .onChange(of: model.selectedIndex) { newIndex in
+                        .onChange(of: model.selectedIndex) { _, newIndex in
                             if isQuickSnapping {
                                 onSelect(index: newIndex)
                             }

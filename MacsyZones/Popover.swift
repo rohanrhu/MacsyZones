@@ -68,10 +68,10 @@ struct ShortcutInputView: View {
             stopListening()
             isFocused.wrappedValue = false
         }
-        .onChange(of: isListening) { newValue in
+        .onChange(of: isListening) { _, newValue in
             isFocused.wrappedValue = newValue
         }
-        .onChange(of: popoverState.shouldStopListening) { shouldStop in
+        .onChange(of: popoverState.shouldStopListening) { _, shouldStop in
             if shouldStop && isListening {
                 stopListening()
             }
@@ -319,7 +319,7 @@ struct Main: View {
                                 layouts.currentLayoutName = preferedLayout
                             }
                         }
-                        .onChange(of: layouts.currentLayoutName) { _ in
+                        .onChange(of: layouts.currentLayoutName) {
                             guard !isFitting else { return }
 
                             let wasEditing = isEditing
@@ -387,7 +387,7 @@ struct Main: View {
                     HStack {
                         Toggle("Layout Switcher & Snap w/ Ease", isOn: $settings.enableLayoutSwitcher)
                             .toggleStyle(.checkbox)
-                            .onChange(of: settings.enableLayoutSwitcher) { _ in appSettings.save() }
+                            .onChange(of: settings.enableLayoutSwitcher) { appSettings.save() }
                         
                         Button(action: {
                             resetDialogs()
@@ -428,11 +428,11 @@ struct Main: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
-                        .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                        .onChange(of: settings.snapKey) { appSettings.save() }
                         
                         Toggle("Snap with right click", isOn: $settings.snapWithRightClick)
                             .toggleStyle(.checkbox)
-                            .onChange(of: settings.snapWithRightClick) { _ in appSettings.save() }
+                            .onChange(of: settings.snapWithRightClick) { appSettings.save() }
                             .padding(.top, 4)
                     }
                     
@@ -462,7 +462,7 @@ struct Main: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .labelsHidden()
                         .pickerStyle(MenuPickerStyle())
-                        .onChange(of: settings.modifierKey) { _ in appSettings.save() }
+                        .onChange(of: settings.modifierKey) { appSettings.save() }
                         
                         Text("Delay: \(String(format: "%.2f", Double(settings.modifierKeyDelay) / 1000.0))s")
                             .font(.caption2)
@@ -470,7 +470,7 @@ struct Main: View {
                             get: { Double(settings.modifierKeyDelay) },
                             set: { settings.modifierKeyDelay = Int($0) }
                         ), in: 0...2000, step: 100)
-                        .onChange(of: settings.modifierKeyDelay) { _ in appSettings.save() }
+                        .onChange(of: settings.modifierKeyDelay) { appSettings.save() }
                     }
                     
                     Divider().padding(.vertical, 2)
@@ -494,7 +494,7 @@ struct Main: View {
                             Group {
                                 Text("Cycle Forward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsForwardShortcut)
-                                    .onChange(of: settings.cycleWindowsForwardShortcut) { newShortcut in
+                                    .onChange(of: settings.cycleWindowsForwardShortcut) { _, newShortcut in
                                         if #available(macOS 12.0, *) {
                                             cycleForwardHotkey.register(for: newShortcut)
                                         }
@@ -506,7 +506,7 @@ struct Main: View {
                             Group {
                                 Text("Cycle Backward").font(.caption2)
                                 ShortcutInputView(shortcut: $settings.cycleWindowsBackwardShortcut)
-                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { newShortcut in
+                                    .onChange(of: settings.cycleWindowsBackwardShortcut) { _, newShortcut in
                                         if #available(macOS 12.0, *) {
                                             cycleBackwardHotkey.register(for: newShortcut)
                                         }
@@ -537,7 +537,7 @@ struct Main: View {
                                 .buttonStyle(BorderlessButtonStyle())
                             }
                             ShortcutInputView(shortcut: $settings.quickSnapShortcut)
-                                .onChange(of: settings.quickSnapShortcut) { _ in
+                                .onChange(of: settings.quickSnapShortcut) {
                                     if #available(OSX 12.0, *) {
                                         quickSnapper.toggleHotkey?.register(for: settings.quickSnapShortcut)
                                     }
@@ -550,7 +550,7 @@ struct Main: View {
                         
                         Toggle("Snap resize", isOn: $settings.snapResize)
                             .toggleStyle(.checkbox)
-                            .onChange(of: settings.snapResize) { _ in appSettings.save() }
+                            .onChange(of: settings.snapResize) { appSettings.save() }
                         
                         if settings.snapResize {
                             Text("Threshold: \(Int(settings.snapResizeThreshold))px")
@@ -561,11 +561,11 @@ struct Main: View {
                                 get: { Double(settings.snapResizeThreshold) },
                                 set: { settings.snapResizeThreshold = CGFloat($0) }
                             ), in: 5...67, step: 2)
-                            .onChange(of: settings.snapResizeThreshold) { _ in appSettings.save() }
+                            .onChange(of: settings.snapResizeThreshold) { appSettings.save() }
                             
                             Toggle("Show snap resizers on hover", isOn: $settings.showSnapResizersOnHover)
                                 .toggleStyle(.checkbox)
-                                .onChange(of: settings.showSnapResizersOnHover) { _ in appSettings.save() }
+                                .onChange(of: settings.showSnapResizersOnHover) { appSettings.save() }
                             
                             Divider().padding(.vertical, 2)
                         }
@@ -573,7 +573,7 @@ struct Main: View {
                         Group {
                             Toggle("Prioritize zone center", isOn: $settings.prioritizeCenterToSnap)
                                 .toggleStyle(.checkbox)
-                                .onChange(of: settings.prioritizeCenterToSnap) { _ in appSettings.save() }
+                                .onChange(of: settings.prioritizeCenterToSnap) { appSettings.save() }
                             
                             HStack(spacing: 5) {
                                 Text("Zone Highlighting Strategy").font(.subheadline)
@@ -597,19 +597,19 @@ struct Main: View {
                             }
                             .labelsHidden()
                             .pickerStyle(MenuPickerStyle())
-                            .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                            .onChange(of: settings.snapKey) { appSettings.save() }
                         }
                         
                         Divider().padding(.vertical, 2)
                         
                         Toggle("Fallback previous size when unsnapped", isOn: $settings.fallbackToPreviousSize)
                             .toggleStyle(.checkbox)
-                            .onChange(of: settings.fallbackToPreviousSize) { _ in appSettings.save() }
+                            .onChange(of: settings.fallbackToPreviousSize) { appSettings.save() }
                         
                         if settings.fallbackToPreviousSize {
                             Toggle("Only with user event", isOn: $settings.onlyFallbackToPreviousSizeWithUserEvent)
                                 .toggleStyle(.checkbox)
-                                .onChange(of: settings.onlyFallbackToPreviousSizeWithUserEvent) { _ in appSettings.save() }
+                                .onChange(of: settings.onlyFallbackToPreviousSizeWithUserEvent) { appSettings.save() }
                         }
                         
                         Divider().padding(.vertical, 2)
@@ -617,7 +617,7 @@ struct Main: View {
                         HStack {
                             Toggle("Per-desktop layouts", isOn: $settings.selectPerDesktopLayout)
                                 .toggleStyle(.checkbox)
-                                .onChange(of: settings.selectPerDesktopLayout) { _ in appSettings.save() }
+                                .onChange(of: settings.selectPerDesktopLayout) { appSettings.save() }
                             
                             Button(action: {
                                 resetDialogs()
@@ -635,7 +635,7 @@ struct Main: View {
                         
                         Toggle("Shake to snap", isOn: $settings.shakeToSnap)
                             .toggleStyle(.checkbox)
-                            .onChange(of: settings.shakeToSnap) { _ in appSettings.save() }
+                            .onChange(of: settings.shakeToSnap) { appSettings.save() }
                         
                         if settings.shakeToSnap {
                             HStack {
@@ -648,7 +648,7 @@ struct Main: View {
                                 get: { Double(100000 - settings.shakeAccelerationThreshold) },
                                 set: { settings.shakeAccelerationThreshold = CGFloat(100000 - $0) }
                             ), in: 10000...100000, step: 5000)
-                            .onChange(of: settings.shakeAccelerationThreshold) { _ in appSettings.save() }
+                            .onChange(of: settings.shakeAccelerationThreshold) { appSettings.save() }
                         }
                     }
                     
@@ -657,7 +657,7 @@ struct Main: View {
                         
                         Toggle("Start at login", isOn: $startAtLogin)
                             .toggleStyle(.checkbox)
-                            .onChange(of: startAtLogin) { _ in 
+                            .onChange(of: startAtLogin) {
                                 toggleRunAtStartup()
                             }
                             .onAppear { 
@@ -1109,7 +1109,7 @@ struct UnlockProView: View {
                 TextField("Enter License Key", text: $licenseKey)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.bottom, 10)
-                    .onChange(of: licenseKey) { _ in
+                    .onChange(of: licenseKey) {
                         errorMessage = nil
                     }
                 

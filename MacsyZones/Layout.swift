@@ -776,6 +776,17 @@ class SectionWindow: Hashable, ObservableObject {
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func accessoryBarButtonStyleIfAvailable() -> some View {
+        if #available(macOS 14.0, *) {
+            self.buttonStyle(AccessoryBarButtonStyle())
+        } else {
+            self
+        }
+    }
+}
+
 struct EditorBarView: View {
     @ObservedObject var layoutWindow: LayoutWindow
     
@@ -794,91 +805,49 @@ struct EditorBarView: View {
     var body: some View {
         HStack {
             Spacer()
-            if #available(macOS 14.0, *) {
-                Button(action: {
-                    onNewSection()
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("New Zone")
-                    }
-                }.frame(maxHeight: .infinity)
-                 .buttonStyle(AccessoryBarButtonStyle())
-            } else {
-                Button(action: {
-                    onNewSection()
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("New Zone")
-                    }
-                }.frame(maxHeight: .infinity)
-            }
-            Divider()
-            if #available(macOS 14.0, *) {
-                Button(action: {
-                    onSmartPadding()
-                }) {
-                    HStack {
-                        if let image = NSImage(named: "smart-padding") {
-                            Image(nsImage: image)
-                                .renderingMode(.template)
-                        }
-                        Text("Add Smart Gap")
-                    }
+            Button(action: {
+                onNewSection()
+            }) {
+                HStack {
+                    Image(systemName: "plus")
+                    Text("New Zone")
                 }
-                .frame(maxHeight: .infinity)
-                .buttonStyle(AccessoryBarButtonStyle())
-                .disabled(!isSmartGapEnabled)
-            } else {
-                Button(action: {
-                    onSmartPadding()
-                }) {
-                    HStack {
-                        if let image = NSImage(named: "smart-padding") {
-                            Image(nsImage: image)
-                                .renderingMode(.template)
-                        }
-                        Text("Add Smart Gap")
+            }
+            .frame(maxHeight: .infinity)
+            .accessoryBarButtonStyleIfAvailable()
+            Divider()
+            Button(action: {
+                onSmartPadding()
+            }) {
+                HStack {
+                    if let image = NSImage(named: "smart-padding") {
+                        Image(nsImage: image)
+                            .renderingMode(.template)
                     }
+                    Text("Add Smart Gap")
                 }
-                .frame(maxHeight: .infinity)
-                .disabled(!isSmartGapEnabled)
             }
+            .frame(maxHeight: .infinity)
+            .accessoryBarButtonStyleIfAvailable()
+            .disabled(!isSmartGapEnabled)
             Divider()
-            if #available(macOS 14.0, *) {
-                Button(action: onSave) {
-                    HStack {
-                        Image(systemName: "checkmark")
-                        Text("Save")
-                    }
-                }.frame(maxHeight: .infinity)
-                 .buttonStyle(AccessoryBarButtonStyle())
-            } else {
-                Button(action: onSave) {
-                    HStack {
-                        Image(systemName: "checkmark")
-                        Text("Save")
-                    }
-                }.frame(maxHeight: .infinity)
+            Button(action: onSave) {
+                HStack {
+                    Image(systemName: "checkmark")
+                    Text("Save")
+                }
             }
+            .frame(maxHeight: .infinity)
+            .accessoryBarButtonStyleIfAvailable()
             Divider()
-            if #available(macOS 14.0, *) {
-                Button(action: onCancel) {
-                    HStack {
-                        Image(systemName: "xmark")
-                        Text("Cancel")
-                    }
-                }.frame(maxHeight: .infinity)
-                 .buttonStyle(AccessoryBarButtonStyle())
-            } else {
-                Button(action: onCancel) {
-                    HStack {
-                        Image(systemName: "xmark")
-                        Text("Cancel")
-                    }
-                }.frame(maxHeight: .infinity)
+            Button(action: onCancel) {
+                HStack {
+                    Image(systemName: "xmark")
+                    Text("Cancel")
+                }
             }
+            .frame(maxHeight: .infinity)
+            .accessoryBarButtonStyleIfAvailable()
             Spacer()
         }
         .frame(height: 50)
