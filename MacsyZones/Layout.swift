@@ -546,8 +546,8 @@ class ScreenChangeWarningDialog {
         panel = ScreenChangeWarningPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 340))
         
         let view = ScreenChangeWarningView(
-            onDismiss: {
-                self.dismiss()
+            onDismiss: { [weak self] in
+                self?.dismiss()
             }
         )
         panel.contentView = NSHostingView(rootView: view)
@@ -596,13 +596,17 @@ class EditorSectionWindowDelegate: NSObject, NSWindowDelegate {
         self.sectionWindow = sectionWindow
         self.originalScreen = sectionWindow?.editorWindow.screen
         super.init()
-        self.warningDialog = ScreenChangeWarningDialog()
-        self.warningDialog?.onDismiss = { [weak self] in
-            self?.hasShownWarning = false
-        }
     }
     
     func showScreenChangeWarning() {
+        if warningDialog == nil {
+            let warningDialog = ScreenChangeWarningDialog()
+            warningDialog.onDismiss = { [weak self] in
+                self?.hasShownWarning = false
+            }
+            self.warningDialog = warningDialog
+        }
+
         warningDialog?.show(on: originalScreen)
     }
     
@@ -1173,8 +1177,8 @@ class LayoutWindow: ObservableObject {
     func handleMouseMoved(event: NSEvent) {
         guard appSettings.showSnapResizersOnHover,
               appSettings.snapResize,
-              !isFitting, !isEditing,
-              userLayouts.currentLayout.layoutWindow === self
+              isShown, !isFitting, !isEditing,
+              userLayouts.currentLayout.materializedLayoutWindow === self
         else { return }
 
         debugLog("LayoutWindow.handleMouseMoved(): currentLayout: \(userLayouts.currentLayout.name)")
@@ -2227,4 +2231,3 @@ class GridLayoutWindow {
 
 #Preview {
 }
-

@@ -155,6 +155,8 @@ class UserLayout {
 
     var sectionConfigs: [Int:SectionConfig] {
         didSet {
+            guard let layoutWindow = materializedLayoutWindow else { return }
+
             layoutWindow.sectionConfigs = sectionConfigs
 
             for sectionWindow in layoutWindow.sectionWindows {
@@ -163,10 +165,39 @@ class UserLayout {
         }
     }
 
-    let layoutWindow: LayoutWindow
+    private var storedLayoutWindow: LayoutWindow?
+
+    var materializedLayoutWindow: LayoutWindow? { storedLayoutWindow }
+
+    var layoutWindow: LayoutWindow {
+        if let storedLayoutWindow {
+            return storedLayoutWindow
+        }
+
+        let layoutWindow = LayoutWindow(
+            name: name,
+            sectionConfigs: Array(sectionConfigs.values)
+        )
+        storedLayoutWindow = layoutWindow
+        return layoutWindow
+    }
 
     var gridConfig: GridConfig?
-    var gridLayoutWindow: GridLayoutWindow?
+    private var storedGridLayoutWindow: GridLayoutWindow?
+
+    var materializedGridLayoutWindow: GridLayoutWindow? { storedGridLayoutWindow }
+
+    var gridLayoutWindow: GridLayoutWindow? {
+        guard layoutType == .grid, let gridConfig else { return nil }
+
+        if let storedGridLayoutWindow {
+            return storedGridLayoutWindow
+        }
+
+        let gridLayoutWindow = GridLayoutWindow(name: name, gridConfig: gridConfig)
+        storedGridLayoutWindow = gridLayoutWindow
+        return gridLayoutWindow
+    }
 
     init(name: String, sectionConfigs: [SectionConfig]) {
         self.name = name
@@ -192,8 +223,8 @@ class UserLayout {
             numberI += 1
         }
 
-        self.layoutWindow = LayoutWindow(name: name, sectionConfigs: Array(self.sectionConfigs.values))
-        self.gridLayoutWindow = nil
+        self.storedLayoutWindow = nil
+        self.storedGridLayoutWindow = nil
     }
 
     init(name: String, gridConfig: GridConfig) {
@@ -201,8 +232,8 @@ class UserLayout {
         self.layoutType = .grid
         self.gridConfig = gridConfig
         self.sectionConfigs = [:]
-        self.layoutWindow = LayoutWindow(name: name, sectionConfigs: [])
-        self.gridLayoutWindow = GridLayoutWindow(name: name, gridConfig: gridConfig)
+        self.storedLayoutWindow = nil
+        self.storedGridLayoutWindow = nil
     }
 
     func reArrange() {
@@ -231,19 +262,23 @@ class UserLayout {
     }
 
     func hideAllWindows() {
-        for sectionWindow in layoutWindow.sectionWindows {
-            sectionWindow.isHovered = false
-            sectionWindow.window.orderOut(nil)
-            sectionWindow.editorWindow.orderOut(nil)
+        if let layoutWindow = materializedLayoutWindow {
+            layoutWindow.isShown = false
+
+            for sectionWindow in layoutWindow.sectionWindows {
+                sectionWindow.isHovered = false
+                sectionWindow.window.orderOut(nil)
+                sectionWindow.editorWindow.orderOut(nil)
+            }
+
+            layoutWindow.window.orderOut(nil)
+
+            for sectionResizer in layoutWindow.sectionResizers {
+                sectionResizer.orderOut(nil)
+            }
         }
 
-        layoutWindow.window.orderOut(nil)
-
-        for sectionResizer in layoutWindow.sectionResizers {
-            sectionResizer.orderOut(nil)
-        }
-
-        gridLayoutWindow?.hide()
+        materializedGridLayoutWindow?.hide()
     }
 
     func show(showLayouts: Bool = true, showSnapresizers: Bool = false, showSwitcher: Bool = true) {
@@ -258,9 +293,9 @@ class UserLayout {
     func hide() {
         switch layoutType {
         case .zone:
-            layoutWindow.hide()
+            materializedLayoutWindow?.hide()
         case .grid:
-            gridLayoutWindow?.hide()
+            materializedGridLayoutWindow?.hide()
         }
     }
 }
@@ -529,10 +564,12 @@ class UserLayouts: UserData, ObservableObject {
     
     func hideAllSectionWindows() {
         for layout in layouts.values {
-            for sectionWindow in layout.layoutWindow.sectionWindows {
+            layout.materializedLayoutWindow?.isShown = false
+
+            for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                 sectionWindow.window.orderOut(nil)
             }
-            layout.gridLayoutWindow?.hide()
+            layout.materializedGridLayoutWindow?.hide()
         }
     }
     
@@ -576,8 +613,8 @@ class UserLayouts: UserData, ObservableObject {
             layout.hideAllWindows()
 
             layout.name = newName
-            layout.layoutWindow.name = newName
-            layout.gridLayoutWindow?.name = newName
+            layout.materializedLayoutWindow?.name = newName
+            layout.materializedGridLayoutWindow?.name = newName
 
             layouts[newName] = layout
 
@@ -597,7 +634,7 @@ class UserLayouts: UserData, ObservableObject {
         if layouts.count < 2 { return }
         
         if let layout = layouts[currentLayoutName] {
-            layout.layoutWindow.closeAllWindows()
+            layout.materializedLayoutWindow?.closeAllWindows()
             
             layouts.removeValue(forKey: currentLayoutName)
             

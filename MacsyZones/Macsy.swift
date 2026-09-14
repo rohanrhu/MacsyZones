@@ -142,7 +142,7 @@ func startEditing() {
 func stopEditing() {
     setIsFitting(false)
     isEditing = false
-    userLayouts.currentLayout.layoutWindow.stopEditing()
+    userLayouts.currentLayout.materializedLayoutWindow?.stopEditing()
 }
 
 @discardableResult
@@ -152,7 +152,7 @@ func toggleEditing() -> Bool {
     if isEditing {
         userLayouts.currentLayout.layoutWindow.startEditing()
     } else {
-        userLayouts.currentLayout.layoutWindow.stopEditing()
+        userLayouts.currentLayout.materializedLayoutWindow?.stopEditing()
     }
     return isEditing
 }
@@ -282,7 +282,7 @@ func getHoveredSectionWindow() -> SectionWindow? {
     
     guard let focusedScreen = getFocusedScreen() else {
         for layout in userLayouts.layouts.values {
-            for sectionWindow in layout.layoutWindow.sectionWindows {
+            for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                 sectionWindow.isHovered = false
             }
         }
@@ -375,12 +375,14 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             
             for layout in userLayouts.layouts.values {
                 if layout.layoutType == .zone {
-                    for sectionWindow in layout.layoutWindow.sectionWindows {
+                    layout.materializedLayoutWindow?.isShown = false
+
+                    for sectionWindow in layout.materializedLayoutWindow?.sectionWindows ?? [] {
                         sectionWindow.isHovered = false
                         sectionWindow.window.orderOut(nil)
                     }
                 } else {
-                    layout.gridLayoutWindow?.hide()
+                    layout.materializedGridLayoutWindow?.hide()
                 }
             }
             
@@ -1001,14 +1003,14 @@ private func handleZoneMouseUp() {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
         return
     }
     guard let windowId = getWindowID(from: window) else {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
         return
     }
 
@@ -1031,12 +1033,12 @@ private func handleZoneMouseUp() {
         }
 
         setIsFitting(false)
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
     } else {
         setIsFitting(false)
         toLeaveElement = nil
         toLeaveSectionWindow = nil
-        userLayouts.currentLayout.layoutWindow.hide()
+        userLayouts.currentLayout.materializedLayoutWindow?.hide()
     }
 }
 
