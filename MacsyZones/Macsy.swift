@@ -34,11 +34,6 @@ var isMovingAWindow = false
 var draggedWindowElement: AXUIElement?
 var draggedWindowInitialPosition: CGPoint?
 
-var isManuallyDraggingWindow = false
-var manualDragElement: AXUIElement?
-var manualDragAnchorWindowPosition: CGPoint?
-var manualDragAnchorMouseLocation: CGPoint?
-
 var windowMovingOnScreen: NSScreen? = nil
 var placedWindowMoveStartPosition: CGPoint?
 
@@ -132,10 +127,6 @@ func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
 func onMouseDown(event: NSEvent) {
     draggedWindowElement = nil
     draggedWindowInitialPosition = nil
-    isManuallyDraggingWindow = false
-    manualDragElement = nil
-    manualDragAnchorWindowPosition = nil
-    manualDragAnchorMouseLocation = nil
 
     if let preferredLayoutName = spaceLayoutPreferences.getCurrent() {
         userLayouts.currentLayoutName = preferredLayoutName
@@ -456,8 +447,6 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
     
     if NSEvent.pressedMouseButtons & 1 != 0 {
         isMovingAWindow = true
-        draggedWindowElement = element
-        draggedWindowInitialPosition = position
         checkSnapKeyOnWindowMoveStart()
         
         if appSettings.enableLayoutSwitcher && !isFitting,
@@ -961,43 +950,7 @@ func getFocusedWindowAXUIElement() -> AXUIElement? {
     return focusedWindow as! AXUIElement?
 }
 
-func engageManualDragTakeoverIfNeeded() {
-    guard let element = draggedWindowElement else { return }
-
-    var positionRef: CFTypeRef?
-    guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef) == .success,
-          let positionValue = positionRef
-    else { return }
-
-    var currentPosition = CGPoint.zero
-    AXValueGetValue(positionValue as! AXValue, AXValueType.cgPoint, &currentPosition)
-
-    manualDragElement = element
-    manualDragAnchorWindowPosition = currentPosition
-    manualDragAnchorMouseLocation = NSEvent.mouseLocation
-    isManuallyDraggingWindow = true
-}
-
-private var lastManualDragWriteTime: TimeInterval = 0
-
 func onMouseDragged(event: NSEvent) {
-    guard isManuallyDraggingWindow,
-          let element = manualDragElement,
-          let anchorPosition = manualDragAnchorWindowPosition,
-          let anchorMouseLocation = manualDragAnchorMouseLocation
-    else { return }
-
-    let now = ProcessInfo.processInfo.systemUptime
-    if now - lastManualDragWriteTime < activeWindowMoveThrottle { return }
-    lastManualDragWriteTime = now
-
-    let mouseLocation = NSEvent.mouseLocation
-    var newPosition = CGPoint(x: anchorPosition.x + (mouseLocation.x - anchorMouseLocation.x),
-                              y: anchorPosition.y - (mouseLocation.y - anchorMouseLocation.y))
-
-    if let positionAXValue = AXValueCreate(.cgPoint, &newPosition) {
-        AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionAXValue)
-    }
 }
 
 func onMouseUp(event: NSEvent) {
@@ -1008,10 +961,6 @@ func onMouseUp(event: NSEvent) {
 
     movingWindowInfo = nil
     isMovingAWindow = false
-    isManuallyDraggingWindow = false
-    manualDragElement = nil
-    manualDragAnchorWindowPosition = nil
-    manualDragAnchorMouseLocation = nil
     placedWindowMoveStartPosition = nil
     previousPosition = nil
     previousVelocity = nil
@@ -1044,6 +993,8 @@ private func handleZoneMouseUp() {
         toLeaveSectionWindow = hoveredSectionWindow
     }
 
+    // Mirror handleGridMouseUp: resolve the element from multiple fallback sources
+    // so snap still works even if onWindowMoved didn't set toLeaveElement.
     toLeaveElement = toLeaveElement ?? draggedWindowElement ?? getFocusedWindowAXUIElement()
 
     guard let window = toLeaveElement else {
