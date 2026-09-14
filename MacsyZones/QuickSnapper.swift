@@ -286,6 +286,7 @@ class QuickSnapper: ObservableObject {
     var panel: QuickSnapperPanel
     
     private var windows: [QuickSnapperItem] = []
+    private var lifecycleGeneration = 0
     
     var toggleHotkey: GlobalHotkey?
     
@@ -354,6 +355,7 @@ class QuickSnapper: ObservableObject {
     
     func open(preload: Bool = true) {
         close()
+        let lifecycleGeneration = advanceLifecycleGeneration()
         
         isOpen = true
         isQuickSnapping = true
@@ -379,6 +381,8 @@ class QuickSnapper: ObservableObject {
             context.duration = 0.5
             panel.animator().alphaValue = 1
         }, completionHandler: {
+            guard self.isCurrentLifecycle(lifecycleGeneration), self.isOpen else { return }
+
             centerWindowOnFocusedScreen(self.panel)
             
             NSApp.activate(ignoringOtherApps: true)
@@ -388,6 +392,8 @@ class QuickSnapper: ObservableObject {
         centerWindowOnFocusedScreen(panel)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
+            guard self.isCurrentLifecycle(lifecycleGeneration), self.isOpen else { return }
+
             userLayouts.currentLayout.show()
         }
         
@@ -395,15 +401,21 @@ class QuickSnapper: ObservableObject {
     }
     
     func close() {
+        let lifecycleGeneration = advanceLifecycleGeneration()
+
         unregisterHotkeys()
         
         isOpen = false
+        windows.removeAll()
         
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.5
             panel.animator().alphaValue = 0
         }, completionHandler: {
+            guard self.isCurrentLifecycle(lifecycleGeneration), !self.isOpen else { return }
+
             self.panel.orderOut(nil)
+            self.panel.contentView = nil
         })
         
         setIsFitting(false)
@@ -424,6 +436,7 @@ class QuickSnapper: ObservableObject {
     
     func setWindows(_ windows: [QuickSnapperItem]) {
         self.windows = windows
+        clampSelectedIndex()
         let hostingView = NSHostingView(rootView: QuickSnapperView(model: self,
                                                                    windows: windows))
         panel.contentView = hostingView
@@ -485,7 +498,7 @@ class QuickSnapper: ObservableObject {
     func snapToZone(_ number: Int) {
         debugLog("Quick snapping to \(number)")
         
-        let selectedWindow = windows[selectedIndex]
+        guard let selectedWindow = selectedWindowForHotkey() else { return }
         
         guard let element = selectedWindow.element else { return }
         guard let windowId = selectedWindow.windowId else { return }
@@ -495,6 +508,38 @@ class QuickSnapper: ObservableObject {
                   windowId: windowId)
     }
     
+    private func advanceLifecycleGeneration() -> Int {
+        lifecycleGeneration += 1
+        return lifecycleGeneration
+    }
+
+    private func isCurrentLifecycle(_ generation: Int) -> Bool {
+        generation == lifecycleGeneration
+    }
+
+    private func clampSelectedIndex() {
+        if windows.isEmpty {
+            selectedIndex = 0
+        } else if selectedIndex >= windows.count {
+            selectedIndex = windows.count - 1
+        } else if selectedIndex < 0 {
+            selectedIndex = 0
+        }
+    }
+
+    private func selectWindow(offset: Int) {
+        guard isOpen, !windows.isEmpty else { return }
+
+        selectedIndex = (selectedIndex + offset + windows.count) % windows.count
+    }
+
+    private func selectedWindowForHotkey() -> QuickSnapperItem? {
+        guard isOpen, !windows.isEmpty else { return nil }
+
+        clampSelectedIndex()
+        return windows[selectedIndex]
+    }
+
     func setupHotkeys() {
         toggleHotkey = GlobalHotkey {
             Task { @MainActor in
@@ -510,6 +555,7 @@ class QuickSnapper: ObservableObject {
         
         prevLayoutHotkey = GlobalHotkey {
             Task { @MainActor in
+                guard self.isOpen else { return }
                 userLayouts.currentLayout.hideAllWindows()
                 
                 let sortedKeys = userLayouts.layouts.keys.sorted()
@@ -529,6 +575,7 @@ class QuickSnapper: ObservableObject {
         
         nextLayoutHotkey = GlobalHotkey {
             Task { @MainActor in
+                guard self.isOpen else { return }
                 userLayouts.currentLayout.hideAllWindows()
                 
                 let sortedKeys = userLayouts.layouts.keys.sorted()
@@ -548,7 +595,7 @@ class QuickSnapper: ObservableObject {
         
         prevWindowHotkey = GlobalHotkey {
             Task { @MainActor in
-                self.selectedIndex = (self.selectedIndex - 1 + self.windows.count) % self.windows.count
+                self.selectWindow(offset: -1)
             }
             
             return noErr
@@ -556,7 +603,7 @@ class QuickSnapper: ObservableObject {
             
         nextWindowHotkey = GlobalHotkey {
             Task { @MainActor in
-                self.selectedIndex = (self.selectedIndex + 1) % self.windows.count
+                self.selectWindow(offset: 1)
             }
             
             return noErr
@@ -564,7 +611,7 @@ class QuickSnapper: ObservableObject {
         
         tabHotkey = GlobalHotkey {
             Task { @MainActor in
-                self.selectedIndex = (self.selectedIndex + 1) % self.windows.count
+                self.selectWindow(offset: 1)
             }
             
             return noErr
@@ -572,7 +619,7 @@ class QuickSnapper: ObservableObject {
         
         shiftTabHotkey = GlobalHotkey {
             Task { @MainActor in
-                self.selectedIndex = (self.selectedIndex - 1 + self.windows.count) % self.windows.count
+                self.selectWindow(offset: -1)
             }
             
             return noErr
@@ -580,7 +627,7 @@ class QuickSnapper: ObservableObject {
             
         unsnapHotkey = GlobalHotkey {
             Task { @MainActor in
-                let selectedWindow = self.windows[self.selectedIndex]
+                guard let selectedWindow = self.selectedWindowForHotkey() else { return }
                 
                 guard let element = selectedWindow.element else { return }
                 guard let windowId = selectedWindow.windowId else { return }
@@ -601,44 +648,72 @@ class QuickSnapper: ObservableObject {
         }
         
         snapZone1Hotkey = GlobalHotkey {
-            self.snapToZone(1)
+            Task { @MainActor in
+                self.snapToZone(1)
+            }
+
             return noErr
         }
         snapZone2Hotkey = GlobalHotkey {
-            self.snapToZone(2)
+            Task { @MainActor in
+                self.snapToZone(2)
+            }
+
             return noErr
         }
         snapZone3Hotkey = GlobalHotkey {
-            self.snapToZone(3)
+            Task { @MainActor in
+                self.snapToZone(3)
+            }
+
             return noErr
         }
         snapZone4Hotkey = GlobalHotkey {
-            self.snapToZone(4)
+            Task { @MainActor in
+                self.snapToZone(4)
+            }
+
             return noErr
         }
         snapZone5Hotkey = GlobalHotkey {
-            self.snapToZone(5)
+            Task { @MainActor in
+                self.snapToZone(5)
+            }
+
             return noErr
         }
         snapZone6Hotkey = GlobalHotkey {
-            self.snapToZone(6)
+            Task { @MainActor in
+                self.snapToZone(6)
+            }
+
             return noErr
         }
         snapZone7Hotkey = GlobalHotkey {
-            self.snapToZone(7)
+            Task { @MainActor in
+                self.snapToZone(7)
+            }
+
             return noErr
         }
         snapZone8Hotkey = GlobalHotkey {
-            self.snapToZone(8)
+            Task { @MainActor in
+                self.snapToZone(8)
+            }
+
             return noErr
         }
         snapZone9Hotkey = GlobalHotkey {
-            self.snapToZone(9)
+            Task { @MainActor in
+                self.snapToZone(9)
+            }
+
             return noErr
         }
         
         doneHotkey = GlobalHotkey {
             Task { @MainActor in
+                guard self.isOpen else { return }
                 self.close()
             }
             
@@ -647,6 +722,7 @@ class QuickSnapper: ObservableObject {
         
         closeHotkey = GlobalHotkey {
             Task { @MainActor in
+                guard self.isOpen else { return }
                 self.close()
             }
             
@@ -655,7 +731,9 @@ class QuickSnapper: ObservableObject {
     }
     
     func registerHotkeys() {
+        let lifecycleGeneration = self.lifecycleGeneration
         Task { @MainActor in
+            guard self.isCurrentLifecycle(lifecycleGeneration), self.isOpen else { return }
             prevLayoutHotkey?.register(for: "Left")
             nextLayoutHotkey?.register(for: "Right")
             prevWindowHotkey?.register(for: "Up")
@@ -678,7 +756,9 @@ class QuickSnapper: ObservableObject {
     }
     
     func unregisterHotkeys() {
+        let lifecycleGeneration = self.lifecycleGeneration
         Task { @MainActor in
+            guard self.isCurrentLifecycle(lifecycleGeneration), !self.isOpen else { return }
             prevLayoutHotkey?.unregister()
             nextLayoutHotkey?.unregister()
             prevWindowHotkey?.unregister()
