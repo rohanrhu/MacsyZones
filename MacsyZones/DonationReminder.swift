@@ -17,10 +17,14 @@ let INTERVALS = [10, 15, 20, 50, 5, 10, 30]
 struct DonationReminderView: View {
     let donationURL: URL
     var onDismiss: (() -> Void)?
+    var onDisable: (() -> Void)?
     
-    init(donationURL: URL = URL(string: "https://macsyzones.com")!, onDismiss: (() -> Void)? = nil) {
+    init(donationURL: URL = URL(string: "https://macsyzones.com")!,
+         onDismiss: (() -> Void)? = nil,
+         onDisable: (() -> Void)? = nil) {
         self.donationURL = donationURL
         self.onDismiss = onDismiss
+        self.onDisable = onDisable
     }
     
     var body: some View {
@@ -92,13 +96,22 @@ struct DonationReminderView: View {
             
             Spacer()
             
-            Button {
-                onDismiss?()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+            HStack {
+                Button("Turn off automatic support reminders") {
+                    onDisable?()
+                }
+                .font(.caption)
+
+                Spacer()
+
+                Button {
+                    onDismiss?()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 25)
         .padding(.vertical, 20)
@@ -154,11 +167,16 @@ class DonationReminder {
     var countI = 0
     
     var panel: DonationReminderPanel
+    private var isPresentationPending = false
+    private var presentationGeneration = 0
     
     init() {
         panel = DonationReminderPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 640))
         
-        let view = DonationReminderView(onDismiss: { self.dismiss() })
+        let view = DonationReminderView(
+            onDismiss: { self.dismiss() },
+            onDisable: { self.disableAutomaticReminders() }
+        )
         panel.contentView = NSHostingView(rootView: view)
         
         panel.level = .floating
@@ -170,34 +188,60 @@ class DonationReminder {
     }
     
     func count() {
-        if macsyProLock.isPro {
+        if macsyProLock.isPro || !appSettings.automaticDonationReminders || isPresentationPending {
             return
         }
         
         countI += 1
         
         if countI % interval == 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                if #available(macOS 12.0, *) {
-                    if isQuickSnapping {
-                        self.panel.orderFront(nil)
-                        quickSnapper.panel.makeKeyAndOrderFront(nil)
-                    } else {
-                        self.panel.makeKeyAndOrderFront(nil)
-                    }
-                } else {
-                    self.panel.makeKeyAndOrderFront(nil)
+            countI = 0
+            isPresentationPending = true
+            presentationGeneration += 1
+            let generation = presentationGeneration
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                guard self.isPresentationPending,
+                      self.presentationGeneration == generation else {
+                    return
                 }
-                
+
+                self.isPresentationPending = false
+
+                guard !macsyProLock.isPro,
+                      appSettings.automaticDonationReminders,
+                      !isMovingAWindow,
+                      !isFitting,
+                      !isEditing,
+                      !isQuickSnapping,
+                      !isSnapResizing,
+                      (NSEvent.pressedMouseButtons & 1) == 0 else {
+                    return
+                }
+
+                self.panel.makeKeyAndOrderFront(nil)
                 self.panel.center()
             }
-            
-            countI = 0
         }
+    }
+
+    func hide() {
+        countI = 0
+        isPresentationPending = false
+        presentationGeneration += 1
+        panel.orderOut(nil)
+    }
+
+    func disableAutomaticReminders() {
+        appSettings.automaticDonationReminders = false
+        appSettings.save()
+        hide()
     }
     
     func dismiss() {
         countI = 0
+        isPresentationPending = false
+        presentationGeneration += 1
         panel.orderOut(nil)
         
         intervalI += 1
