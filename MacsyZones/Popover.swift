@@ -522,7 +522,7 @@ struct Main: View {
                 
                 VStack(alignment: .leading, spacing: 8) {
                     VStack(alignment: .leading) {
-                        VStack {
+                        VStack(alignment: .leading) {
                             HStack(spacing: 5) {
                                 Text("Quick Snapper").font(.subheadline)
                                 Button(action: {
@@ -544,6 +544,11 @@ struct Main: View {
                                     
                                     appSettings.save()
                                 }
+                            
+                            Toggle("Zone layouts only", isOn: $settings.quickSnapperZoneLayoutsOnly)
+                                .toggleStyle(.checkbox)
+                                .padding(.top, 5)
+                                .onChange(of: settings.quickSnapperZoneLayoutsOnly) { appSettings.save() }
                         }
                         
                         Divider().padding(.vertical, 2)

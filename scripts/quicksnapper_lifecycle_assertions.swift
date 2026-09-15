@@ -149,4 +149,15 @@ quickSnapper.deliverPreviousLayout()
 expect(userLayouts.currentLayout.showCalls == layoutShowsAfterClose && userLayouts.currentLayout.hideCalls == layoutHidesAfterClose, "stale Left/Right tasks cannot reveal or hide layout after close")
 expect(userLayouts.currentLayoutName == "Default" && spaceLayoutPreferences.preferredName == "Default", "stale layout tasks cannot mutate selection or preferences")
 
+// Disabling the zone-only setting must restore grid layouts to the switcher order.
+freshScenario()
+appSettings.quickSnapperZoneLayoutsOnly = false
+quickSnapper.open()
+NSAnimationContext.completeAll()
+DispatchQueue.main.completeAll()
+quickSnapper.deliverNextLayout()
+expect(userLayouts.currentLayoutName == "GridOnly", "disabling zone-only setting includes grid layouts in next-layout order")
+quickSnapper.deliverPreviousLayout()
+expect(userLayouts.currentLayoutName == "Default", "disabling zone-only setting includes grid layouts in previous-layout order")
+
 print("PASS: \(assertions) QuickSnapper lifecycle assertions using extracted production methods; no AppKit or app launch")

@@ -56,7 +56,7 @@ final class DispatchQueue {
         while !pending.isEmpty { pending.removeFirst()() }
     }
 }
-final class FakeSettings { var selectPerDesktopLayout = false }
+final class FakeSettings { var selectPerDesktopLayout = false; var quickSnapperZoneLayoutsOnly = true }
 let appSettings = FakeSettings()
 final class FakePreferences {
     var preferredName: String?

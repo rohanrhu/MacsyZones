@@ -558,7 +558,10 @@ class QuickSnapper: ObservableObject {
                 guard self.isOpen else { return }
                 userLayouts.currentLayout.hideAllWindows()
                 
-                let sortedKeys = userLayouts.layouts.filter { $0.value.layoutType == .zone }.keys.sorted()
+                let layouts = appSettings.quickSnapperZoneLayoutsOnly
+                    ? userLayouts.layouts.filter { $0.value.layoutType == .zone }
+                    : userLayouts.layouts
+                let sortedKeys = layouts.keys.sorted()
                 guard !sortedKeys.isEmpty else { return }
                 let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) ?? 0
                 let prevIndex = (currentIndex - 1 + sortedKeys.count) % sortedKeys.count
@@ -578,7 +581,10 @@ class QuickSnapper: ObservableObject {
                 guard self.isOpen else { return }
                 userLayouts.currentLayout.hideAllWindows()
                 
-                let sortedKeys = userLayouts.layouts.filter { $0.value.layoutType == .zone }.keys.sorted()
+                let layouts = appSettings.quickSnapperZoneLayoutsOnly
+                    ? userLayouts.layouts.filter { $0.value.layoutType == .zone }
+                    : userLayouts.layouts
+                let sortedKeys = layouts.keys.sorted()
                 guard !sortedKeys.isEmpty else { return }
                 let currentIndex = sortedKeys.firstIndex(of: userLayouts.currentLayoutName) ?? 0
                 let nextIndex = (currentIndex + 1) % sortedKeys.count
