@@ -60,6 +60,29 @@ class GlobalHotkey: Identifiable, Equatable {
         } else {
             debugLog("Successfully installed global event handler")
         }
+
+        // Hotkeys are registered by key code, so the key a shortcut lives on moves
+        // when the keyboard layout changes. Register them again on the new layout.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+                                                           object: nil,
+                                                           queue: .main) { _ in
+            Task { @MainActor in
+                Self.reregisterAll()
+            }
+        }
+    }
+
+    @MainActor
+    static func reregisterAll() {
+        let registeredHotkeys = Array(hotkeys.values)
+
+        guard !registeredHotkeys.isEmpty else { return }
+
+        debugLog("Keyboard input source changed, re-registering \(registeredHotkeys.count) hotkey(s)")
+
+        for hotkey in registeredHotkeys {
+            hotkey.register()
+        }
     }
 
     var shortcut: String?
