@@ -60,8 +60,31 @@ class GlobalHotkey: Identifiable, Equatable {
         } else {
             debugLog("Successfully installed global event handler")
         }
+
+        // Hotkeys are registered by key code, so the key a shortcut lives on moves
+        // when the keyboard layout changes. Register them again on the new layout.
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+                                                           object: nil,
+                                                           queue: .main) { _ in
+            Task { @MainActor in
+                Self.reregisterAll()
+            }
+        }
     }
-    
+
+    @MainActor
+    static func reregisterAll() {
+        let registeredHotkeys = Array(hotkeys.values)
+
+        guard !registeredHotkeys.isEmpty else { return }
+
+        debugLog("Keyboard input source changed, re-registering \(registeredHotkeys.count) hotkey(s)")
+
+        for hotkey in registeredHotkeys {
+            hotkey.register()
+        }
+    }
+
     var shortcut: String?
     var action: (() -> OSStatus)
     
@@ -220,57 +243,79 @@ class GlobalHotkey: Identifiable, Equatable {
         return (modifiers, keyCode, key)
     }
 
+    static let qwertyKeyCodes: [Character: UInt16] = [
+        "1": 18, "2": 19, "3": 20, "4": 21, "5": 23,
+        "6": 22, "7": 26, "8": 28, "9": 25, "0": 29,
+
+        "q": 12, "w": 13, "e": 14, "r": 15, "t": 17,
+        "y": 16, "u": 32, "i": 34, "o": 31, "p": 35,
+
+        "a": 0, "s": 1, "d": 2, "f": 3, "g": 5,
+        "h": 4, "j": 38, "k": 40, "l": 37,
+
+        "z": 6, "x": 7, "c": 8, "v": 9, "b": 11,
+        "n": 45, "m": 46,
+
+        "-": 27, "=": 24,
+        "[": 33, "]": 30,
+        "\\": 42, ";": 41, "'": 39,
+        ",": 43, ".": 47, "/": 44,
+        "`": 50
+    ]
+
+    // A layout can type the same character on a main block key and on the keypad,
+    // and the keypad is never the one the user pressed. French types 1 there.
+    static let keypadKeyCodes: Set<UInt16> = Set([kVK_ANSI_KeypadDecimal,
+                                                  kVK_ANSI_KeypadMultiply,
+                                                  kVK_ANSI_KeypadPlus,
+                                                  kVK_ANSI_KeypadClear,
+                                                  kVK_ANSI_KeypadDivide,
+                                                  kVK_ANSI_KeypadEnter,
+                                                  kVK_ANSI_KeypadMinus,
+                                                  kVK_ANSI_KeypadEquals,
+                                                  kVK_ANSI_Keypad0, kVK_ANSI_Keypad1, kVK_ANSI_Keypad2,
+                                                  kVK_ANSI_Keypad3, kVK_ANSI_Keypad4, kVK_ANSI_Keypad5,
+                                                  kVK_ANSI_Keypad6, kVK_ANSI_Keypad7, kVK_ANSI_Keypad8,
+                                                  kVK_ANSI_Keypad9].map { UInt16($0) })
+
     static func keyCodeForCharacter(_ character: String) -> UInt16? {
         guard let char = character.lowercased().first else { return nil }
-        
-        let keyMap: [Character: UInt16] = [
-            "1": 18, "2": 19, "3": 20, "4": 21, "5": 23,
-            "6": 22, "7": 26, "8": 28, "9": 25, "0": 29,
-            
-            "q": 12, "w": 13, "e": 14, "r": 15, "t": 17,
-            "y": 16, "u": 32, "i": 34, "o": 31, "p": 35,
-            
-            "a": 0, "s": 1, "d": 2, "f": 3, "g": 5,
-            "h": 4, "j": 38, "k": 40, "l": 37,
-            
-            "z": 6, "x": 7, "c": 8, "v": 9, "b": 11,
-            "n": 45, "m": 46,
-            
-            "-": 27, "=": 24,
-            "[": 33, "]": 30,
-            "\\": 42, ";": 41, "'": 39,
-            ",": 43, ".": 47, "/": 44,
-            "`": 50
-        ]
-        
-        if let keyCode = keyMap[char] {
+
+        if let keyCode = keyCodeForCharacter(char, in: currentKeyboardLayoutData()) {
             return keyCode
         }
-        
-        return keyCodeForCharacterDynamic(char)
+
+        return qwertyKeyCodes[char]
     }
 
-    static func keyCodeForCharacterDynamic(_ character: Character) -> UInt16? {
-        let charString = String(character)
-        
-        guard let keyboardLayout = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue() else {
-            return nil
+    static func currentKeyboardLayoutData() -> CFData? {
+        // An input method (Pinyin, Kotoeri, ...) carries no key layout data of its own,
+        // so fall back to the ASCII capable layout its keys really type with.
+        let inputSources = [TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+                            TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue()]
+
+        for inputSource in inputSources.compactMap({ $0 }) {
+            if let layoutData = TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData) {
+                return unsafeBitCast(layoutData, to: CFData.self)
+            }
         }
-        
-        guard let layoutData = TISGetInputSourceProperty(keyboardLayout, kTISPropertyUnicodeKeyLayoutData) else {
-            return nil
-        }
-        
-        let keyLayoutPtr = CFDataGetBytePtr(unsafeBitCast(layoutData, to: CFData.self))
-        guard let keyLayout = keyLayoutPtr else { return nil }
-        
-        var deadKeyState: UInt32 = 0
-        var actualStringLength = 0
-        var unicodeString = [UniChar](repeating: 0, count: 4)
-        
-        for virtualKeyCode in 0..<128 {
+
+        return nil
+    }
+
+    static func keyCodeForCharacter(_ character: Character, in layoutData: CFData?) -> UInt16? {
+        guard let layoutData else { return nil }
+        guard let keyLayout = CFDataGetBytePtr(layoutData) else { return nil }
+
+        let charString = String(character).lowercased()
+
+        for virtualKeyCode in UInt16(0)..<128 where !keypadKeyCodes.contains(virtualKeyCode) {
+            var deadKeyState: UInt32 = 0
+            var actualStringLength = 0
+            var unicodeString = [UniChar](repeating: 0, count: 4)
+
             let result = UCKeyTranslate(keyLayout.withMemoryRebound(to: UCKeyboardLayout.self, capacity: 1) { $0 },
-                                        UInt16(virtualKeyCode),
+                                        virtualKeyCode,
                                         UInt16(kUCKeyActionDisplay),
                                         0,
                                         UInt32(LMGetKbdType()),
@@ -279,15 +324,15 @@ class GlobalHotkey: Identifiable, Equatable {
                                         4,
                                         &actualStringLength,
                                         &unicodeString)
-            
+
             if result == noErr && actualStringLength > 0 {
                 let resultString = String(utf16CodeUnits: unicodeString, count: actualStringLength)
-                if resultString.lowercased() == charString.lowercased() {
-                    return UInt16(virtualKeyCode)
+                if resultString.lowercased() == charString {
+                    return virtualKeyCode
                 }
             }
         }
-        
+
         return nil
     }
 }
