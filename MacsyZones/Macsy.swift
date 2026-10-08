@@ -124,9 +124,45 @@ func getWindowUnderMouse() -> (element: AXUIElement, windowId: UInt32)? {
     return nil
 }
 
+// Safety net for windows whose AX observation was missed (e.g. an app that was still
+// launching when it was first scanned): make sure the window about to be dragged is observed.
+func observeWindowUnderMouse() {
+    guard let primaryScreen = NSScreen.screens.first else { return }
+    let mouseLocation = NSEvent.mouseLocation
+    let axPoint = CGPoint(x: mouseLocation.x, y: primaryScreen.frame.maxY - mouseLocation.y)
+    let ownPid = ProcessInfo.processInfo.processIdentifier
+
+    DispatchQueue.global(qos: .userInteractive).async {
+        var hitRef: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(axPoint.x), Float(axPoint.y), &hitRef) == .success,
+              let hit = hitRef
+        else { return }
+
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(hit, &pid) == .success, pid != ownPid else { return }
+
+        var window = hit
+        var roleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(hit, kAXRoleAttribute as CFString, &roleRef) != .success
+            || (roleRef as? String) != kAXWindowRole {
+            var windowRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(hit, kAXWindowAttribute as CFString, &windowRef) == .success,
+                  let windowRef, CFGetTypeID(windowRef) == AXUIElementGetTypeID()
+            else { return }
+            window = windowRef as! AXUIElement
+        }
+
+        Task { @MainActor in
+            WindowObserverManager.shared.observeWindow(pid: pid, element: window)
+        }
+    }
+}
+
 func onMouseDown(event: NSEvent) {
     draggedWindowElement = nil
     draggedWindowInitialPosition = nil
+
+    observeWindowUnderMouse()
 
     if let preferredLayoutName = spaceLayoutPreferences.getCurrent() {
         userLayouts.currentLayoutName = preferredLayoutName
