@@ -39,7 +39,11 @@ struct SectionView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            VStack {
+            let anchor = zoneDropAnchor(in: CGRect(origin: .zero, size: geometry.size),
+                                        anchorXPercentage: sectionWindow.sectionConfig.anchorXPercentage,
+                                        anchorYPercentage: sectionWindow.sectionConfig.anchorYPercentage)
+
+            ZStack {
                 Group {
                     Text(String(sectionWindow.number))
                         .frame(width: 100, height: 100)
@@ -50,6 +54,7 @@ struct SectionView: View {
                 .fixedSize()
                 .shadow(color: (sectionWindow.isHovered ? Color.accentColor: Color.black), radius: 8, x: 0, y: 0)
                 .background(centerCircleBckground)
+                .position(x: anchor.x, y: geometry.size.height - anchor.y)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .modifier {
@@ -332,9 +337,18 @@ struct EditorSectionView: View {
                         .padding(.top, compact ? 10 : 20)
                         .padding(.trailing, compact ? 10 : 20)
                     }
-                    
+
                     Spacer()
                 }
+
+                let anchor = zoneDropAnchor(in: CGRect(origin: .zero, size: size),
+                                            anchorXPercentage: sectionWindow.editingAnchor?.x,
+                                            anchorYPercentage: sectionWindow.editingAnchor?.y)
+
+                ZoneAnchorHandleView(isCustom: sectionWindow.editingAnchor != nil,
+                                     onDrag: { sectionWindow.editingAnchor = $0 },
+                                     onReset: { sectionWindow.editingAnchor = nil })
+                    .position(x: anchor.x, y: size.height - anchor.y)
             }
         }
         .ignoresSafeArea()
@@ -357,6 +371,90 @@ struct EditorSectionView: View {
         if let cursorInBg = cursorInBg {
             _ = CGSSetConnectionProperty(_CGSDefaultConnection(), _CGSDefaultConnection(), cursorInBg, kCFBooleanTrue)
         }
+    }
+}
+
+/// Draggable marker for a zone's drop anchor in the layout editor.
+/// Mouse handling lives in an AppKit view because the editor window is movable by its
+/// background; a SwiftUI drag gesture would move the whole zone instead of the anchor.
+struct ZoneAnchorHandleView: View {
+    var isCustom: Bool
+    var onDrag: (CGPoint) -> Void
+    var onReset: () -> Void
+
+    private let handleSize: CGFloat = 22
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.accentColor.opacity(isCustom ? 0.9 : 0.5))
+            Circle()
+                .strokeBorder(Color.white.opacity(0.9), lineWidth: 2)
+            Image(systemName: "plus")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+        }
+        .frame(width: handleSize, height: handleSize)
+        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
+        .allowsHitTesting(false)
+        .overlay(
+            ZoneAnchorHandleMouseArea(onDrag: onDrag, onReset: onReset)
+                .frame(width: handleSize + 8, height: handleSize + 8)
+        )
+    }
+}
+
+struct ZoneAnchorHandleMouseArea: NSViewRepresentable {
+    var onDrag: (CGPoint) -> Void
+    var onReset: () -> Void
+
+    func makeNSView(context: Context) -> ZoneAnchorHandleNSView {
+        let view = ZoneAnchorHandleNSView()
+        view.toolTip = "Drop anchor: drag to set where the pointer selects this zone. Double-click to reset to the center."
+        updateNSView(view, context: context)
+        return view
+    }
+
+    func updateNSView(_ view: ZoneAnchorHandleNSView, context: Context) {
+        view.onDrag = onDrag
+        view.onReset = onReset
+    }
+}
+
+final class ZoneAnchorHandleNSView: NSView {
+    var onDrag: ((CGPoint) -> Void)?
+    var onReset: (() -> Void)?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
+    }
+
+    /// Distance from the handle center to the pointer when the drag started, so the handle does not jump.
+    private var grabOffset: CGPoint = .zero
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            onReset?()
+            return
+        }
+
+        let handleCenter = convert(CGPoint(x: bounds.midX, y: bounds.midY), to: nil)
+        grabOffset = CGPoint(x: event.locationInWindow.x - handleCenter.x,
+                             y: event.locationInWindow.y - handleCenter.y)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window, window.frame.width > 0, window.frame.height > 0 else { return }
+
+        // Window coordinates start at the bottom-left corner, like the stored anchor.
+        let location = CGPoint(x: event.locationInWindow.x - grabOffset.x,
+                               y: event.locationInWindow.y - grabOffset.y)
+        onDrag?(CGPoint(x: min(max(location.x / window.frame.width, 0), 1),
+                        y: min(max(location.y / window.frame.height, 0), 1)))
     }
 }
 
@@ -660,7 +758,9 @@ class SectionWindow: Hashable, ObservableObject {
     var editorWindow: NSWindow!
     var layoutWindow: LayoutWindow!
     var window: NSWindow!
-    var sectionConfig: SectionConfig
+    @Published var sectionConfig: SectionConfig
+    /// Drop anchor being edited in the layout editor; stored into `sectionConfig` on save.
+    @Published var editingAnchor: CGPoint?
     var editorWindowDelegate: EditorSectionWindowDelegate?
     
     var isEditing: Bool { layoutWindow.isEditing }
@@ -670,6 +770,7 @@ class SectionWindow: Hashable, ObservableObject {
     init(number: Int, layoutWindow: LayoutWindow, sectionConfig: SectionConfig, onDelete: @escaping ((SectionWindow) -> Void)) {
         self.number = number
         self.sectionConfig = sectionConfig
+        self.editingAnchor = Self.anchor(of: sectionConfig)
         self.layoutWindow = layoutWindow
         self.onDelete = onDelete
         
@@ -735,15 +836,23 @@ class SectionWindow: Hashable, ObservableObject {
     func reset(sectionConfig: SectionConfig) {
         number = sectionConfig.number!
         self.sectionConfig = sectionConfig
-        
+        editingAnchor = Self.anchor(of: sectionConfig)
+
         let contentRect = sectionConfig.getRect()
         window.setFrame(contentRect, display: true, animate: false)
         editorWindow.setFrame(contentRect, display: true, animate: false)
         windowSize = contentRect.size
-        
+
         editorWindowDelegate?.originalScreen = editorWindow.screen
     }
-    
+
+    private static func anchor(of sectionConfig: SectionConfig) -> CGPoint? {
+        guard let anchorXPercentage = sectionConfig.anchorXPercentage,
+              let anchorYPercentage = sectionConfig.anchorYPercentage else { return nil }
+
+        return CGPoint(x: anchorXPercentage, y: anchorYPercentage)
+    }
+
     func getBounds(for screen: NSScreen? = nil) -> SectionBounds {
         let screenSize = (screen ?? NSScreen.main)!.frame
         let screenOrigin = (screen ?? NSScreen.main)!.frame.origin
@@ -1410,7 +1519,9 @@ class LayoutWindow: ObservableObject {
             sectionConfig.widthPercentage = width / screenSize.width
             sectionConfig.xPercentage = x / screenSize.width
             sectionConfig.yPercentage = y / screenSize.height
-            
+            sectionConfig.anchorXPercentage = sectionWindow.editingAnchor?.x
+            sectionConfig.anchorYPercentage = sectionWindow.editingAnchor?.y
+
             self.sectionConfigs[number] = sectionConfig
             sectionWindow.reset(sectionConfig: sectionConfig)
         }

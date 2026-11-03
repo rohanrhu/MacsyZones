@@ -682,7 +682,11 @@ struct SectionConfig: Codable {
     var xPercentage: CGFloat
     var yPercentage: CGFloat
     var name: String?
-    
+    /// Optional drop anchor, relative to the zone (0...1, measured from its bottom-left corner).
+    /// The pointer is matched against this point instead of the zone center. Missing means the zone center.
+    var anchorXPercentage: CGFloat? = nil
+    var anchorYPercentage: CGFloat? = nil
+
     static var defaultSection: SectionConfig {
         .init(widthPercentage: 0.5, heightPercentage: 0.5, xPercentage: 0.25, yPercentage: 0.25, name: "Default Zone")
     }
