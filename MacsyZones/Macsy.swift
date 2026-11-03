@@ -276,6 +276,56 @@ var shakeMagnitudeCount: CGFloat = 0
 
 var justDidMouseUp = false
 
+struct ZoneDropCandidate {
+    let frame: CGRect
+    let anchor: CGPoint
+}
+
+func zoneDropAnchor(in frame: CGRect, anchorXPercentage: CGFloat?, anchorYPercentage: CGFloat?) -> CGPoint {
+    guard let anchorXPercentage, let anchorYPercentage else {
+        return CGPoint(x: frame.midX, y: frame.midY)
+    }
+
+    return CGPoint(x: frame.minX + frame.width * anchorXPercentage,
+                   y: frame.minY + frame.height * anchorYPercentage)
+}
+
+func selectZoneDropCandidate(_ candidates: [ZoneDropCandidate], mouseLocation: CGPoint, strategy: SnapHighlightStrategy, prioritizeAnchor: Bool) -> Int? {
+    func containsMouse(_ frame: CGRect) -> Bool {
+        mouseLocation.x > frame.minX && mouseLocation.x < frame.maxX &&
+        mouseLocation.y > frame.minY && mouseLocation.y < frame.maxY
+    }
+
+    if strategy != .centerProximity && prioritizeAnchor {
+        // The anchor may sit on the zone edge, so its box must not reach into neighbouring zones.
+        if let index = candidates.firstIndex(where: {
+            mouseLocation.x > $0.anchor.x - 50 && mouseLocation.x < $0.anchor.x + 50 &&
+            mouseLocation.y > $0.anchor.y - 50 && mouseLocation.y < $0.anchor.y + 50 &&
+            containsMouse($0.frame)
+        }) {
+            return index
+        }
+    }
+
+    let sortedIndices: [Int]
+
+    if strategy == .centerProximity {
+        sortedIndices = candidates.indices.sorted {
+            let distance1 = hypot(mouseLocation.x - candidates[$0].anchor.x, mouseLocation.y - candidates[$0].anchor.y)
+            let distance2 = hypot(mouseLocation.x - candidates[$1].anchor.x, mouseLocation.y - candidates[$1].anchor.y)
+            return distance1 < distance2
+        }
+    } else {
+        sortedIndices = candidates.indices.sorted {
+            let frame1 = candidates[$0].frame
+            let frame2 = candidates[$1].frame
+            return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+        }
+    }
+
+    return sortedIndices.first(where: { containsMouse(candidates[$0].frame) })
+}
+
 func getHoveredSectionWindow() -> SectionWindow? {
     debugLog("getHoveredSectionWindow(): isFitting = \(isFitting)")
     var hoveredSectionWindow: SectionWindow?
@@ -293,64 +343,28 @@ func getHoveredSectionWindow() -> SectionWindow? {
     let mouseLocation = NSEvent.mouseLocation
     
     if isFitting {
-        if appSettings.snapHighlightStrategy != .centerProximity && appSettings.prioritizeCenterToSnap {
-            for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-                let screenSize = focusedScreen.frame
-                let bounds = sectionWindow.getBounds(for: focusedScreen)
-                let width = bounds.widthPercentage * screenSize.width
-                let height = bounds.heightPercentage * screenSize.height
-                let x = focusedScreen.frame.origin.x + (bounds.xPercentage * screenSize.width + width / 2) - 50
-                let y = focusedScreen.frame.origin.y + (bounds.yPercentage * screenSize.height + height / 2) - 50
-                
-                if mouseLocation.x > x && mouseLocation.x < x + 100 && mouseLocation.y > y && mouseLocation.y < y + 100 {
-                    hoveredSectionWindow = sectionWindow
-                    break
-                }
-            }
+        let sectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows
+        let screenSize = focusedScreen.frame.size
+        let screenOrigin = focusedScreen.frame.origin
+
+        let candidates = sectionWindows.map { sectionWindow in
+            let bounds = sectionWindow.getBounds(for: focusedScreen)
+            let frame = CGRect(x: screenOrigin.x + bounds.xPercentage * screenSize.width,
+                               y: screenOrigin.y + bounds.yPercentage * screenSize.height,
+                               width: bounds.widthPercentage * screenSize.width,
+                               height: bounds.heightPercentage * screenSize.height)
+            let anchor = zoneDropAnchor(in: frame,
+                                        anchorXPercentage: sectionWindow.sectionConfig.anchorXPercentage,
+                                        anchorYPercentage: sectionWindow.sectionConfig.anchorYPercentage)
+
+            return ZoneDropCandidate(frame: frame, anchor: anchor)
         }
-        
-        if hoveredSectionWindow == nil {
-            let sortedSectionWindows: [SectionWindow]
-            
-            if appSettings.snapHighlightStrategy == .centerProximity {
-                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                    let screenSize = focusedScreen.frame
-                    let screenOrigin = focusedScreen.frame.origin
-                    
-                    let bounds1 = $0.getBounds(for: focusedScreen)
-                    let center1X = screenOrigin.x + bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
-                    let center1Y = screenOrigin.y + bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
-                    let distance1 = sqrt(pow(mouseLocation.x - center1X, 2) + pow(mouseLocation.y - center1Y, 2))
-                    
-                    let bounds2 = $1.getBounds(for: focusedScreen)
-                    let center2X = screenOrigin.x + bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
-                    let center2Y = screenOrigin.y + bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
-                    let distance2 = sqrt(pow(mouseLocation.x - center2X, 2) + pow(mouseLocation.y - center2Y, 2))
-                    
-                    return distance1 < distance2
-                }
-            } else {
-                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                    let frame1 = $0.window.frame
-                    let frame2 = $1.window.frame
-                    return (frame1.width * frame1.height) < (frame2.width * frame2.height)
-                }
-            }
-            
-            for sectionWindow in sortedSectionWindows {
-                let screenSize = focusedScreen.frame
-                let screenOrigin = focusedScreen.frame.origin
-                let bounds = sectionWindow.getBounds(for: focusedScreen)
-                let width = bounds.widthPercentage * screenSize.width
-                let height = bounds.heightPercentage * screenSize.height
-                let x = screenOrigin.x + bounds.xPercentage * screenSize.width
-                let y = screenOrigin.y + bounds.yPercentage * screenSize.height
-                
-                if mouseLocation.x > x && mouseLocation.x < x + width && mouseLocation.y > y && mouseLocation.y < y + height {
-                    hoveredSectionWindow = sectionWindow
-                    break
-                }
-            }
+
+        if let index = selectZoneDropCandidate(candidates,
+                                               mouseLocation: mouseLocation,
+                                               strategy: appSettings.snapHighlightStrategy,
+                                               prioritizeAnchor: appSettings.prioritizeCenterToSnap) {
+            hoveredSectionWindow = sectionWindows[index]
         }
     }
 
