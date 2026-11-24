@@ -11,6 +11,7 @@
 //
 
 import Foundation
+import Combine
 import SwiftUI
 
 let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
@@ -40,6 +41,8 @@ let cycleBackwardHotkey = GlobalHotkey() {
     return noErr
 }
 
+/// Window-control permission as last confirmed by `PermissionCenter`.
+/// Read by the onboarding gate; written only from the published snapshot.
 var hasAccessibilityPermission = false
 var statusItem: NSStatusItem!
 var popover: NSPopover!
@@ -304,6 +307,14 @@ struct MacsyZonesApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sendable {
+    /// Subscription to the permission snapshots; kept alive for the app's lifetime.
+    /// Mutated and read on the main thread only.
+    nonisolated(unsafe) private var permissionCancellable: AnyCancellable?
+    /// The guidance is shown at most once per launch, otherwise every re-check would re-open it.
+    nonisolated(unsafe) private var hasShownPermissionGuidance = false
+    /// Onboarding is presented at most once, from whichever turn sees the permission granted first.
+    nonisolated(unsafe) private var hasPresentedOnboarding = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isPreview {
             debugLog("Running in preview mode, skipping setup.")
@@ -318,8 +329,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         checkIfRunning()
         createTrayIcon()
         setupPopover()
-        checkAccessibilityPermission()
-        requestAccessibilityPermissions()
+        setupPermissionMonitoring()
         monitorActivations()
         GlobalHotkey.setup()
         
@@ -515,22 +525,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         }
     }
     
-    func checkAccessibilityPermission() {
-        let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
-    }
-    
-    func requestAccessibilityPermissions() {
-        if !hasAccessibilityPermission {
-            showAccessibilityPermissionPopover()
-        } else {
-            debugLog("Accessibility permissions granted.")
+    /// Starts permission monitoring and keeps the UI in sync with the published snapshot.
+    ///
+    /// `AXIsProcessTrusted()` alone is not a reliable answer on macOS 27 (it can report
+    /// `false` right after login while everything works, and the other way around), so the
+    /// real state comes from `PermissionCenter`, which probes other apps' windows.
+    func setupPermissionMonitoring() {
+        let center = PermissionCenter.shared
+
+        MainActor.assumeIsolated {
+            center.onStatusChange = { capability, oldStatus, newStatus in
+                guard capability == .windowControl else { return }
+                debugLog("Window control permission changed: \(oldStatus.rawValue) -> \(newStatus.rawValue)")
+            }
+        }
+
+        MainActor.assumeIsolated {
+            permissionCancellable = Publishers.CombineLatest(center.$snapshot, center.$hasCompletedFirstCheck)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] snapshot, firstCheckDone in
+                    Task { @MainActor in
+                        self?.applyPermissionSnapshot(snapshot, firstCheckDone: firstCheckDone)
+                    }
+                }
+
+            center.start()
         }
     }
-    
+
+    /// Reacts to one published snapshot. Runs on the main thread.
+    @MainActor
+    private func applyPermissionSnapshot(_ snapshot: PermissionSnapshot?, firstCheckDone: Bool) {
+        // Before the first evaluation both values are meaningless: `nil != .granted`
+        // would be true and would flash the guidance for authorized users.
+        guard firstCheckDone, let snapshot else { return }
+
+        hasAccessibilityPermission = (snapshot.overall == .granted)
+        debugLog("Permission snapshot: windowControl=\(snapshot.overall.rawValue)")
+
+        if snapshot.overall != .granted {
+            if !hasShownPermissionGuidance {
+                hasShownPermissionGuidance = true
+                showAccessibilityPermissionPopover()
+            }
+        } else {
+            if accessibilityDialog != nil {
+                accessibilityDialog?.dismiss()
+                accessibilityDialog = nil
+            }
+
+            if #available(macOS 12.0, *), !onboardingState.hasCompletedOnboarding, !hasPresentedOnboarding {
+                hasPresentedOnboarding = true
+                showOnboarding()
+            }
+        }
+    }
+
+    @MainActor
     func showAccessibilityPermissionPopover() {
         if accessibilityDialog == nil {
-            accessibilityDialog = AccessibilityDialog()
+            accessibilityDialog = AccessibilityDialog(
+                onOpenSettings: {
+                    MainActor.assumeIsolated {
+                        if !PermissionCenter.openWindowControlSettings() {
+                            debugLog("Could not open the privacy settings pane.")
+                        }
+                    }
+                },
+                onRecheck: {
+                    MainActor.assumeIsolated {
+                        PermissionCenter.shared.recheck(trigger: "manual")
+                    }
+                }
+            )
         }
         accessibilityDialog?.show()
     }
@@ -791,6 +858,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         if let mouseUpMonitor = mouseUpMonitor {
             NSEvent.removeMonitor(mouseUpMonitor)
         }
+        PermissionCenter.shared.stop()
     }
 }
 
