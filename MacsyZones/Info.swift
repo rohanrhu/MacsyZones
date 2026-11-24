@@ -13,174 +13,124 @@
 import SwiftUI
 
 struct AccessibilityPermissionView: View {
+    var onOpenSettings: (() -> Void)?
+    var onRecheck: (() -> Void)?
     var onRestart: (() -> Void)?
-    var onCancel: (() -> Void)?
-    
-    @State private var expandedImage: String? = nil
-    
+    var onQuit: (() -> Void)?
+
     var body: some View {
-        ZStack {
-            VStack(alignment: .center, spacing: 12) {
-                Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 75, height: 75)
-                
-                VStack(alignment: .center, spacing: 2) {
-                    Text("Accessibility Permissions Required")
-                        .lineSpacing(6)
-                        .font(.title)
-                    
-                    Spacer().frame(height: 26)
-                    
-                    Text("MacsyZones needs accessibility permissions to work. Please follow these steps:")
-                        .font(.system(size: 13))
-                        .lineSpacing(5)
-                        .multilineTextAlignment(.center)
-                    
-                    Spacer().frame(height: 26)
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("1.")
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
-                            Text("Open System Settings")
-                        }
-                        
-                        HStack {
-                            Text("2.")
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
-                            Text("Go to Privacy & Security → Accessibility")
-                        }
-                        
-                        Button(action: {
-                            expandedImage = "Accessibility-Permission-Tutorial-1"
-                        }) {
-                            Image("Accessibility-Permission-Tutorial-1")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(height: 60)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .help("Click to enlarge")
-                        
-                        HStack {
-                            Text("3.")
-                                .fontWeight(.bold)
-                                .foregroundColor(.blue)
-                            Text("Enable MacsyZones")
-                        }
-                        
-                        Button(action: {
-                            expandedImage = "Accessibility-Permission-Tutorial-2"
-                        }) {
-                            Image("Accessibility-Permission-Tutorial-2")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(height: 60)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .help("Click to enlarge")
+        VStack(alignment: .center, spacing: 12) {
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 75, height: 75)
+
+            VStack(alignment: .center, spacing: 2) {
+                Text("Window Control Permission Required")
+                    .lineSpacing(6)
+                    .font(.title)
+
+                Spacer().frame(height: 20)
+
+                Text("MacsyZones needs permission to arrange the windows of other apps. Follow these steps:")
+                    .font(.system(size: 13))
+                    .lineSpacing(5)
+                    .multilineTextAlignment(.center)
+
+                Spacer().frame(height: 20)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    step(1, "Open System Settings.")
+                    step(2, "Go to Privacy & Security → System & App Protection Override.")
+                    step(3, "Add MacsyZones to the list and switch it on.")
+                    step(4, "Come back here and click “Check Again”. No restart is needed.")
+                }
+                .font(.system(size: 12.5))
+                .multilineTextAlignment(.leading)
+                .padding(14)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(16)
+
+                Spacer().frame(height: 16)
+
+                Text("On macOS 27.0–27.2 this pane is called “Device Control and Data Access”; on earlier versions the permission lives under “Accessibility”. MacsyZones is not listed in the Accessibility pane, which is expected: that pane only lists apps with an accessibility designation.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineSpacing(3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer().frame(height: 20)
+
+                VStack(spacing: 10) {
+                    Button {
+                        onOpenSettings?()
+                    } label: {
+                        Text("Open System Settings")
+                            .fontWeight(.bold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(9)
                     }
-                    .font(.system(size: 12))
-                    .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(16)
-                    
-                    Spacer().frame(height: 26)
-                    
+                    .buttonStyle(.plain)
+
                     HStack(spacing: 12) {
-                        Button(action: {
-                            onCancel?()
-                        }) {
-                            Text("Cancel")
+                        Button {
+                            onRecheck?()
+                        } label: {
+                            Text("Check Again")
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(8)
+                                .padding(.vertical, 9)
+                                .background(Color.blue.opacity(0.15))
+                                .cornerRadius(9)
                         }
                         .buttonStyle(.plain)
-                        
-                        Button(action: {
+
+                        Button {
                             onRestart?()
-                        }) {
+                        } label: {
                             Text("Restart App")
-                                .fontWeight(.bold)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
+                                .padding(.vertical, 9)
+                                .background(Color.gray.opacity(0.2))
+                                .cornerRadius(9)
                         }
                         .buttonStyle(.plain)
                     }
-                    
-                    Spacer().frame(height: 26)
-                    
-                    Text("After enabling accessibility permissions, restart MacsyZones to continue.")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            .padding(.horizontal, 25)
-            .padding(.vertical, 20)
-            .background(BlurredWindowBackground(material: .hudWindow,
-                                                blendingMode: .behindWindow)
-                .cornerRadius(16).padding(.horizontal, 10))
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .multilineTextAlignment(.center)
-            
-            if let imageName = expandedImage {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        expandedImage = nil
+
+                    Button {
+                        onQuit?()
+                    } label: {
+                        Text("Quit MacsyZones")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .padding(.top, 6)
                     }
-                
-                VStack(alignment: .center, spacing: 0) {
-                    Image(imageName)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: 500, maxHeight: 600)
-                        .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
-                    
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            expandedImage = nil
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
-                                .background(Color.black.opacity(0.5))
-                                .clipShape(Circle())
-                                .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
-                        }
-                        .buttonStyle(.plain)
-                        Spacer()
-                    }
-                    
-                    Spacer()
+                    .buttonStyle(.plain)
                 }
-                .transition(.opacity.combined(with: .scale))
+
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: expandedImage)
+        .padding(.horizontal, 25)
+        .padding(.vertical, 20)
+        .background(BlurredWindowBackground(material: .hudWindow,
+                                            blendingMode: .behindWindow)
+            .cornerRadius(16).padding(.horizontal, 10))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .frame(width: 440)
+        .multilineTextAlignment(.center)
+    }
+
+    private func step(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("\(number).")
+                .fontWeight(.bold)
+                .foregroundColor(.blue)
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -194,7 +144,7 @@ class AccessibilityPanel: NSPanel {
                   backing: .buffered,
                   defer: false)
         
-        self.level = .screenSaver
+        self.level = .floating
         self.isMovableByWindowBackground = true
         self.isOpaque = false
         self.backgroundColor = .clear
@@ -209,47 +159,53 @@ class AccessibilityPanel: NSPanel {
 
 class AccessibilityDialog {
     private var panel: AccessibilityPanel
-    
-    init() {
-        panel = AccessibilityPanel(contentRect: NSRect(x: 0, y: 0, width: 420, height: 700))
-        
+
+    init(onOpenSettings: (() -> Void)? = nil,
+         onRecheck: (() -> Void)? = nil,
+         onRestart: (() -> Void)? = nil) {
+        panel = AccessibilityPanel(contentRect: NSRect(x: 0, y: 0, width: 460, height: 600))
+
         let view = AccessibilityPermissionView(
+            onOpenSettings: onOpenSettings,
+            onRecheck: onRecheck,
             onRestart: {
                 self.dismiss()
                 restartApp()
             },
-            onCancel: {
+            onQuit: {
                 self.dismiss()
-                exit(0)
+                NSApplication.shared.terminate(nil)
             }
         )
-        panel.contentView = NSHostingView(rootView: view)
-        
-        panel.level = .screenSaver
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 460, height: 620)
+        panel.contentView = hostingView
+        panel.setContentSize(NSSize(width: 460, height: 620))
+
+        panel.level = .floating
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.backgroundColor = .clear
         positionInLeftHalf()
         panel.orderOut(nil)
     }
-    
+
     private func positionInLeftHalf() {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         let panelFrame = panel.frame
-        
+
         let leftHalfCenterX = screenFrame.origin.x + (screenFrame.width / 4)
         let centerY = screenFrame.origin.y + (screenFrame.height - panelFrame.height) / 2
-        
+
         panel.setFrameOrigin(NSPoint(x: leftHalfCenterX - panelFrame.width / 2, y: centerY))
     }
-    
+
     func show() {
         panel.orderFrontRegardless()
         positionInLeftHalf()
-        NSApplication.shared.activate(ignoringOtherApps: true)
     }
-    
+
     func dismiss() {
         panel.orderOut(nil)
     }
